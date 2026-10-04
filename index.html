@@ -487,6 +487,7 @@ function subscribeCloudData() {
     renderServers();
   }, (err) => {
     console.error("Ошибка синхронизации серверов:", err);
+    showToast("Ошибка доступа к БД! Проверьте Rules в Firebase Console.", true);
   });
 
   onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
@@ -510,7 +511,7 @@ async function handlePendingInvite() {
   const code = pendingInviteCode;
   pendingInviteCode = null;
 
-  const matchedServer = serversData.find(s => s.inviteCode && s.inviteCode.toUpperCase() === code);
+  const matchedServer = serversData.find(s => s.inviteCode && s.inviteCode.trim().toUpperCase() === code);
   if (matchedServer) {
     if (!matchedServer.members || !matchedServer.members.includes(currentUser.uid)) {
       await joinServerByDoc(matchedServer);
@@ -520,7 +521,7 @@ async function handlePendingInvite() {
       renderServers();
     }
   } else {
-    showToast(`Сервер с кодом ${code} не найден`, true);
+    showToast(`Сервер с кодом ${code} не найден в облаке`, true);
   }
 }
 
