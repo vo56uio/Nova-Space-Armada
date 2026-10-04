@@ -38,8 +38,8 @@
     user-select: none;
   }
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -54,12 +54,170 @@
   .msg-content {
     user-select: text;
   }
+  /* Ensure active pill styling like Discord */
+  .server-pill {
+    transition: all 0.2s ease;
+  }
 </style>
 </head>
-<body class="bg-discord-bg text-gray-100 dark:bg-discord-bg dark:text-gray-100 antialiased h-screen overflow-hidden flex flex-col">
+<body class="bg-discord-bg text-gray-100 dark:bg-discord-bg dark:text-gray-100 antialiased h-[100dvh] overflow-hidden flex flex-col">
 
 <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 transform -translate-y-12 opacity-0 transition-all duration-300 pointer-events-none bg-discord-accent text-white px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2">
   <span id="toast-msg">Сообщение</span>
+</div>
+
+<section id="auth-screen" class="fixed inset-0 z-40 bg-discord-rail flex items-center justify-center p-4">
+  <div class="bg-discord-surface p-8 rounded-2xl shadow-2xl border border-gray-700/40 w-full max-w-md text-center space-y-6 transform transition-all">
+    <div class="w-16 h-16 bg-discord-accent rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-lg shadow-discord-accent/30">
+      💬
+    </div>
+    <div>
+      <h1 class="text-2xl font-bold text-white">Добро пожаловать в Чат!</h1>
+      <p class="text-discord-muted text-sm mt-1">Придумайте никнейм, чтобы общаться с друзьями в реальном времени.</p>
+    </div>
+    <form id="auth-form" class="space-y-4 text-left">
+      <div>
+        <label class="block text-xs font-semibold text-discord-muted uppercase tracking-wider mb-2">Ваш Никнейм</label>
+        <input id="auth-nickname" type="text" maxlength="24" placeholder="Например: CyberKnight" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-discord-accent transition">
+      </div>
+      <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-3 rounded-xl shadow-md transition-all active:scale-[0.98]">
+        Войти в чат
+      </button>
+    </form>
+  </div>
+</section>
+
+<div id="app-shell" class="hidden h-full w-full flex overflow-hidden relative">
+
+  <!-- Mobile Drawer Backdrop -->
+  <div id="drawer-backdrop" class="fixed inset-0 bg-black/60 z-30 md:hidden hidden backdrop-blur-sm transition-opacity"></div>
+
+  <!-- Combined Mobile Slide-over / Desktop Sidebar Container -->
+  <div id="navigation-drawer" class="fixed md:relative inset-y-0 left-0 z-40 flex h-full transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out flex-shrink-0">
+    
+    <!-- 1. Server Rail (Icon List) -->
+    <aside class="w-[72px] bg-discord-rail flex flex-col items-center py-3 gap-3 flex-shrink-0 border-r border-gray-800/50 h-full">
+      <button id="btn-home" title="Мой профиль" class="w-12 h-12 rounded-2xl bg-discord-surface flex items-center justify-center text-xl text-discord-accent hover:bg-discord-accent hover:text-white transition-all duration-200 group relative">
+        <span>💬</span>
+        <span class="absolute left-16 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-50 shadow-lg">Главная</span>
+      </button>
+      
+      <div class="w-8 h-[2px] bg-gray-700/50 rounded-full my-0.5"></div>
+
+      <div id="server-rail-list" class="flex-1 w-full overflow-y-auto flex flex-col items-center gap-2 px-2 scrollbar-none">
+        <!-- Dynamic Servers -->
+      </div>
+
+      <div class="w-8 h-[2px] bg-gray-700/50 rounded-full my-0.5"></div>
+
+      <button id="btn-add-server" title="Добавить или войти на сервер" class="w-12 h-12 rounded-full border-2 border-dashed border-discord-muted/40 hover:border-discord-accent text-discord-muted hover:text-discord-accent flex items-center justify-center text-2xl hover:bg-discord-accent/10 transition-all duration-200 group relative flex-shrink-0">
+        +
+        <span class="absolute left-16 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-50 shadow-lg">Добавить сервер</span>
+      </button>
+
+      <button id="btn-fb-config" title="Настройки базы данных" class="w-10 h-10 rounded-xl bg-discord-surface/60 hover:bg-discord-surface text-discord-muted hover:text-white flex items-center justify-center text-lg transition relative group flex-shrink-0">
+        ⚙️
+        <span class="absolute left-16 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-50 shadow-lg">Настройки БД</span>
+      </button>
+
+      <button id="btn-theme-toggle" title="Переключить тему" class="w-10 h-10 rounded-xl bg-discord-surface/60 hover:bg-discord-surface text-discord-muted hover:text-white flex items-center justify-center text-lg transition flex-shrink-0">
+        🌙
+      </button>
+    </aside>
+
+    <!-- 2. Channels Sidebar -->
+    <aside class="w-60 bg-discord-surface flex flex-col flex-shrink-0 border-r border-gray-800/40 h-full">
+      <div class="h-14 border-b border-gray-800/60 px-4 flex items-center justify-between shadow-sm flex-shrink-0">
+        <h2 id="current-server-title" class="font-bold text-white truncate text-base">Сервер не выбран</h2>
+        <button id="btn-server-invite" title="Пригласить друзей" class="hidden text-xs bg-discord-accent/20 text-discord-accent hover:bg-discord-accent hover:text-white px-2 py-1 rounded-md font-semibold transition">
+          + Пригласить
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+        <div class="flex items-center justify-between px-2 mb-1 text-[11px] font-bold text-discord-muted uppercase tracking-wider">
+          <span>Текстовые каналы</span>
+          <button id="btn-add-channel" title="Создать канал" class="text-base hover:text-white hidden">+</button>
+        </div>
+        <div id="channel-list" class="space-y-0.5"></div>
+      </div>
+
+      <div class="bg-discord-rail/90 p-2.5 border-t border-gray-800/60 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <div id="user-avatar" class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            U
+          </div>
+          <div class="truncate">
+            <div id="user-display-name" class="text-xs font-semibold text-white truncate">Пользователь</div>
+            <div id="status-indicator" class="text-[10px] text-green-400 flex items-center gap-1">
+              <span class="w-2 h-2 bg-green-500 rounded-full inline-block animate-pulse"></span>
+              <span id="status-text">Онлайн</span>
+            </div>
+          </div>
+        </div>
+        <button id="btn-logout" title="Сменить никнейм" class="text-discord-muted hover:text-red-400 p-1.5 rounded-lg hover:bg-discord-surface transition">
+          🚪
+        </button>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- 3. Main Chat Screen -->
+  <main class="flex-1 flex flex-col bg-discord-bg min-w-0 h-full relative">
+    <header class="h-14 border-b border-gray-800/60 px-4 flex items-center gap-3 bg-discord-bg z-10 shadow-sm flex-shrink-0">
+      <button id="btn-mobile-menu" class="md:hidden text-discord-muted hover:text-white p-1 rounded-lg hover:bg-discord-surface text-xl">
+        ☰
+      </button>
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-discord-muted text-xl font-semibold">#</span>
+        <h3 id="current-channel-name" class="font-bold text-white truncate text-base">general</h3>
+      </div>
+      
+      <div id="cloud-badge" class="ml-2 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hidden sm:flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>Облако: NovaSpace</span>
+      </div>
+
+      <button id="btn-copy-channel-link" title="Скопировать прямую ссылку на канал" class="hidden text-xs bg-discord-surface hover:bg-discord-hover text-discord-muted hover:text-white px-2.5 py-1 rounded-lg border border-gray-700/50 flex items-center gap-1 transition ml-auto sm:ml-2">
+        <span>🔗</span> <span class="hidden sm:inline">Ссылка</span>
+      </button>
+      
+      <span id="server-invite-badge" class="ml-auto hidden text-xs bg-gray-800/80 text-discord-muted px-2.5 py-1 rounded-full border border-gray-700/50">
+        Код: <b id="invite-code-span" class="text-discord-accent font-mono">...</b>
+      </span>
+    </header>
+
+    <!-- Message Feed -->
+    <div id="message-feed" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+
+    <!-- Fixed Chat Input Bar at Bottom -->
+    <form id="chat-form" class="p-3 sm:p-4 bg-discord-bg border-t border-gray-800/40 flex items-center gap-2 flex-shrink-0 sticky bottom-0 z-20">
+      <div class="relative flex-1 flex items-center">
+        <input id="chat-input" type="text" maxlength="1000" placeholder="Написать в #general..." class="w-full bg-discord-surface border border-gray-700/40 rounded-xl pl-4 pr-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-discord-accent transition text-sm">
+        <button type="button" id="btn-emoji" title="Добавить эмодзи" class="absolute right-3 text-discord-muted hover:text-white text-lg transition">
+          😊
+        </button>
+      </div>
+      <button type="submit" class="bg-discord-accent hover:bg-discord-accentHover text-white px-4 sm:px-5 py-3 rounded-xl font-semibold transition active:scale-95 flex items-center gap-1 flex-shrink-0 text-sm">
+        <span>Отправить</span>
+      </button>
+    </form>
+  </main>
+</div>
+
+<!-- Quick Emoji Picker Popup -->
+<div id="emoji-picker" class="fixed bottom-16 right-4 z-50 bg-discord-surface border border-gray-700 rounded-xl p-2 hidden grid-cols-5 gap-2 shadow-2xl">
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👍</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">❤️</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🔥</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😂</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🎉</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🚀</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👀</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💯</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🎮</button>
+  <button class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">✨</button>
 </div>
 
 <section id="auth-screen" class="fixed inset-0 z-40 bg-discord-rail flex items-center justify-center p-4">
@@ -290,7 +448,434 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Встроенный конфиг Firebase вашего проекта novaspacearmada
+const defaultFirebaseConfig = {
+  apiKey: "AIzaSyCXKzk_xRHIVERrzrg3WV9h0p3iNhtSCbw",
+  authDomain: "novaspacearmada.firebaseapp.com",
+  databaseURL: "https://novaspacearmada-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "novaspacearmada",
+  storageBucket: "novaspacearmada.appspot.com"
+};
+
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'discord-chat-v1';
+
+let storedFb = localStorage.getItem('chat_custom_fb');
+let firebaseConfig = storedFb ? JSON.parse(storedFb) : defaultFirebaseConfig;
+let isCloudEnabled = false;
+
+let db = null;
+let auth = null;
+let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES;
+
+// BroadcastChannel for local offline multi-tab sync
+const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('discord_local_sync') : null;
+if (bc) {
+  bc.onmessage = () => {
+    if (!isCloudEnabled) loadLocalStore();
+  };
+}
+
+if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId) {
+  try {
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    COLLECTION_SERVERS = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
+    COLLECTION_CHANNELS = collection(db, 'artifacts', appId, 'public', 'data', 'channels');
+    COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+    isCloudEnabled = true;
+  } catch(e) {
+    console.warn("Ошибка подключения к Firebase, переход в локальный режим:", e);
+  }
+}
+
+let currentUser = { uid: 'u_' + Math.random().toString(36).substring(2, 8) };
+let nickname = localStorage.getItem('chat_nickname') || '';
+let currentServerId = null;
+let currentChannelId = null;
+
+let serversData = [];
+let channelsData = [];
+let messagesData = [];
+let pendingInviteCode = null;
+
+const urlParams = new URLSearchParams(window.location.search);
+const inviteParam = urlParams.get('invite') || urlParams.get('code');
+let pendingServerId = urlParams.get('server');
+let pendingChannelId = urlParams.get('channel');
+
+if (inviteParam) pendingInviteCode = inviteParam.trim().toUpperCase();
+
+const drawer = document.getElementById('navigation-drawer');
+const backdrop = document.getElementById('drawer-backdrop');
+
+function openDrawer() {
+  drawer.classList.remove('-translate-x-full');
+  backdrop.classList.remove('hidden');
+}
+
+function closeDrawer() {
+  drawer.classList.add('-translate-x-full');
+  backdrop.classList.add('hidden');
+}
+
+document.getElementById('btn-mobile-menu').onclick = openDrawer;
+backdrop.onclick = closeDrawer;
+
+function showToast(msg, isError = false) {
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toast-msg');
+  toastMsg.textContent = msg;
+  toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 transform opacity-100 transition-all duration-300 pointer-events-none px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2 ${
+    isError ? 'bg-red-600 text-white' : 'bg-discord-accent text-white'
+  }`;
+  setTimeout(() => {
+    toast.classList.add('-translate-y-12', 'opacity-0');
+  }, 3000);
+}
+
+function copyTextToClipboard(text) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showToast('Скопировано!');
+  } catch (err) {
+    showToast('Ошибка при копировании', true);
+  }
+  document.body.removeChild(textarea);
+}
+
+function generateUid() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function initAuth() {
+  if (isCloudEnabled && auth) {
+    signInAnonymously(auth).catch((err) => {
+      console.warn("Анонимная авторизация не увенчалась успехом:", err);
+    });
+    onAuthStateChanged(auth, (u) => {
+      if (u) currentUser = u;
+      checkLoginState();
+    });
+  } else {
+    checkLoginState();
+  }
+}
+
+function checkLoginState() {
+  if (nickname) {
+    startApp();
+  } else {
+    document.getElementById('auth-screen').classList.remove('hidden');
+  }
+}
+
+document.getElementById('auth-form').onsubmit = (e) => {
+  e.preventDefault();
+  const input = document.getElementById('auth-nickname').value.trim();
+  if (!input) return;
+  nickname = input;
+  localStorage.setItem('chat_nickname', nickname);
+  startApp();
+};
+
+document.getElementById('btn-logout').onclick = () => {
+  localStorage.removeItem('chat_nickname');
+  window.location.reload();
+};
+
+function startApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('user-display-name').textContent = nickname;
+  document.getElementById('user-avatar').textContent = nickname.charAt(0).toUpperCase();
+
+  if (isCloudEnabled) {
+    document.getElementById('cloud-badge').classList.remove('hidden');
+    subscribeCloudData();
+  } else {
+    document.getElementById('status-text').textContent = "Локально";
+    loadLocalStore();
+  }
+}
+
+function loadLocalStore() {
+  serversData = JSON.parse(localStorage.getItem('discord_servers') || '[]');
+  channelsData = JSON.parse(localStorage.getItem('discord_channels') || '[]');
+  messagesData = JSON.parse(localStorage.getItem('discord_messages') || '[]');
+
+  if (serversData.length === 0) {
+    const defaultServerId = 's_main';
+    const defaultChanId = 'c_gen';
+    serversData = [{
+      id: defaultServerId,
+      name: 'Основной Сервер',
+      inviteCode: 'MAIN123',
+      ownerId: currentUser.uid,
+      members: [currentUser.uid],
+      createdAt: Date.now()
+    }];
+    channelsData = [
+      { id: defaultChanId, serverId: defaultServerId, name: 'general', createdAt: Date.now() },
+      { id: 'c_random', serverId: defaultServerId, name: 'random', createdAt: Date.now() + 1 }
+    ];
+    messagesData = [
+      {
+        id: 'm_welcome',
+        serverId: defaultServerId,
+        channelId: defaultChanId,
+        authorId: 'system',
+        authorName: 'Система',
+        text: '👋 Добро пожаловать! Создавайте новые каналы и сервера для общения.',
+        ts: Date.now()
+      }
+    ];
+    saveLocalStore();
+  } else {
+    renderServers();
+  }
+
+  if (pendingInviteCode) handlePendingInvite();
+}
+
+function saveLocalStore() {
+  localStorage.setItem('discord_servers', JSON.stringify(serversData));
+  localStorage.setItem('discord_channels', JSON.stringify(channelsData));
+  localStorage.setItem('discord_messages', JSON.stringify(messagesData));
+  if (bc) bc.postMessage('sync');
+  renderServers();
+}
+
+function subscribeCloudData() {
+  onSnapshot(COLLECTION_SERVERS, (snapshot) => {
+    serversData = [];
+    snapshot.forEach(docSnap => serversData.push({ id: docSnap.id, ...docSnap.data() }));
+    if (pendingInviteCode) handlePendingInvite();
+    renderServers();
+  }, (err) => {
+    console.error("Ошибка синхронизации серверов:", err);
+    showToast("Ошибка доступа к БД! Проверьте Rules в Firebase Console.", true);
+  });
+
+  onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
+    channelsData = [];
+    snapshot.forEach(docSnap => channelsData.push({ id: docSnap.id, ...docSnap.data() }));
+    renderChannels();
+  }, (err) => {
+    console.error("Ошибка синхронизации каналов:", err);
+  });
+
+  onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
+    messagesData = [];
+    snapshot.forEach(docSnap => messagesData.push({ id: docSnap.id, ...docSnap.data() }));
+    renderMessages();
+  }, (err) => {
+    console.error("Ошибка синхронизации сообщений:", err);
+  });
+}
+
+async function handlePendingInvite() {
+  const code = pendingInviteCode;
+  pendingInviteCode = null;
+
+  const matchedServer = serversData.find(s => s.inviteCode && s.inviteCode.trim().toUpperCase() === code);
+  if (matchedServer) {
+    if (!matchedServer.members || !matchedServer.members.includes(currentUser.uid)) {
+      await joinServerByDoc(matchedServer);
+    } else {
+      currentServerId = matchedServer.id;
+      showToast(`Вы на сервере "${matchedServer.name}"!`);
+      renderServers();
+    }
+  } else {
+    showToast(`Сервер с кодом ${code} не найден`, true);
+  }
+}
+
+function renderServers() {
+  const rail = document.getElementById('server-rail-list');
+  const myServers = serversData.filter(s => Array.isArray(s.members) && s.members.includes(currentUser.uid));
+
+  if (pendingServerId && myServers.some(s => s.id === pendingServerId)) {
+    currentServerId = pendingServerId;
+    pendingServerId = null;
+  }
+
+  if (myServers.length === 0) {
+    currentServerId = null;
+  } else if (!currentServerId || !myServers.some(s => s.id === currentServerId)) {
+    currentServerId = myServers[0].id;
+  }
+
+  rail.innerHTML = myServers.map(s => {
+    const isActive = s.id === currentServerId;
+    const initial = (s.name || 'S').charAt(0).toUpperCase();
+    return `
+      <div class="relative group flex items-center">
+        <div class="absolute -left-2 w-1.5 bg-white rounded-r-full transition-all duration-200 ${isActive ? 'h-8' : 'h-0 group-hover:h-4'}"></div>
+        <button data-server-id="${s.id}" title="${s.name}" class="w-12 h-12 flex items-center justify-center font-bold text-lg transition-all duration-200 ${
+          isActive 
+            ? 'bg-discord-accent text-white shadow-lg shadow-discord-accent/30 rounded-2xl' 
+            : 'bg-discord-surface text-gray-200 hover:bg-discord-accent hover:text-white rounded-3xl hover:rounded-2xl'
+        }">
+          ${initial}
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  rail.querySelectorAll('button[data-server-id]').forEach(btn => {
+    btn.onclick = () => {
+      currentServerId = btn.getAttribute('data-server-id');
+      currentChannelId = null;
+      renderServers();
+    };
+  });
+
+  renderChannels();
+}
+
+function renderChannels() {
+  const currentServer = serversData.find(s => s.id === currentServerId);
+  const serverTitle = document.getElementById('current-server-title');
+  const inviteBtn = document.getElementById('btn-server-invite');
+  const addChanBtn = document.getElementById('btn-add-channel');
+  const chanList = document.getElementById('channel-list');
+  const inviteBadge = document.getElementById('server-invite-badge');
+  const inviteCodeSpan = document.getElementById('invite-code-span');
+  const copyChanBtn = document.getElementById('btn-copy-channel-link');
+
+  if (!currentServer) {
+    serverTitle.textContent = "Нет серверов";
+    inviteBtn.classList.add('hidden');
+    addChanBtn.classList.add('hidden');
+    inviteBadge.classList.add('hidden');
+    copyChanBtn.classList.add('hidden');
+    chanList.innerHTML = `<p class="text-xs text-discord-muted p-2">Создайте сервер (+), чтобы начать общаться!</p>`;
+    renderMessages();
+    return;
+  }
+
+  serverTitle.textContent = currentServer.name;
+  inviteBtn.classList.remove('hidden');
+  addChanBtn.classList.remove('hidden');
+  inviteBadge.classList.remove('hidden');
+  copyChanBtn.classList.remove('hidden');
+  inviteCodeSpan.textContent = currentServer.inviteCode || '...';
+
+  const serverChannels = channelsData
+    .filter(c => c.serverId === currentServerId)
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+  if (pendingChannelId && serverChannels.some(c => c.id === pendingChannelId)) {
+    currentChannelId = pendingChannelId;
+    pendingChannelId = null;
+  } else if (serverChannels.length > 0 && (!currentChannelId || !serverChannels.some(c => c.id === currentChannelId))) {
+    currentChannelId = serverChannels[0].id;
+  }
+
+  chanList.innerHTML = serverChannels.map(c => {
+    const isActive = c.id === currentChannelId;
+    return `
+      <button data-chan-id="${c.id}" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium transition ${
+        isActive 
+          ? 'bg-discord-hover text-white font-semibold' 
+          : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
+      }">
+        <span class="text-lg text-discord-muted">#</span>
+        <span class="truncate">${c.name}</span>
+      </button>
+    `;
+  }).join('');
+
+  chanList.querySelectorAll('button[data-chan-id]').forEach(btn => {
+    btn.onclick = () => {
+      currentChannelId = btn.getAttribute('data-chan-id');
+      renderChannels();
+      closeDrawer();
+    };
+  });
+
+  renderMessages();
+}
+
+function renderMessages() {
+  const feed = document.getElementById('message-feed');
+  const chanNameElem = document.getElementById('current-channel-name');
+  const chatInput = document.getElementById('chat-input');
+
+  const currentChan = channelsData.find(c => c.id === currentChannelId);
+  if (!currentChan) {
+    chanNameElem.textContent = "выберите-канал";
+    chatInput.placeholder = "Выберите канал...";
+    chatInput.disabled = true;
+    feed.innerHTML = `<div class="h-full flex items-center justify-center text-discord-muted text-sm">Выберите или создайте канал для общения.</div>`;
+    return;
+  }
+
+  chanNameElem.textContent = currentChan.name;
+  chatInput.placeholder = `Написать в #${currentChan.name}...`;
+  chatInput.disabled = false;
+
+  const chanMessages = messagesData
+    .filter(m => m.channelId === currentChannelId)
+    .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+  if (chanMessages.length === 0) {
+    feed.innerHTML = `
+      <div class="my-auto text-center space-y-2 py-8">
+        <div class="w-12 h-12 bg-discord-surface rounded-full flex items-center justify-center mx-auto text-2xl text-discord-muted">#</div>
+        <h3 class="font-bold text-lg text-white">Добро пожаловать в #${currentChan.name}!</h3>
+        <p class="text-xs text-discord-muted">Это начало канала #${currentChan.name}. Напишите первое сообщение!</p>
+      </div>
+    `;
+    return;
+  }
+
+  feed.innerHTML = chanMessages.map(m => {
+    const timeStr = m.ts ? new Date(m.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+    const initial = (m.authorName || 'U').charAt(0).toUpperCase();
+    return `
+      <div class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 py-1 rounded-lg transition group">
+        <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-sm flex-shrink-0 mt-0.5">
+          ${initial}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline gap-2">
+            <span class="font-semibold text-sm text-white hover:underline cursor-pointer">${escapeHtml(m.authorName || 'Аноним')}</span>
+            <span class="text-[11px] text-discord-muted">${timeStr}</span>
+          </div>
+          <div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${escapeHtml(m.text)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  feed.scrollTop = feed.scrollHeight;
+}
+
+// Emoji picker interaction
+const btnEmoji = document.getElementById('btn-emoji');
+const emojiPicker = document.getElementById('emoji-picker');
+btnEmoji.onclick = (e) => {
+  e.stopPropagation();
+  emojiPicker.classList.toggle('hidden');
+};
+document.querySelectorAll('.emoji-btn').forEach(b => {
+  b.onclick = () => {
+    const input = document.getElementById('chat-input');
+    input.value += b.textContent;
+    emojiPicker.classList.add('hidden');
+    input.focus();
+  };
+});
+document.addEventListener('click', () => emojiPicker.classList.add('hidden'));
+
 const defaultFirebaseConfig = {
   apiKey: "AIzaSyCXKzk_xRHIVERrzrg3WV9h0p3iNhtSCbw",
   authDomain: "novaspacearmada.firebaseapp.com",
