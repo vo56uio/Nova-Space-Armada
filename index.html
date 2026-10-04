@@ -976,27 +976,22 @@ function subscribeCloudData() {
     snapshot.forEach(docSnap => serversData.push({ id: docSnap.id, ...docSnap.data() }));
     
     const myServers = serversData.filter(s => Array.isArray(s.members) && s.members.includes(currentUser.uid));
-    if (myServers.length === 0) {
-      if (serversData.length === 0) {
-        createDefaultStarterServer();
-      } else {
-        serversData.push(newServer);
-        channelsData.push(genChan, voiceChan);
-        messagesData.push(welcomeMsg);
-        saveLocalStore();
-      }
+    if (myServers.length === 0 && serversData.length === 0) {
+      createDefaultStarterServer();
+    } else {
+      renderServers();
+    }
+  });
 
-      currentServerId = serverId;
-      audioFX.playSend();
+  onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
+    channelsData = [];
+    snapshot.forEach(docSnap => channelsData.push({ id: docSnap.id, ...docSnap.data() }));
+    renderChannels();
+  });
 
-      closeModals();
-      document.getElementById('input-server-name').value = '';
-      showToast(`Сервер "${name}" успешно создан!`);
-      
-      return false;
-    };
-
-    document.getElementById('form-join-server').onsubmit = async (e) => {
+  onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
+    const prevCount = messagesData.length;
+    messagesData = [];
     snapshot.forEach(docSnap => messagesData.push({ id: docSnap.id, ...docSnap.data() }));
     
     if (messagesData.length > prevCount && prevCount > 0) {
@@ -1679,19 +1674,19 @@ document.getElementById('form-create-server').onsubmit = async (e) => {
       await setDoc(doc(COLLECTION_MESSAGES, newMsg.id), newMsg);
     } catch(err) {
       console.warn("Сообщение не отправлено в облако. Сохраняем локально.", err);
-      isCloudEnabled = false;
-      document.getElementById('cloud-badge').classList.add('hidden');
-      
-      messagesData.push(newMsg);
-      saveLocalStore();
-      renderMessages();
-    }
-  } else {
-    messagesData.push(newMsg);
-    saveLocalStore();
-    renderMessages();
-  }
-  return false;
+      } else {
+        serversData.push(newServer);
+        channelsData.push(genChan, voiceChan);
+        messagesData.push(welcomeMsg);
+        saveLocalStore();
+      }
+
+      currentServerId = serverId;
+      audioFX.playSend();
+
+      closeModals();
+      document.getElementById('input-server-name').value = '';
+      showToast(`Сервер "${name}" успешно создан!`);
 };
 
 document.getElementById('form-join-server').onsubmit = async (e) => {
