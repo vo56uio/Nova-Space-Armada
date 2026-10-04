@@ -56,6 +56,14 @@
   .msg-content {
     user-select: text;
   }
+  .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+  .animate-fade-in-up { animation: fadeInUp 0.2s ease-out forwards; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .settings-tab.active { background-color: rgba(71, 82, 196, 0.1); color: #fff; }
+  html.dark .settings-tab.active { background-color: #35373C; }
+  html:not(.dark) .settings-tab.active { background-color: #e3e5e8; color: #060607; }
+
   html:not(.dark) .bg-discord-bg { background-color: #ffffff; }
   html:not(.dark) .bg-discord-surface { background-color: #f2f3f5; }
   html:not(.dark) .bg-discord-rail { background-color: #e3e5e8; }
@@ -195,7 +203,7 @@
 
       <!-- Current User Profile Widget Footer -->
       <div class="bg-discord-rail/90 p-2.5 border-t border-gray-800/60 flex items-center justify-between flex-shrink-0">
-        <div class="flex items-center gap-2 overflow-hidden cursor-pointer group" onclick="openModal('modal-profile')">
+        <div class="flex items-center gap-2 overflow-hidden cursor-pointer group" onclick="openSettings('account')">
           <div class="relative">
             <div id="user-avatar" class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               U
@@ -208,8 +216,8 @@
           </div>
         </div>
         <div class="flex items-center gap-1">
-          <button id="btn-profile-settings" title="Настройки профиля" onclick="openModal('modal-profile')" class="text-discord-muted hover:text-white p-1 rounded hover:bg-discord-surface">⚙️</button>
-          <button id="btn-logout" title="Сменить никнейм" class="text-discord-muted hover:text-red-400 p-1 rounded hover:bg-discord-surface transition">🚪</button>
+          <button id="btn-profile-settings" title="Настройки профиля" onclick="openSettings('account')" class="text-discord-muted hover:text-white p-1 rounded hover:bg-discord-surface">⚙️</button>
+          <button id="btn-logout" title="Выйти" class="text-discord-muted hover:text-red-400 p-1 rounded hover:bg-discord-surface transition">🚪</button>
         </div>
       </div>
     </aside>
@@ -436,34 +444,138 @@
   </div>
 </div>
 
-<!-- Modal: User Profile & Custom Status -->
-<div id="modal-profile" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-    <div class="flex justify-between items-center border-b border-gray-700/50 pb-3">
-      <h3 class="text-xl font-bold text-white">Профиль пользователя</h3>
-      <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
+<!-- Modal: Settings (Discord Style) -->
+<div id="modal-settings" class="fixed inset-0 z-[100] hidden bg-discord-bg flex-col md:flex-row opacity-0 transition-opacity duration-200">
+  <!-- Left Sidebar -->
+  <div class="md:w-[35%] bg-discord-surface flex md:justify-end py-6 md:py-14 pr-2 md:pr-4 overflow-y-auto border-r border-gray-800/40">
+    <div class="w-full md:w-56 flex flex-col px-4 md:px-0 gap-1">
+      <h3 class="px-3 text-[11px] font-bold text-discord-muted uppercase tracking-wider mb-1 mt-4 md:mt-0">Настройки пользователя</h3>
+      <button onclick="switchSettingsTab('account')" id="tab-account" class="settings-tab active text-left px-3 py-2 rounded text-gray-300 hover:bg-discord-hover hover:text-white font-medium text-sm transition">Моя учетная запись</button>
+      <button onclick="switchSettingsTab('profiles')" id="tab-profiles" class="settings-tab text-left px-3 py-2 rounded text-gray-300 hover:bg-discord-hover hover:text-white font-medium text-sm transition">Профили</button>
+      
+      <div class="h-[1px] bg-gray-700/50 my-3 mx-2"></div>
+      
+      <h3 class="px-3 text-[11px] font-bold text-discord-muted uppercase tracking-wider mb-1">Настройки приложения</h3>
+      <button onclick="switchSettingsTab('appearance')" id="tab-appearance" class="settings-tab text-left px-3 py-2 rounded text-gray-300 hover:bg-discord-hover hover:text-white font-medium text-sm transition">Внешний вид</button>
+      <button onclick="switchSettingsTab('storage')" id="tab-storage" class="settings-tab text-left px-3 py-2 rounded text-gray-300 hover:bg-discord-hover hover:text-white font-medium text-sm transition">Хранилище данных</button>
+      
+      <div class="h-[1px] bg-gray-700/50 my-3 mx-2"></div>
+      
+      <button onclick="document.getElementById('btn-logout').click()" class="text-left px-3 py-2 rounded text-red-400 hover:bg-discord-hover hover:text-red-300 font-medium text-sm transition">Выйти</button>
     </div>
-    <form id="form-update-profile" class="space-y-4">
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Никнейм</label>
-        <input id="input-profile-nickname" type="text" maxlength="24" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+  </div>
+  
+  <!-- Right Content Area -->
+  <div class="flex-1 bg-discord-bg p-6 md:p-14 overflow-y-auto relative h-full">
+    <div class="max-w-xl w-full">
+      <!-- Pane: Account -->
+      <div id="settings-pane-account" class="settings-pane animate-fade-in-up">
+        <h2 class="text-xl font-bold text-white mb-6">Моя учетная запись</h2>
+        <div class="bg-discord-surface rounded-xl p-4 relative mb-6 shadow-sm">
+          <div class="h-24 bg-discord-accent rounded-t-xl -mx-4 -mt-4 mb-12"></div>
+          <div class="absolute top-16 left-4 w-20 h-20 rounded-full border-[6px] border-discord-surface bg-discord-accent flex items-center justify-center text-3xl text-white font-bold shadow-md" id="settings-avatar">U</div>
+          
+          <div class="bg-discord-rail p-4 rounded-lg flex justify-between items-center mt-4">
+            <div>
+              <div class="text-[11px] text-discord-muted font-bold uppercase tracking-wide">Отображаемое имя</div>
+              <div class="text-white font-medium text-base mt-0.5" id="settings-display-name">User</div>
+            </div>
+            <button onclick="switchSettingsTab('profiles')" class="bg-discord-surface hover:bg-discord-hover text-white px-4 py-2 rounded-md text-sm font-medium transition shadow-sm border border-gray-700/50">Изменить</button>
+          </div>
+        </div>
       </div>
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Статус сети</label>
-        <select id="select-profile-status" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
-          <option value="online">🟢 В сети</option>
-          <option value="idle">🟡 Не активен</option>
-          <option value="dnd">🔴 Не беспокоить</option>
-        </select>
+
+      <!-- Pane: Profiles -->
+      <div id="settings-pane-profiles" class="settings-pane hidden animate-fade-in-up">
+        <h2 class="text-xl font-bold text-white mb-6">Профили</h2>
+        <div class="bg-discord-surface p-6 rounded-xl shadow-sm">
+          <form id="form-update-profile" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-discord-muted uppercase tracking-wider mb-2">Отображаемое имя</label>
+              <input id="input-profile-nickname" type="text" maxlength="24" required class="w-full bg-discord-rail border border-gray-700/60 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent transition">
+            </div>
+            <div class="w-full h-[1px] bg-gray-700/50 my-4"></div>
+            <div>
+              <label class="block text-xs font-bold text-discord-muted uppercase tracking-wider mb-2">Статус сети</label>
+              <select id="select-profile-status" class="w-full bg-discord-rail border border-gray-700/60 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent transition cursor-pointer">
+                <option value="online">🟢 В сети</option>
+                <option value="idle">🟡 Не активен</option>
+                <option value="dnd">🔴 Не беспокоить</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-discord-muted uppercase tracking-wider mb-2">Пользовательский статус</label>
+              <input id="input-profile-custom-status" type="text" maxlength="50" placeholder="Например: Пишу код..." class="w-full bg-discord-rail border border-gray-700/60 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent transition text-sm">
+            </div>
+            
+            <div class="pt-4 flex justify-end border-t border-gray-700/50 mt-4">
+              <button type="submit" class="mt-4 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold px-6 py-2.5 rounded-lg transition active:scale-95 shadow-md">
+                Сохранить изменения
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Пользовательский статус</label>
-        <input id="input-profile-custom-status" type="text" maxlength="50" placeholder="Например: Кодирую новый проект..." class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent text-sm">
+
+      <!-- Pane: Appearance -->
+      <div id="settings-pane-appearance" class="settings-pane hidden animate-fade-in-up">
+        <h2 class="text-xl font-bold text-white mb-6">Внешний вид</h2>
+        <div class="space-y-6">
+          <div>
+            <h3 class="text-xs font-bold text-discord-muted uppercase tracking-wider mb-3">Тема</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <label class="bg-discord-surface border border-gray-700/40 rounded-xl p-4 cursor-pointer hover:bg-discord-hover transition flex items-center gap-3">
+                <input type="radio" name="theme-select" value="dark" checked onclick="setAppTheme('dark')" class="w-5 h-5 text-discord-accent bg-discord-rail border-gray-600 focus:ring-discord-accent focus:ring-offset-discord-surface">
+                <span class="text-white font-medium">Тёмная</span>
+              </label>
+              <label class="bg-[#f2f3f5] border border-gray-300 rounded-xl p-4 cursor-pointer hover:bg-gray-200 transition flex items-center gap-3">
+                <input type="radio" name="theme-select" value="light" onclick="setAppTheme('light')" class="w-5 h-5 text-discord-accent bg-white border-gray-400 focus:ring-discord-accent focus:ring-offset-[#f2f3f5]">
+                <span class="text-gray-900 font-medium">Светлая</span>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
-      <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl transition">
-        Сохранить изменения
-      </button>
-    </form>
+
+      <!-- Pane: Storage (Persistence Config) -->
+      <div id="settings-pane-storage" class="settings-pane hidden animate-fade-in-up">
+        <h2 class="text-xl font-bold text-white mb-6">Хранилище данных</h2>
+        <p class="text-sm text-gray-300 mb-6">
+          Здесь вы управляете тем, как сохраняются ваши серверы и сообщения.
+        </p>
+        
+        <div class="bg-discord-surface rounded-xl p-5 shadow-sm space-y-5">
+          <div class="flex items-center justify-between">
+            <div class="pr-4">
+              <h4 class="text-white font-medium">Принудительно локальное сохранение</h4>
+              <p class="text-[11px] text-discord-muted mt-1 leading-snug">Гарантирует, что данные серверов 100% остаются в памяти браузера, отключая облачную синхронизацию.</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+              <input type="checkbox" id="toggle-local-only" onchange="toggleLocalMode(this.checked)" class="sr-only peer">
+              <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-discord-green"></div>
+            </label>
+          </div>
+          
+          <div class="h-[1px] bg-gray-700/50 w-full"></div>
+          
+          <div class="flex items-center justify-between">
+            <div class="pr-4">
+              <h4 class="text-red-400 font-medium">Очистить кэш (Полный сброс)</h4>
+              <p class="text-[11px] text-discord-muted mt-1">Полностью удаляет все сервера и сообщения с этого устройства.</p>
+            </div>
+            <button onclick="clearLocalData()" class="flex-shrink-0 border border-red-500 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded transition text-sm font-medium">
+              Сбросить
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Close Button -->
+    <button onclick="closeSettings()" class="absolute top-4 right-4 md:top-10 md:right-10 flex flex-col items-center justify-center gap-1 text-discord-muted hover:text-white group w-12 h-12">
+      <div class="w-8 h-8 border-2 border-discord-muted group-hover:border-white rounded-full flex items-center justify-center text-lg transition">✕</div>
+      <span class="text-[9px] font-bold tracking-wider">ESC</span>
+    </button>
   </div>
 </div>
 
@@ -542,20 +654,23 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'discord-chat-v2';
 
 let firebaseConfig = defaultFirebaseConfig;
 let isCloudEnabled = false;
+let forceLocalMode = localStorage.getItem('chat_force_local') === 'true';
 
 let db = null;
 let auth = null;
 let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS;
 
 try {
-  const app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  COLLECTION_SERVERS = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
-  COLLECTION_CHANNELS = collection(db, 'artifacts', appId, 'public', 'data', 'channels');
-  COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
-  COLLECTION_USERS = collection(db, 'artifacts', appId, 'public', 'data', 'users');
-  isCloudEnabled = true;
+  if (!forceLocalMode) {
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    COLLECTION_SERVERS = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
+    COLLECTION_CHANNELS = collection(db, 'artifacts', appId, 'public', 'data', 'channels');
+    COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+    COLLECTION_USERS = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+    isCloudEnabled = true;
+  }
 } catch(e) {
   console.warn("Режим переключен в локальный:", e);
 }
@@ -1514,8 +1629,16 @@ document.getElementById('form-create-server').onsubmit = async (e) => {
       await setDoc(doc(COLLECTION_CHANNELS, voiceChan.id), voiceChan);
       await setDoc(doc(COLLECTION_MESSAGES, welcomeMsg.id), welcomeMsg);
     } catch(err) {
-      showToast("Ошибка создания сервера в облаке", true);
-      return;
+      console.warn("Ошибка облака. Принудительное локальное сохранение серверов активировано.", err);
+      showToast("Сервер надежно сохранен в локальной памяти", true);
+      isCloudEnabled = false; // Отключаем облако при ошибке, чтобы сервера не стерлись
+      document.getElementById('cloud-badge').classList.add('hidden');
+      
+      // Локальный Fallback
+      serversData.push(newServer);
+      channelsData.push(genChan, voiceChan);
+      messagesData.push(welcomeMsg);
+      saveLocalStore();
     }
   } else {
     serversData.push(newServer);
@@ -1525,11 +1648,26 @@ document.getElementById('form-create-server').onsubmit = async (e) => {
   }
 
   currentServerId = serverId;
-  currentChannelId = genChan.id;
+  audioFX.playSend();
 
-  nameInput.value = '';
-  closeModals();
-  showToast(`Сервер "${name}" создан!`);
+  if (isCloudEnabled) {
+    try {
+      await setDoc(doc(COLLECTION_MESSAGES, newMsg.id), newMsg);
+    } catch(err) {
+      console.warn("Сообщение не отправлено в облако. Сохраняем локально.", err);
+      isCloudEnabled = false;
+      document.getElementById('cloud-badge').classList.add('hidden');
+      
+      messagesData.push(newMsg);
+      saveLocalStore();
+      renderMessages();
+    }
+  } else {
+    messagesData.push(newMsg);
+    saveLocalStore();
+    renderMessages();
+  }
+  return false;
 };
 
 document.getElementById('form-join-server').onsubmit = async (e) => {
@@ -1621,16 +1759,12 @@ document.getElementById('form-update-profile').onsubmit = async (e) => {
 
   updateUserProfileDisplay();
   await syncUserProfileCloud();
-  closeModals();
+  
+  if (typeof closeSettings === 'function') closeSettings();
   showToast("Профиль обновлен!");
 };
 
 window.openModal = function(id) {
-  if (id === 'modal-profile') {
-    document.getElementById('input-profile-nickname').value = currentUser.nickname;
-    document.getElementById('select-profile-status').value = currentUser.status;
-    document.getElementById('input-profile-custom-status').value = currentUser.customStatus || '';
-  }
   document.getElementById(id).classList.remove('hidden');
 };
 
@@ -1652,6 +1786,73 @@ document.getElementById('tab-btn-join').onclick = () => {
   document.getElementById('tab-btn-join').className = 'flex-1 py-2 text-discord-accent border-b-2 border-discord-accent';
   document.getElementById('tab-btn-create').className = 'flex-1 py-2 text-discord-muted hover:text-white';
 };
+
+// --- Settings Modal Logic ---
+
+window.openSettings = function(tabId = 'account') {
+  const modal = document.getElementById('modal-settings');
+  modal.classList.remove('hidden');
+  
+  document.getElementById('settings-display-name').textContent = currentUser.nickname || 'Пользователь';
+  document.getElementById('settings-avatar').textContent = (currentUser.nickname || 'U').charAt(0).toUpperCase();
+  
+  document.getElementById('input-profile-nickname').value = currentUser.nickname;
+  document.getElementById('select-profile-status').value = currentUser.status;
+  document.getElementById('input-profile-custom-status').value = currentUser.customStatus || '';
+  
+  document.getElementById('toggle-local-only').checked = forceLocalMode;
+  
+  requestAnimationFrame(() => {
+    modal.classList.remove('opacity-0');
+  });
+  
+  switchSettingsTab(tabId);
+};
+
+window.closeSettings = function() {
+  const modal = document.getElementById('modal-settings');
+  modal.classList.add('opacity-0');
+  setTimeout(() => {
+    modal.classList.add('hidden');
+  }, 200);
+};
+
+window.switchSettingsTab = function(tabId) {
+  document.querySelectorAll('.settings-pane').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+  
+  document.getElementById(`settings-pane-${tabId}`).classList.remove('hidden');
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+};
+
+window.setAppTheme = function(theme) {
+  isDark = theme === 'dark';
+  document.documentElement.classList.toggle('dark', isDark);
+  const themeToggleIcon = document.getElementById('btn-theme-toggle');
+  if (themeToggleIcon) themeToggleIcon.textContent = isDark ? '🌙' : '☀';
+};
+
+window.toggleLocalMode = function(isChecked) {
+  localStorage.setItem('chat_force_local', isChecked ? 'true' : 'false');
+  forceLocalMode = isChecked;
+  showToast("Настройка сохранена. Перезагрузите страницу для применения.");
+};
+
+window.clearLocalData = function() {
+  if (confirm("Вы уверены, что хотите удалить все локальные сервера и сообщения?")) {
+    localStorage.removeItem('discord_servers');
+    localStorage.removeItem('discord_channels');
+    localStorage.removeItem('discord_messages');
+    localStorage.removeItem('discord_users');
+    window.location.reload();
+  }
+};
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('modal-settings').classList.contains('hidden')) {
+    closeSettings();
+  }
+});
 
 let isDark = true;
 document.getElementById('btn-theme-toggle').onclick = () => {
