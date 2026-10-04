@@ -104,8 +104,9 @@
       <span class="absolute left-16 bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-30">Добавить сервер</span>
     </button>
 
-    <button id="btn-fb-config" title="Настройки базы данных" class="w-10 h-10 rounded-xl bg-discord-surface/60 hover:bg-discord-surface text-discord-muted hover:text-white flex items-center justify-center text-lg transition">
+    <button id="btn-fb-config" title="Настройки базы данных" class="w-10 h-10 rounded-xl bg-discord-surface/60 hover:bg-discord-surface text-discord-muted hover:text-white flex items-center justify-center text-lg transition relative group">
       ⚙️
+      <span class="absolute left-16 bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-30">Настройки БД</span>
     </button>
 
     <button id="btn-theme-toggle" title="Переключить тему" class="w-10 h-10 rounded-xl bg-discord-surface/60 hover:bg-discord-surface text-discord-muted hover:text-white flex items-center justify-center text-lg transition">
@@ -136,8 +137,9 @@
         </div>
         <div class="truncate">
           <div id="user-display-name" class="text-sm font-semibold text-white truncate">Пользователь</div>
-          <div class="text-[11px] text-green-400 flex items-center gap-1">
-            <span class="w-2 h-2 bg-green-500 rounded-full inline-block"></span> В сети
+          <div id="status-indicator" class="text-[11px] text-green-400 flex items-center gap-1">
+            <span class="w-2 h-2 bg-green-500 rounded-full inline-block animate-pulse"></span>
+            <span id="status-text">Онлайн</span>
           </div>
         </div>
       </div>
@@ -156,9 +158,16 @@
         <span class="text-discord-muted text-xl font-semibold">#</span>
         <h3 id="current-channel-name" class="font-bold text-white truncate">general</h3>
       </div>
+      
+      <div id="cloud-badge" class="ml-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hidden sm:flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>Облако: NovaSpace</span>
+      </div>
+
       <button id="btn-copy-channel-link" title="Скопировать прямую ссылку на канал" class="hidden text-xs bg-discord-surface hover:bg-discord-hover text-discord-muted hover:text-white px-2.5 py-1 rounded-lg border border-gray-700/50 flex items-center gap-1 transition">
         <span>🔗</span> <span class="hidden sm:inline">Ссылка</span>
       </button>
+      
       <span id="server-invite-badge" class="ml-auto hidden text-xs bg-gray-800 text-discord-muted px-2.5 py-1 rounded-full border border-gray-700/50">
         Код: <b id="invite-code-span" class="text-discord-accent font-mono">...</b>
       </span>
@@ -262,15 +271,15 @@
 <div id="modal-fb-config" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
   <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
     <div class="flex justify-between items-center border-b border-gray-700/50 pb-3">
-      <h3 class="text-xl font-bold text-white">Настройка Firebase (Облако)</h3>
+      <h3 class="text-xl font-bold text-white">Настройка Firebase</h3>
       <button class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
     </div>
-    <p class="text-xs text-discord-muted">Вставьте JSON-конфиг из консоли Firebase для глобальной онлайн-синхронизации между всеми устройствами.</p>
+    <p class="text-xs text-discord-muted">По умолчанию используется облачная база данных <b>novaspacearmada</b>. Вы можете заменить её на свой собственный конфиг JSON при необходимости.</p>
     <form id="form-fb-config" class="space-y-3">
-      <textarea id="input-fb-json" rows="6" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "..."}' class="w-full bg-discord-rail border border-gray-700/60 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-discord-accent"></textarea>
+      <textarea id="input-fb-json" rows="6" placeholder='{"apiKey": "...", "projectId": "..."}' class="w-full bg-discord-rail border border-gray-700/60 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-discord-accent"></textarea>
       <div class="flex gap-2">
-        <button type="submit" class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2 rounded-xl text-sm transition">Сохранить ключи</button>
-        <button type="button" id="btn-reset-fb" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition">Сброс</button>
+        <button type="submit" class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2 rounded-xl text-sm transition">Сохранить</button>
+        <button type="button" id="btn-reset-fb" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition">Сбросить в дефолт</button>
       </div>
     </form>
   </div>
@@ -281,18 +290,26 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+// Встроенный конфиг Firebase вашего проекта novaspacearmada
+const defaultFirebaseConfig = {
+  apiKey: "AIzaSyCXKzk_xRHIVERrzrg3WV9h0p3iNhtSCbw",
+  authDomain: "novaspacearmada.firebaseapp.com",
+  databaseURL: "https://novaspacearmada-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "novaspacearmada",
+  storageBucket: "novaspacearmada.appspot.com"
+};
+
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'discord-chat-v1';
 
-// Check saved custom firebase config
 let storedFb = localStorage.getItem('chat_custom_fb');
-let firebaseConfig = storedFb ? JSON.parse(storedFb) : null;
+let firebaseConfig = storedFb ? JSON.parse(storedFb) : defaultFirebaseConfig;
 let isCloudEnabled = false;
 
 let db = null;
 let auth = null;
 let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES;
 
-// BroadcastChannel for instant local multi-tab sync
+// BroadcastChannel for local offline multi-tab sync
 const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('discord_local_sync') : null;
 if (bc) {
   bc.onmessage = () => {
@@ -300,7 +317,7 @@ if (bc) {
   };
 }
 
-if (firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.includes('DemoKey')) {
+if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId) {
   try {
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
@@ -310,7 +327,7 @@ if (firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.includes('
     COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
     isCloudEnabled = true;
   } catch(e) {
-    console.warn("Cloud connection error, using local storage:", e);
+    console.warn("Ошибка подключения к Firebase, переход в локальный режим:", e);
   }
 }
 
@@ -365,7 +382,9 @@ function generateUid() {
 
 function initAuth() {
   if (isCloudEnabled && auth) {
-    signInAnonymously(auth).catch(() => {});
+    signInAnonymously(auth).catch((err) => {
+      console.warn("Анонимная авторизация не увенчалась успехом:", err);
+    });
     onAuthStateChanged(auth, (u) => {
       if (u) currentUser = u;
       checkLoginState();
@@ -404,8 +423,10 @@ function startApp() {
   document.getElementById('user-avatar').textContent = nickname.charAt(0).toUpperCase();
 
   if (isCloudEnabled) {
+    document.getElementById('cloud-badge').classList.remove('hidden');
     subscribeCloudData();
   } else {
+    document.getElementById('status-text').textContent = "Локально";
     loadLocalStore();
   }
 }
@@ -416,7 +437,6 @@ function loadLocalStore() {
   channelsData = JSON.parse(localStorage.getItem('discord_channels') || '[]');
   messagesData = JSON.parse(localStorage.getItem('discord_messages') || '[]');
 
-  // Initial Seed Data if empty
   if (serversData.length === 0) {
     const defaultServerId = 's_main';
     const defaultChanId = 'c_gen';
@@ -439,7 +459,7 @@ function loadLocalStore() {
         channelId: defaultChanId,
         authorId: 'system',
         authorName: 'Система',
-        text: '👋 Добро пожаловать! Сервер работает локально. Создавайте новые каналы и сервера!',
+        text: '👋 Добро пожаловать! Создавайте новые каналы и сервера для общения.',
         ts: Date.now()
       }
     ];
@@ -465,18 +485,24 @@ function subscribeCloudData() {
     snapshot.forEach(docSnap => serversData.push({ id: docSnap.id, ...docSnap.data() }));
     if (pendingInviteCode) handlePendingInvite();
     renderServers();
+  }, (err) => {
+    console.error("Ошибка синхронизации серверов:", err);
   });
 
   onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
     channelsData = [];
     snapshot.forEach(docSnap => channelsData.push({ id: docSnap.id, ...docSnap.data() }));
     renderChannels();
+  }, (err) => {
+    console.error("Ошибка синхронизации каналов:", err);
   });
 
   onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
     messagesData = [];
     snapshot.forEach(docSnap => messagesData.push({ id: docSnap.id, ...docSnap.data() }));
     renderMessages();
+  }, (err) => {
+    console.error("Ошибка синхронизации сообщений:", err);
   });
 }
 
@@ -695,7 +721,7 @@ document.getElementById('chat-form').onsubmit = async (e) => {
       const newMsgDoc = doc(COLLECTION_MESSAGES, newMsg.id);
       await setDoc(newMsgDoc, newMsg);
     } catch(err) {
-      showToast("Ошибка отправки", true);
+      showToast("Ошибка отправки сообщения", true);
     }
   } else {
     messagesData.push(newMsg);
@@ -754,7 +780,7 @@ document.getElementById('form-create-server').onsubmit = async (e) => {
     channelId: genChan.id,
     authorId: 'system',
     authorName: 'Система',
-    text: `🎉 Сервер "${name}" успешно создан! Поделитесь кодом (${inviteCode}), чтобы пригласить друзей.`,
+    text: `🎉 Сервер "${name}" создан! Скопируйте код (${inviteCode}), чтобы пригласить друзей.`,
     ts: Date.now()
   };
 
@@ -764,7 +790,7 @@ document.getElementById('form-create-server').onsubmit = async (e) => {
       await setDoc(doc(COLLECTION_CHANNELS, genChan.id), genChan);
       await setDoc(doc(COLLECTION_MESSAGES, welcomeMsg.id), welcomeMsg);
     } catch(err) {
-      showToast("Ошибка создания на сервере", true);
+      showToast("Ошибка создания сервера в облаке", true);
       return;
     }
   } else {
@@ -865,7 +891,7 @@ document.getElementById('form-fb-config').onsubmit = (e) => {
 
 document.getElementById('btn-reset-fb').onclick = () => {
   localStorage.removeItem('chat_custom_fb');
-  showToast("Сброшено в локальный режим");
+  showToast("Сброшено в настройки по умолчанию");
   setTimeout(() => window.location.reload(), 1000);
 };
 
