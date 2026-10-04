@@ -64,11 +64,35 @@
   html.dark .settings-tab.active { background-color: #35373C; }
   html:not(.dark) .settings-tab.active { background-color: #e3e5e8; color: #060607; }
 
-  html:not(.dark) .bg-discord-bg { background-color: #ffffff; }
-  html:not(.dark) .bg-discord-surface { background-color: #f2f3f5; }
-  html:not(.dark) .bg-discord-rail { background-color: #e3e5e8; }
-  html:not(.dark) .text-white { color: #060607; }
-  html:not(.dark) .text-gray-100, html:not(.dark) .text-gray-200 { color: #2e3035; }
+  /* Исправленная светлая тема (Light Mode Overrides) */
+  html:not(.dark) .bg-discord-bg { background-color: #ffffff !important; }
+  html:not(.dark) .bg-discord-surface { background-color: #f2f3f5 !important; }
+  html:not(.dark) .bg-discord-rail { background-color: #e3e5e8 !important; }
+  html:not(.dark) .bg-discord-hover, html:not(.dark) .hover\:bg-discord-surface:hover, html:not(.dark) .hover\:bg-discord-hover:hover { background-color: #d4d7dc !important; }
+  
+  html:not(.dark) .text-white { color: #060607 !important; }
+  html:not(.dark) .text-gray-100, 
+  html:not(.dark) .text-gray-200, 
+  html:not(.dark) .text-gray-300 { color: #313338 !important; }
+  html:not(.dark) .text-discord-muted { color: #5c5e66 !important; }
+  
+  html:not(.dark) .border-gray-700\/40, 
+  html:not(.dark) .border-gray-700\/50, 
+  html:not(.dark) .border-gray-700\/60,
+  html:not(.dark) .border-gray-800\/40,
+  html:not(.dark) .border-gray-800\/50,
+  html:not(.dark) .border-gray-800\/60,
+  html:not(.dark) .border-gray-700,
+  html:not(.dark) .border-t, html:not(.dark) .border-b, html:not(.dark) .border-l, html:not(.dark) .border-r { 
+    border-color: #d4d7dc !important; 
+  }
+  
+  html:not(.dark) input.bg-discord-surface, html:not(.dark) input.bg-discord-rail, html:not(.dark) select.bg-discord-rail { 
+      background-color: #e3e5e8 !important; 
+      color: #060607 !important; 
+      border-color: #c4c9ce !important; 
+  }
+  html:not(.dark) input::placeholder { color: #87909c !important; }
 </style>
 </head>
 <body class="bg-discord-bg text-gray-100 dark:bg-discord-bg dark:text-gray-100 antialiased h-[100dvh] overflow-hidden flex flex-col">
@@ -956,23 +980,23 @@ function subscribeCloudData() {
       if (serversData.length === 0) {
         createDefaultStarterServer();
       } else {
-        joinServerByDoc(serversData[0]);
+        serversData.push(newServer);
+        channelsData.push(genChan, voiceChan);
+        messagesData.push(welcomeMsg);
+        saveLocalStore();
       }
-    }
-    
-    if (pendingInviteCode) handlePendingInvite();
-    renderServers();
-  });
 
-  onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
-    channelsData = [];
-    snapshot.forEach(docSnap => channelsData.push({ id: docSnap.id, ...docSnap.data() }));
-    renderChannels();
-  });
+      currentServerId = serverId;
+      audioFX.playSend();
 
-  onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
-    const prevCount = messagesData.length;
-    messagesData = [];
+      closeModals();
+      document.getElementById('input-server-name').value = '';
+      showToast(`Сервер "${name}" успешно создан!`);
+      
+      return false;
+    };
+
+    document.getElementById('form-join-server').onsubmit = async (e) => {
     snapshot.forEach(docSnap => messagesData.push({ id: docSnap.id, ...docSnap.data() }));
     
     if (messagesData.length > prevCount && prevCount > 0) {
@@ -1830,6 +1854,10 @@ window.setAppTheme = function(theme) {
   document.documentElement.classList.toggle('dark', isDark);
   const themeToggleIcon = document.getElementById('btn-theme-toggle');
   if (themeToggleIcon) themeToggleIcon.textContent = isDark ? '🌙' : '☀';
+  
+  // Синхронизация радио-кнопок в настройках
+  const radios = document.getElementsByName('theme-select');
+  radios.forEach(r => r.checked = (r.value === theme));
 };
 
 window.toggleLocalMode = function(isChecked) {
@@ -1854,11 +1882,9 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-let isDark = true;
+let isDark = document.documentElement.classList.contains('dark');
 document.getElementById('btn-theme-toggle').onclick = () => {
-  isDark = !isDark;
-  document.documentElement.classList.toggle('dark', isDark);
-  document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀';
+  setAppTheme(isDark ? 'light' : 'dark');
 };
 
 initAuth();
