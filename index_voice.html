@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nova Voice Patch</title>
+<style>
+  :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden}
+  body{display:flex;align-items:center;justify-content:center;padding:8px}
+  #card{width:min(560px,100%);display:none;align-items:center;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.10);border-radius:18px;background:rgba(31,32,35,.96);box-shadow:0 18px 50px rgba(0,0,0,.45);backdrop-filter:blur(18px);color:#fff}
+  #card.show{display:flex}
+  #recordState{display:flex;flex-direction:column;min-width:92px}
+  #recordTitle{font-size:12px;font-weight:700;white-space:nowrap}
+  #recordTime{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#a9adb5;margin-top:2px}
+  #wave{height:38px;display:flex;align-items:center;gap:3px;flex:1;min-width:120px;overflow:hidden}
+  .bar{width:4px;min-height:4px;border-radius:5px;background:linear-gradient(180deg,#8b5cf6,#5865f2);opacity:.9;transform-origin:center;transition:height .06s linear}
+  button{border:0;cursor:pointer;color:#fff;font-weight:700;border-radius:12px;padding:9px 12px;white-space:nowrap}
+  #cancel{background:#2b2d31;color:#d7d9dc}
+  #send{background:#5865f2}
+  #send:disabled{opacity:.5;cursor:not-allowed}
+  #progressWrap{position:absolute;left:12px;right:12px;bottom:2px;height:3px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;display:none}
+  #progressWrap.show{display:block}
+  #progress{height:100%;width:0;background:#5865f2;transition:width .12s linear}
+  #hint{position:absolute;top:2px;left:12px;right:12px;text-align:center;font-size:10px;color:#8e929a;pointer-events:none}
+  @media(max-width:480px){#card{gap:7px;padding:9px}.recordState{min-width:74px}#recordTitle{font-size:11px}.bar{width:3px}.record-actions button{padding:8px 9px}}
+</style>
+</head>
+<body>
+  <div id="hint"></div>
+  <div id="card">
+    <div id="recordState">
+      <div id="recordTitle">Запись голосового</div>
+      <div id="recordTime">0:00</div>
+    </div>
+    <div id="wave" aria-hidden="true"></div>
+    <div class="record-actions" style="display:flex;gap:6px;align-items:center">
+      <button id="cancel" type="button">Отмена</button>
+      <button id="send" type="button">Отправить</button>
+    </div>
+    <div id="progressWrap"><div id="progress"></div></div>
+  </div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCXKzk_xRHIVERrzrg3WV9h0p3iNhtSCbw",
+  authDomain: "novaspacearmada.firebaseapp.com",
+  databaseURL: "https://novaspacearmada-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "novaspacearmada",
+  storageBucket: "novaspacearmada.appspot.com"
+};
+
+const app = initializeApp(firebaseConfig, 'nova-voice-patch');
+const auth = getAuth(app);
+const storage = getStorage(app);
+
+const frameParent = window.parent;
+const ORIGIN = window.location.origin;
+const MAX_SECONDS = 120;
+const $ = (id) => document.getElementById(id);
+const card = $('card');
+const wave = $('wave');
+const timeEl = $('recordTime');
+const titleEl = $('recordTitle');
+const sendBtn = $('send');
+const progressWrap = $('progressWrap');
+const progress = $('progress');
+const hint = $('hint');
+
+let context = null;
+let recorder = null;
+let stream = null;
+let chunks = [];
+let startedAt = 0;
+let timer = null;
+let audioCtx = null;
+let analyser = null;
+let source = null;
+let animation = null;
+let uploadTask = null;
+let cancelRequested = false;
+let lastAuthUser = null;
+
+function post(type, data = {}) {
+  frameParent.postMessage({ type, ...data }, ORIGIN);
+}
+
+function formatTime(sec){
+  sec = Math.max(0, Math.floor(sec || 0));
+  return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
+}
+
+function buildBars(){
+  wave.innerHTML='';
+  for(let i=0;i<42;i++){
+    const b=document.createElement('div');
+    b.className='bar';
+    b.style.height='6px';
+    wave.appendChild(b);
+  }
+}
+buildBars();
+
+function setVisible(show){
+  card.classList.toggle('show', show);
+  if(!show){
+    progressWrap.classList.remove('show');
+    progress.style.width='0%';
+    hint.textContent='';
+  }
+}
+
+function cleanupStream(){
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  if(animation){cancelAnimationFrame(animation);animation=null;}
+  if(source){try{source.disconnect()}catch(e){} source=null;}
+  if(analyser){try{analyser.disconnect()}catch(e){} analyser=null;}
+  if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null;}
+}
+
+function stopTimer(){
+  if(timer){clearInterval(timer);timer=null;}
+}
+
+function drawWave(){
+  if(!analyser) return;
+  const data = new Uint8Array(analyser.fftSize);
+  const bars=[...wave.children];
+  const render=()=>{
+    if(!analyser) return;
+    analyser.getByteTimeDomainData(data);
+    let sum=0;
+    for(const v of data){const n=(v-128)/128;sum+=n*n;}
+    const rms=Math.sqrt(sum/data.length);
+    const now=Date.now();
+    bars.forEach((bar,i)=>{
+      const wobble=Math.abs(Math.sin((now/150)+(i*.7)))*0.18;
+      const h=6 + Math.min(30, rms*120 + wobble*10);
+      bar.style.height=`${h}px`;
+    });
+    animation=requestAnimationFrame(render);
+  };
+  animation=requestAnimationFrame(render);
+}
+
+function updateTimer(){
+  const elapsed=Math.floor((Date.now()-startedAt)/1000);
+  timeEl.textContent=formatTime(elapsed);
+  if(elapsed>=MAX_SECONDS && recorder?.state==='recording') stopAndPrepare();
+}
+
+function bestMime(){
+  const types=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+  return types.find(t=>window.MediaRecorder?.isTypeSupported?.(t)) || '';
+}
+
+async function startRecording(){
+  if(recorder?.state==='recording') return;
+  if(cancelRequested) cancelRequested=false;
+  const activeAuth = await waitForAuth();
+  if(!activeAuth){
+    post('NOVA_VOICE_ERROR',{message:'Авторизация Firebase ещё не готова. Обновите страницу и попробуйте снова.'});
+    return;
+  }
+  if(!context?.uid){post('NOVA_VOICE_ERROR',{message:'Не удалось получить данные пользователя.'});return;}
+  if((context.view==='server' && (!context.serverId || !context.channelId)) || (context.view==='dm' && !context.dmUserId)){
+    post('NOVA_VOICE_ERROR',{message:'Сначала выберите канал или личный чат.'});
+    return;
+  }
+  if(!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){
+    post('NOVA_VOICE_ERROR',{message:'Этот браузер не поддерживает запись с микрофона.'});
+    return;
+  }
+
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    const mime=bestMime();
+    chunks=[];
+    startedAt=Date.now();
+    recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);
+
+    try{
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      analyser=audioCtx.createAnalyser();
+      analyser.fftSize=256;
+      analyser.smoothingTimeConstant=.72;
+      source=audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+      drawWave();
+    }catch(e){ /* recording itself does not depend on the visualizer */ }
+
+    recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
+    recorder.onerror=e=>{
+      stopTimer();cleanupStream();recorder=null;chunks=[];setVisible(false);post('NOVA_VOICE_ERROR',{message:'Ошибка записи голоса.'});
+    };
+    recorder.onstop=async()=>{
+      stopTimer();cleanupStream();
+      const used=recorder;recorder=null;
+      if(!used || cancelRequested){chunks=[];setVisible(false);post('NOVA_VOICE_STATE',{recording:false});return;}
+      const duration=Math.max(1,Math.round((Date.now()-startedAt)/1000));
+      const mimeType=used.mimeType || mime || 'audio/webm';
+      const blob=new Blob(chunks,{type:mimeType});
+      chunks=[];
+      if(blob.size<100){setVisible(false);post('NOVA_VOICE_ERROR',{message:'Запись получилась пустой.'});return;}
+      await uploadVoice(blob,duration,mimeType);
+    };
+
+    recorder.start(250);
+    titleEl.textContent='Запись голосового';
+    sendBtn.disabled=false;
+    setVisible(true);
+    timeEl.textContent='0:00';
+    stopTimer();
+    timer=setInterval(updateTimer,500);
+    post('NOVA_VOICE_STATE',{recording:true});
+  }catch(err){
+    stopTimer();cleanupStream();recorder=null;chunks=[];setVisible(false);
+    const msg=(err?.name==='NotAllowedError'||err?.name==='SecurityError')?'Доступ к микрофону запрещён. Разрешите микрофон для сайта.':'Не удалось получить доступ к микрофону.';
+    post('NOVA_VOICE_ERROR',{message:msg});
+  }
+}
+
+function stopAndPrepare(){
+  if(!recorder || recorder.state!=='recording') return;
+  post('NOVA_VOICE_STATE',{recording:false});
+  recorder.stop();
+}
+
+function cancelRecording(){
+  cancelRequested=true;
+  stopTimer();
+  if(recorder){
+    try{recorder.onstop=null}catch(e){}
+    if(recorder.state!=='inactive'){try{recorder.stop()}catch(e){}}
+  }
+  recorder=null;chunks=[];cleanupStream();setVisible(false);post('NOVA_VOICE_STATE',{recording:false});
+  post('NOVA_VOICE_CANCELLED');
+}
+
+async function uploadVoice(blob,duration,mimeType){
+  const user=lastAuthUser || auth.currentUser;
+  if(!user){setVisible(false);post('NOVA_VOICE_ERROR',{message:'Firebase не видит вошедшего пользователя.'});return;}
+  const ext=mimeType.includes('ogg')?'ogg':mimeType.includes('mp4')?'m4a':'webm';
+  const path=`voice-messages/${user.uid}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const fileRef=ref(storage,path);
+  progressWrap.classList.add('show');
+  progress.style.width='0%';
+  titleEl.textContent='Загружаю голосовое…';
+  sendBtn.disabled=true;
+  hint.textContent='';
+
+  await new Promise((resolve,reject)=>{
+    uploadTask=uploadBytesResumable(fileRef,blob,{contentType:mimeType});
+    uploadTask.on('state_changed',snap=>{
+      const pct=snap.totalBytes?Math.round((snap.bytesTransferred/snap.totalBytes)*100):0;
+      progress.style.width=`${pct}%`;
+      post('NOVA_VOICE_PROGRESS',{progress:pct});
+    },err=>{uploadTask=null;reject(err)},()=>{uploadTask=null;resolve()});
+  }).catch(err=>{
+    const code=err?.code||'';
+    let message='Не удалось загрузить голосовое сообщение.';
+    if(code==='storage/unauthorized')message='Firebase Storage не разрешает загрузку. Проверьте Rules Storage.';
+    else if(code==='storage/quota-exceeded')message='У Firebase Storage закончилась доступная квота.';
+    else if(code==='storage/bucket-not-found')message='Firebase Storage bucket не найден.';
+    post('NOVA_VOICE_ERROR',{message,code});
+    setVisible(false);
+    throw err;
+  });
+
+  try{
+    const url=await getDownloadURL(fileRef);
+    progress.style.width='100%';
+    titleEl.textContent='Готово';
+    post('NOVA_VOICE_SENT',{voiceUrl:url,voiceDuration:duration,voiceMimeType:mimeType});
+    setTimeout(()=>setVisible(false),250);
+  }catch(err){
+    post('NOVA_VOICE_ERROR',{message:'Файл загрузился, но ссылку на него получить не удалось.',code:err?.code||''});
+    setVisible(false);
+  }
+}
+
+function waitForAuth(){
+  if(auth.currentUser) return Promise.resolve(auth.currentUser);
+  return new Promise(resolve=>{
+    let done=false;
+    const unsub=onAuthStateChanged(auth,user=>{
+      if(done)return;done=true;unsub();lastAuthUser=user;resolve(user);
+    });
+    setTimeout(()=>{if(!done){done=true;unsub();resolve(auth.currentUser||null)}},5000);
+  });
+}
+
+$('send').addEventListener('click',stopAndPrepare);
+$('cancel').addEventListener('click',cancelRecording);
+
+window.addEventListener('message',async e=>{
+  if(e.origin!==ORIGIN || e.source!==frameParent)return;
+  const msg=e.data||{};
+  if(msg.type==='NOVA_VOICE_SET_CONTEXT'){
+    context=msg.context||null;
+  }else if(msg.type==='NOVA_VOICE_START'){
+    if(recorder?.state==='recording') stopAndPrepare(); else await startRecording();
+  }else if(msg.type==='NOVA_VOICE_CANCEL'){
+    cancelRecording();
+  }
+});
+
+onAuthStateChanged(auth,user=>{lastAuthUser=user||null;});
+post('NOVA_VOICE_READY');
+</script>
+</body>
+</html>
