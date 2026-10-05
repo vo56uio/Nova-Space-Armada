@@ -470,7 +470,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Web Audio API Synthesizer for notifications
@@ -715,16 +715,26 @@ function initAuth() {
 
 window.loginWithGoogle = async function() {
   try {
-    await signInWithRedirect(auth, new GoogleAuthProvider());
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
   } catch (err) {
-    showToast('Вход через Google не удался: ' + (err.code || err.message), true);
+    console.error('Google sign-in error:', err);
+    const code = err?.code || 'unknown';
+    let message = err?.message || 'Неизвестная ошибка';
+
+    if (code === 'auth/unauthorized-domain') {
+      message = 'Домен vo56uio.github.io не разрешён в Firebase Authentication.';
+    } else if (code === 'auth/operation-not-allowed') {
+      message = 'Вход через Google отключён в Firebase Authentication.';
+    } else if (code === 'auth/popup-blocked') {
+      message = 'Браузер заблокировал окно Google. Разрешите всплывающие окна для сайта.';
+    } else if (code === 'auth/popup-closed-by-user') {
+      message = 'Окно Google было закрыто до завершения входа.';
+    }
+
+    showToast(`Google: ${message}`, true);
   }
 };
-
-// Возврат после входа через Google: показываем ошибку, если она была
-getRedirectResult(auth).catch(err => {
-  showToast('Вход через Google не удался: ' + (err.code || err.message), true);
-});
 
 document.getElementById('btn-google-login').onclick = () => window.loginWithGoogle();
 
