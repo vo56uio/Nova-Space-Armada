@@ -2757,110 +2757,363 @@ const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
 
-// Stage 4: profile cards + full context menus. Kept inside the Firebase module so it can access module-scope state.
+// Stage 4: Discord-style profiles + context menus.
 (function(){
-  let novaProfileUid=null;
-  const STATUS_LABELS={online:'В сети',idle:'Не активен',dnd:'Не беспокоить'};
-  const STATUS_DOTS={online:'🟢',idle:'🟡',dnd:'🔴'};
-  function novaUser(uid){if(uid===currentUser?.uid)return currentUser;return(usersData||[]).find(u=>u.uid===uid)||null;}
-  function novaCurrentServer(){return(serversData||[]).find(s=>s.id===currentServerId)||null;}
-  function novaMemberRole(server,uid){try{return getMemberRole(server,uid)||null}catch(e){return null;}}
-  window.novaOpenUserProfile=function(uid){
-    const u=novaUser(uid),modal=document.getElementById('nova-user-profile-modal');if(!u||!modal)return;
-    novaProfileUid=u.uid;
-    const initial=(u.nickname||'U').charAt(0).toUpperCase();
-    document.getElementById('nova-profile-avatar').textContent=initial;
-    document.getElementById('nova-profile-name').textContent=u.nickname||'Пользователь';
-    document.getElementById('nova-profile-status').textContent=`${STATUS_DOTS[u.status]||'⚪'} ${STATUS_LABELS[u.status]||'Неизвестно'}`;
-    document.getElementById('nova-profile-custom-status').textContent=u.customStatus||'Пользовательский статус не установлен';
-    const srv=novaCurrentServer(),role=srv?novaMemberRole(srv,u.uid):null,roleEl=document.getElementById('nova-profile-role'),ownerEl=document.getElementById('nova-profile-owner');
-    ownerEl.classList.toggle('hidden',!(srv&&srv.ownerId===u.uid));
-    if(role&&role.id!=='everyone'){roleEl.textContent=`Роль: ${role.name}`;roleEl.style.color=role.color||'#99AAB5';roleEl.classList.remove('hidden');}else roleEl.classList.add('hidden');
-    const actions=document.getElementById('nova-profile-actions');
-    if(u.uid===currentUser.uid)actions.innerHTML=`<button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="edit">✏️ Редактировать</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="account">⚙️ Аккаунт</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="copy">📋 Скопировать ID</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="close">Закрыть</button>`;
-    else actions.innerHTML=`<button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="dm">✉️ Написать сообщение</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="copy">📋 Скопировать ID</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white col-span-2" data-nova-profile-action="close">Закрыть</button>`;
-    modal.classList.remove('hidden');modal.classList.add('flex');
-  };
-  function novaCloseProfile(){const m=document.getElementById('nova-user-profile-modal');if(m){m.classList.add('hidden');m.classList.remove('flex');}}
-  document.getElementById('nova-profile-close')?.addEventListener('click',novaCloseProfile);
-  document.getElementById('nova-user-profile-modal')?.addEventListener('click',e=>{if(e.target.id==='nova-user-profile-modal')novaCloseProfile();});
-  document.addEventListener('click',e=>{
-    const b=e.target.closest?.('[data-nova-profile-action]');if(!b)return;const action=b.dataset.novaProfileAction,u=novaUser(novaProfileUid)||currentUser;
-    if(action==='close')return novaCloseProfile();
-    if(action==='dm'){novaCloseProfile();if(u?.uid)openDirectMessage(u.uid);}
-    if(action==='copy'&&u?.uid)copyTextSilently(u.uid).then(()=>showToast('ID скопирован'));
-    if(action==='edit'){novaCloseProfile();openModal('modal-profile');}
-    if(action==='account'){novaCloseProfile();openModal('modal-account-settings');}
-  });
-  async function novaSetStatus(status){if(!currentUser)return;currentUser.status=status;localStorage.setItem('chat_status',status);updateUserProfileDisplay?.();try{await syncUserProfileCloud?.();}catch(e){}try{renderMembersSidebar?.();renderDirectMessagesList?.();}catch(e){}showToast(`Статус: ${STATUS_LABELS[status]||status}`);}
-  function novaItemsForServer(srv){
-    const items=[{icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},{icon:'👤',label:'Открыть участников',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}},{icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode||'').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}];
-    if(hasServerPermission(srv,'create_invites'))items.push({icon:'📨',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite')?.click();}});
-    if(hasServerPermission(srv,'manage_channels'))items.push({icon:'➕',label:'Создать канал',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;renderServers();openModal('modal-channel');}});
-    if(isServerManager(srv))items.push({icon:'⚙️',label:'Настройки сервера',action:()=>openServerSettings('general')});
-    if(isServerOwner(srv))items.push('separator',{icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()});return items;
+  let novaProfileUid = null;
+  let novaProfileAnchor = null;
+  const STATUS_LABELS = {online:'В сети', idle:'Не активен', dnd:'Не беспокоить'};
+  const STATUS_DOTS = {online:'🟢', idle:'🟡', dnd:'⛔'};
+
+  function novaUser(uid){
+    if (uid === currentUser?.uid) return currentUser;
+    return (usersData || []).find(u => u.uid === uid) || null;
   }
-  function novaItemsForMember(member,srv){
-    const self=member.uid===currentUser.uid,owner=srv&&srv.ownerId===member.uid,items=[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(member.uid)}];
-    if(!self)items.push({icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(member.uid)});
-    items.push({icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(member.uid).then(()=>showToast('ID скопирован'))});
-    if(self)items.push('separator',{icon:'🟢',label:'В сети',action:()=>novaSetStatus('online')},{icon:'🟡',label:'Не активен',action:()=>novaSetStatus('idle')},{icon:'🔴',label:'Не беспокоить',action:()=>novaSetStatus('dnd')},'separator',{icon:'⚙️',label:'Настройки аккаунта',action:()=>openModal('modal-account-settings')});
-    else if(srv&&!owner){if(hasServerPermission(srv,'manage_roles'))items.push({icon:'🛡️',label:'Управлять ролями',action:()=>openServerSettings('members')});if(hasServerPermission(srv,'manage_members'))items.push({icon:'🚪',label:'Заблокировать участника',danger:true,action:()=>window.banMember(member.uid)});}
+  function novaCurrentServer(){
+    return (serversData || []).find(s => s.id === currentServerId) || null;
+  }
+  function novaMemberRole(server, uid){
+    try { return getMemberRole(server, uid) || null; } catch(e) { return null; }
+  }
+
+  function novaCloseProfile(){
+    const modal = document.getElementById('nova-user-profile-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    novaProfileUid = null;
+    novaProfileAnchor = null;
+  }
+
+  function novaPlaceProfile(x, y){
+    const card = document.getElementById('nova-user-profile-card');
+    if (!card) return;
+    card.style.visibility = 'hidden';
+    card.classList.remove('hidden');
+    const rect = card.getBoundingClientRect();
+    const gap = 12;
+    let left = Number.isFinite(x) ? x : Math.max(20, (window.innerWidth - rect.width) / 2);
+    let top = Number.isFinite(y) ? y : Math.max(20, (window.innerHeight - rect.height) / 2);
+
+    if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
+    if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
+    if (left < 8) left = 8;
+    if (top < 8) top = 8;
+
+    card.style.left = `${left}px`;
+    card.style.top = `${top}px`;
+    card.style.visibility = 'visible';
+  }
+
+  window.novaOpenUserProfile = function(uid, x, y){
+    const u = novaUser(uid);
+    const modal = document.getElementById('nova-user-profile-modal');
+    if (!u || !modal) return;
+
+    novaProfileUid = u.uid;
+    novaProfileAnchor = {x, y};
+
+    const avatar = document.getElementById('nova-profile-avatar');
+    const name = document.getElementById('nova-profile-name');
+    const handle = document.getElementById('nova-profile-handle');
+    const status = document.getElementById('nova-profile-status');
+    const custom = document.getElementById('nova-profile-custom-status');
+    const roleEl = document.getElementById('nova-profile-role');
+    const ownerEl = document.getElementById('nova-profile-owner');
+    const actions = document.getElementById('nova-profile-actions');
+
+    const initial = (u.nickname || 'U').charAt(0).toUpperCase();
+    avatar.textContent = initial;
+    avatar.className = 'nova-profile-avatar rounded-full flex items-center justify-center text-white text-2xl font-bold';
+    avatar.classList.add(u.uid === currentUser.uid ? 'nova-avatar-self' : 'nova-avatar-user');
+
+    name.textContent = u.nickname || 'Пользователь';
+    handle.textContent = u.uid === currentUser.uid ? 'Ваша учётная запись' : `ID: ${u.uid}`;
+    status.textContent = `${STATUS_DOTS[u.status] || '⚪'} ${STATUS_LABELS[u.status] || 'Неизвестно'}`;
+    custom.textContent = u.customStatus || 'Пользовательский статус не установлен';
+
+    const srv = novaCurrentServer();
+    const role = srv ? novaMemberRole(srv, u.uid) : null;
+    ownerEl.classList.toggle('hidden', !(srv && srv.ownerId === u.uid));
+    if (role && role.id !== 'everyone') {
+      roleEl.textContent = `Роль: ${role.name}`;
+      roleEl.style.color = role.color || '#99AAB5';
+      roleEl.classList.remove('hidden');
+    } else {
+      roleEl.classList.add('hidden');
+    }
+
+    if (u.uid === currentUser.uid) {
+      actions.innerHTML = `
+        <button type="button" class="nova-profile-main-action" data-nova-profile-action="edit">✏️ Редактировать профиль</button>
+        <button type="button" class="nova-profile-secondary-action" data-nova-profile-action="account">⚙️ Настройки аккаунта</button>
+        <button type="button" class="nova-profile-secondary-action" data-nova-profile-action="copy">📋 Скопировать ID</button>`;
+    } else {
+      actions.innerHTML = `
+        <button type="button" class="nova-profile-main-action" data-nova-profile-action="dm">✉️ Написать сообщение</button>
+        <button type="button" class="nova-profile-secondary-action" data-nova-profile-action="copy">📋 Скопировать ID</button>`;
+    }
+
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      const rect = modal.getBoundingClientRect();
+      let px = x;
+      let py = y;
+      if (!Number.isFinite(px) || !Number.isFinite(py)) {
+        px = Math.max(20, (window.innerWidth - rect.width) / 2);
+        py = Math.max(20, (window.innerHeight - rect.height) / 2);
+      }
+      novaPlaceProfile(px, py);
+    });
+  };
+
+  function novaOpenUserProfileFromElement(uid, el){
+    if (!el) return novaOpenUserProfile(uid);
+    const r = el.getBoundingClientRect();
+    const x = Math.min(window.innerWidth - 410, Math.max(12, r.right + 10));
+    const y = Math.min(window.innerHeight - 500, Math.max(12, r.top));
+    novaOpenUserProfile(uid, x, y);
+  }
+
+  window.novaOpenUserProfileFromElement = novaOpenUserProfileFromElement;
+
+  document.getElementById('nova-profile-close')?.addEventListener('click', novaCloseProfile);
+
+  document.addEventListener('click', e => {
+    const actionButton = e.target.closest?.('[data-nova-profile-action]');
+    if (actionButton) {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = actionButton.dataset.novaProfileAction;
+      const u = novaUser(novaProfileUid);
+      if (action === 'dm' && u && u.uid !== currentUser.uid) {
+        novaCloseProfile();
+        openDirectMessage(u.uid);
+      } else if (action === 'copy' && u?.uid) {
+        copyTextSilently(u.uid).then(() => showToast('ID скопирован'));
+      } else if (action === 'edit') {
+        novaCloseProfile();
+        openModal('modal-profile');
+      } else if (action === 'account') {
+        novaCloseProfile();
+        openModal('modal-account-settings');
+      }
+      return;
+    }
+
+    const profileCard = document.getElementById('nova-user-profile-card');
+    const modal = document.getElementById('nova-user-profile-modal');
+    if (modal && !modal.classList.contains('hidden') && profileCard && !profileCard.contains(e.target)) {
+      novaCloseProfile();
+    }
+  }, true);
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') novaCloseProfile();
+  });
+
+  window.addEventListener('resize', () => {
+    if (!novaProfileUid) return;
+    novaPlaceProfile(novaProfileAnchor?.x, novaProfileAnchor?.y);
+  });
+
+  async function novaSetStatus(status){
+    if (!currentUser) return;
+    currentUser.status = status;
+    localStorage.setItem('chat_status', status);
+    updateUserProfileDisplay?.();
+    try { await syncUserProfileCloud?.(); } catch(e) {}
+    try { renderMembersSidebar?.(); renderDirectMessagesList?.(); } catch(e) {}
+    showToast(`Статус: ${STATUS_LABELS[status] || status}`);
+  }
+
+  function novaItemsForSelf(){
+    return [
+      {icon:'👤', label:'Профиль', action:()=>novaOpenUserProfile(currentUser.uid)},
+      {icon:'📋', label:'Скопировать ID', action:()=>copyTextSilently(currentUser.uid).then(()=>showToast('ID скопирован'))},
+      'separator',
+      {icon:'🟢', label:'В сети', action:()=>novaSetStatus('online')},
+      {icon:'🟡', label:'Не активен', action:()=>novaSetStatus('idle')},
+      {icon:'⛔', label:'Не беспокоить', action:()=>novaSetStatus('dnd')},
+      'separator',
+      {icon:'⚙️', label:'Настройки аккаунта', action:()=>openModal('modal-account-settings')}
+    ];
+  }
+
+  function novaItemsForMember(member, srv){
+    const self = member.uid === currentUser.uid;
+    const owner = srv && srv.ownerId === member.uid;
+    const items = [
+      {icon:'👤', label:'Профиль', action:()=>novaOpenUserProfile(member.uid)},
+      ...(self ? [] : [{icon:'✉️', label:'Написать сообщение', action:()=>openDirectMessage(member.uid)}]),
+      {icon:'📋', label:'Скопировать ID', action:()=>copyTextSilently(member.uid).then(()=>showToast('ID скопирован'))}
+    ];
+
+    if (self) {
+      items.push('separator',
+        {icon:'🟢', label:'В сети', action:()=>novaSetStatus('online')},
+        {icon:'🟡', label:'Не активен', action:()=>novaSetStatus('idle')},
+        {icon:'⛔', label:'Не беспокоить', action:()=>novaSetStatus('dnd')},
+        'separator',
+        {icon:'⚙️', label:'Настройки аккаунта', action:()=>openModal('modal-account-settings')}
+      );
+    } else if (srv && !owner) {
+      if (hasServerPermission(srv,'manage_roles')) items.push({icon:'🛡️', label:'Управлять ролями', action:()=>openServerSettings('members')});
+      if (hasServerPermission(srv,'manage_members')) items.push({icon:'🚪', label:'Заблокировать участника', danger:true, action:()=>window.banMember(member.uid)});
+    }
     return items;
   }
-  function novaItemsForMessage(msg){
-    const srv=currentView==='server'?novaCurrentServer():null,own=msg.authorId===currentUser.uid,canManage=srv&&hasServerPermission(srv,'manage_messages'),items=[{icon:'↩️',label:'Ответить',action:()=>setReplyMessage(msg.id,msg.authorName,msg.text)},{icon:'📋',label:'Копировать текст',action:()=>copyTextSilently(msg.text||'').then(()=>showToast('Текст скопирован'))}];
-    if(msg.authorId)items.push({icon:'👤',label:'Открыть профиль автора',action:()=>novaOpenUserProfile(msg.authorId)});
-    if(own||canManage){items.push('separator');if(own)items.push({icon:'✏️',label:'Изменить сообщение',action:()=>editMessage(msg.id)});items.push({icon:'🗑️',label:'Удалить сообщение',danger:true,action:()=>deleteMessage(msg.id)});}return items;
+
+  function novaItemsForServer(srv){
+    const items = [
+      {icon:'➜', label:'Открыть сервер', action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},
+      {icon:'👤', label:'Участники', action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}},
+      {icon:'🔗', label:'Скопировать код приглашения', action:()=>copyTextSilently(srv.inviteCode||'').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}
+    ];
+    if (hasServerPermission(srv,'create_invites')) items.push({icon:'📨', label:'Пригласить людей', action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite')?.click();}});
+    if (hasServerPermission(srv,'manage_channels')) items.push({icon:'➕', label:'Создать канал', action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;renderServers();openModal('modal-channel');}});
+    if (isServerManager(srv)) items.push({icon:'⚙️', label:'Настройки сервера', action:()=>openServerSettings('general')});
+    if (isServerOwner(srv)) items.push('separator',{icon:'🗑️', label:'Удалить сервер', danger:true, action:()=>window.deleteCurrentServer()});
+    return items;
   }
+
+  function novaItemsForMessage(msg){
+    const srv = currentView === 'server' ? novaCurrentServer() : null;
+    const own = msg.authorId === currentUser.uid;
+    const canManage = srv && hasServerPermission(srv,'manage_messages');
+    const items = [
+      {icon:'↩️', label:'Ответить', action:()=>setReplyMessage(msg.id,msg.authorName,msg.text)},
+      {icon:'📋', label:'Копировать текст', action:()=>copyTextSilently(msg.text||'').then(()=>showToast('Текст скопирован'))}
+    ];
+    if (msg.authorId && msg.authorId !== 'system') items.push({icon:'👤', label:'Профиль', action:()=>novaOpenUserProfile(msg.authorId)});
+    if (own || canManage) {
+      items.push('separator');
+      if (own) items.push({icon:'✏️', label:'Изменить сообщение', action:()=>editMessage(msg.id)});
+      items.push({icon:'🗑️', label:'Удалить сообщение', danger:true, action:()=>deleteMessage(msg.id)});
+    }
+    return items;
+  }
+
   function novaItemsForChannel(chan,srv){
     const items=[{icon:'➜',label:'Открыть канал',action:()=>{currentView='server';currentServerId=chan.serverId;currentChannelId=chan.id;renderServers();}}];
-    if(srv){items.push({icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(chan.id).then(()=>showToast('ID канала скопирован'))});if(hasServerPermission(srv,'manage_channels'))items.push('separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(chan.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(chan.id)});}return items;
+    if(srv){
+      items.push({icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(chan.id).then(()=>showToast('ID канала скопирован'))});
+      if(hasServerPermission(srv,'manage_channels')) items.push('separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(chan.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(chan.id)});
+    }
+    return items;
   }
-  function novaItemsForDM(u){return[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(u.uid)},{icon:'✉️',label:'Открыть личный чат',action:()=>openDirectMessage(u.uid)},{icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(u.uid).then(()=>showToast('ID скопирован'))}];}
-  document.addEventListener('contextmenu',e=>{
-    const target=e.target.closest?.('[data-server-id],[data-chan-id],[data-voice-id],[data-dm-user-id],[data-member-uid],[data-message-id],#user-avatar,#user-status-dot');if(!target)return;e.preventDefault();e.stopPropagation();
-    if(target.matches('#user-avatar,#user-status-dot')){showContextMenu(e.clientX,e.clientY,novaItemsForMember(currentUser,novaCurrentServer()));return;}
-    if(target.dataset.serverId){const s=serversData.find(x=>x.id===target.dataset.serverId);if(s)showContextMenu(e.clientX,e.clientY,novaItemsForServer(s));return;}
-    if(target.dataset.chanId){const c=channelsData.find(x=>x.id===target.dataset.chanId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,novaItemsForChannel(c,s));return;}
-    if(target.dataset.voiceId){const c=channelsData.find(x=>x.id===target.dataset.voiceId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,[{icon:'🔊',label:'Подключиться',action:()=>connectVoiceChannel(c.id,vcNameById(c.id))},{icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(c.id).then(()=>showToast('ID канала скопирован'))},...(s&&hasServerPermission(s,'manage_channels')?['separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(c.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(c.id)}]:[])]);return;}
-    if(target.dataset.dmUserId){const u=novaUser(target.dataset.dmUserId);if(u)showContextMenu(e.clientX,e.clientY,novaItemsForDM(u));return;}
-    if(target.dataset.memberUid){const u=novaUser(target.dataset.memberUid);if(u)showContextMenu(e.clientX,e.clientY,novaItemsForMember(u,novaCurrentServer()));return;}
-    if(target.dataset.messageId){const m=(messagesData||[]).find(x=>x.id===target.dataset.messageId);if(m)showContextMenu(e.clientX,e.clientY,novaItemsForMessage(m));return;}
-  },true);
-  document.addEventListener('click',e=>{const row=e.target.closest?.('[data-member-uid]');if(row&&!e.target.closest('button')){const uid=row.dataset.memberUid;if(uid)novaOpenUserProfile(uid);}});
-})();
 
+  function novaItemsForDM(u){
+    return [
+      {icon:'👤',label:'Профиль',action:()=>novaOpenUserProfile(u.uid)},
+      {icon:'✉️',label:'Открыть личный чат',action:()=>openDirectMessage(u.uid)},
+      {icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(u.uid).then(()=>showToast('ID скопирован'))}
+    ];
+  }
+
+  // One global capture handler wins over the older per-row contextmenu handlers.
+  document.addEventListener('contextmenu', e => {
+    const target = e.target.closest?.('[data-server-id],[data-chan-id],[data-voice-id],[data-dm-user-id],[data-member-uid],[data-message-id],#user-avatar,#user-status-dot,#user-display-name,#status-text');
+    if (!target) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (target.matches('#user-avatar,#user-status-dot,#user-display-name,#status-text')) {
+      showContextMenu(e.clientX,e.clientY,novaItemsForSelf());
+      return;
+    }
+    if (target.dataset.serverId) {
+      const s=serversData.find(x=>x.id===target.dataset.serverId); if(s) showContextMenu(e.clientX,e.clientY,novaItemsForServer(s));
+      return;
+    }
+    if (target.dataset.chanId) {
+      const c=channelsData.find(x=>x.id===target.dataset.chanId), s=c&&serversData.find(x=>x.id===c.serverId); if(c) showContextMenu(e.clientX,e.clientY,novaItemsForChannel(c,s));
+      return;
+    }
+    if (target.dataset.voiceId) {
+      const c=channelsData.find(x=>x.id===target.dataset.voiceId), s=c&&serversData.find(x=>x.id===c.serverId);
+      if(c) showContextMenu(e.clientX,e.clientY,[
+        {icon:'🔊',label:'Подключиться',action:()=>connectVoiceChannel(c.id,vcNameById(c.id))},
+        {icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(c.id).then(()=>showToast('ID канала скопирован'))},
+        ...(s&&hasServerPermission(s,'manage_channels')?['separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(c.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(c.id)}]:[])
+      ]);
+      return;
+    }
+    if (target.dataset.dmUserId) {
+      const u=novaUser(target.dataset.dmUserId); if(u) showContextMenu(e.clientX,e.clientY,novaItemsForDM(u));
+      return;
+    }
+    if (target.dataset.memberUid) {
+      const u=novaUser(target.dataset.memberUid); if(u) showContextMenu(e.clientX,e.clientY,novaItemsForMember(u,novaCurrentServer()));
+      return;
+    }
+    if (target.dataset.messageId) {
+      const m=(messagesData||[]).find(x=>x.id===target.dataset.messageId); if(m) showContextMenu(e.clientX,e.clientY,novaItemsForMessage(m));
+    }
+  }, true);
+
+  // Discord-like behavior: a normal click on a member opens a profile popout.
+  document.addEventListener('click', e => {
+    const row=e.target.closest?.('[data-member-uid]');
+    if(row && !e.target.closest('button,select,input,textarea,a')) {
+      const uid=row.dataset.memberUid;
+      if(uid) novaOpenUserProfileFromElement(uid,row);
+      return;
+    }
+
+    // Clicking the current user's footer identity opens the same popout for yourself.
+    const selfIdentity=e.target.closest?.('#user-avatar,#user-status-dot,#user-display-name,#status-text');
+    if(selfIdentity) {
+      e.preventDefault();
+      e.stopPropagation();
+      novaOpenUserProfileFromElement(currentUser.uid, document.querySelector('#user-avatar') || selfIdentity);
+    }
+  }, true);
+})();
 initAuth();
 </script>
 
 
 <!-- NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
 <style>
-  .nova-user-card{width:min(390px,calc(100vw - 28px));background:rgba(43,45,49,.98);border:1px solid rgba(148,155,164,.22);box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(18px)}
-  .nova-user-banner{height:92px;background:linear-gradient(135deg,#5865F2,#7c5cff 55%,#242b5f);position:relative;overflow:hidden}
-  .nova-user-banner:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(255,255,255,.22),transparent 34%)}
-  .nova-profile-avatar{width:82px;height:82px;border:6px solid #2b2d31;box-shadow:0 8px 22px rgba(0,0,0,.35)}
-  .nova-profile-action{background:#1e1f22;border:1px solid rgba(148,155,164,.18);transition:.15s ease}
-  .nova-profile-action:hover{background:#35373c;border-color:rgba(88,101,242,.55);transform:translateY(-1px)}
+  .nova-profile-overlay{position:fixed;inset:0;z-index:120;pointer-events:none}
+  .nova-user-card{position:fixed;width:360px;max-width:calc(100vw - 24px);background:#2b2d31;border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.55);color:#fff;pointer-events:auto}
+  .nova-user-banner{height:92px;background:linear-gradient(135deg,#5865f2 0%,#7b61ff 56%,#252b55 100%);position:relative}
+  .nova-user-banner::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 82% 18%,rgba(255,255,255,.18),transparent 30%)}
+  .nova-profile-avatar{position:relative;margin-top:-42px;margin-left:20px;width:84px;height:84px;border:6px solid #2b2d31;box-shadow:0 8px 24px rgba(0,0,0,.42);z-index:2}
+  .nova-avatar-self{background:linear-gradient(135deg,#5865f2,#7c5cff)}
+  .nova-avatar-user{background:linear-gradient(135deg,#475569,#64748b)}
+  .nova-profile-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.22);color:#d1d5db}
+  .nova-profile-close:hover{background:rgba(0,0,0,.42);color:#fff}
+  .nova-profile-main-action,.nova-profile-secondary-action{width:100%;border-radius:8px;padding:10px 12px;text-align:left;font-size:13px;transition:.14s ease}
+  .nova-profile-main-action{background:#5865f2;color:#fff;font-weight:600}
+  .nova-profile-main-action:hover{background:#4752c4}
+  .nova-profile-secondary-action{background:#1e1f22;color:#e3e5e8;border:1px solid rgba(255,255,255,.06)}
+  .nova-profile-secondary-action:hover{background:#35373c}
+  .nova-profile-divider{height:1px;background:rgba(255,255,255,.08);margin:16px 0}
+  @media (max-width:640px){
+    .nova-user-card{width:min(360px,calc(100vw - 24px))}
+  }
 </style>
-<div id="nova-user-profile-modal" class="fixed inset-0 z-[120] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-  <div class="nova-user-card rounded-2xl overflow-hidden text-left">
+<div id="nova-user-profile-modal" class="nova-profile-overlay hidden">
+  <div id="nova-user-profile-card" class="nova-user-card hidden">
     <div class="nova-user-banner"></div>
-    <div class="relative px-5 pb-5">
-      <div id="nova-profile-avatar" class="nova-profile-avatar -mt-10 rounded-full bg-discord-accent flex items-center justify-center text-white text-2xl font-bold"></div>
-      <button id="nova-profile-close" type="button" class="absolute right-4 top-3 w-9 h-9 rounded-full bg-black/25 text-white/80 hover:bg-black/45 hover:text-white">✕</button>
+    <button id="nova-profile-close" class="nova-profile-close" type="button" aria-label="Закрыть">✕</button>
+    <div class="px-5 pb-5">
+      <div id="nova-profile-avatar" class="nova-profile-avatar rounded-full flex items-center justify-center text-white text-2xl font-bold">U</div>
       <div class="mt-3">
-        <div class="flex items-center gap-2"><h3 id="nova-profile-name" class="text-xl font-bold text-white truncate"></h3><span id="nova-profile-owner" class="hidden text-sm" title="Владелец сервера">👑</span></div>
-        <div id="nova-profile-status" class="text-xs text-discord-muted mt-1"></div>
+        <div class="flex items-center gap-2 min-w-0">
+          <h3 id="nova-profile-name" class="text-xl font-bold truncate">Пользователь</h3>
+          <span id="nova-profile-owner" class="hidden text-sm" title="Владелец сервера">👑</span>
+        </div>
+        <div id="nova-profile-handle" class="text-[11px] text-gray-400 mt-0.5 truncate"></div>
+        <div id="nova-profile-status" class="text-xs text-gray-300 mt-2"></div>
         <div id="nova-profile-custom-status" class="text-sm text-gray-200 mt-3 break-words"></div>
       </div>
-      <div id="nova-profile-role" class="hidden mt-3 text-xs"></div>
-      <div id="nova-profile-actions" class="grid grid-cols-2 gap-2 mt-5"></div>
+      <div id="nova-profile-role" class="hidden mt-3 text-xs font-semibold"></div>
+      <div class="nova-profile-divider"></div>
+      <div id="nova-profile-actions" class="grid gap-2"></div>
     </div>
   </div>
 </div>
-
 <!-- /NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
 
 </body>
