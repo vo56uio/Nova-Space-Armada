@@ -1760,6 +1760,18 @@ function renderMembersSidebar() {
 }
 
 
+function novaVoiceWaveformMarkup(seed) {
+  let x = 0;
+  const str = String(seed || 'voice');
+  for (let i = 0; i < str.length; i++) x = ((x << 5) - x + str.charCodeAt(i)) | 0;
+  const bars = Array.from({ length: 38 }, (_, i) => {
+    x = (x * 1664525 + 1013904223 + i * 97) >>> 0;
+    const wave = 7 + (x % 22);
+    return `<span class="nova-voice-wave-bar" style="--bar-height:${wave}px"></span>`;
+  });
+  return bars.join('');
+}
+
 function renderMessages() {
   const feed = document.getElementById('message-feed');
   const chanNameElem = document.getElementById('current-channel-name');
@@ -1870,10 +1882,21 @@ function renderMessages() {
           ${m.text ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>` : ''}
 
           ${(m.voiceUrl || m.voiceDataUrl) ? `
-            <div class="nova-voice-message mt-2">
-              <span class="text-lg" aria-hidden="true">🎙️</span>
-              <audio controls preload="metadata" src="${escapeHtml(m.voiceUrl || m.voiceDataUrl)}"></audio>
-              <span class="nova-voice-duration">${formatVoiceDuration(m.voiceDuration || 0)}</span>
+            <div class="nova-voice-message nova-voice-player mt-2" data-voice-player="${escapeHtml(m.id)}">
+              <audio class="nova-voice-audio" preload="metadata" src="${escapeHtml(m.voiceUrl || m.voiceDataUrl)}"></audio>
+              <button type="button" class="nova-voice-play" data-voice-play title="Воспроизвести голосовое" aria-label="Воспроизвести голосовое">
+                <span class="nova-voice-play-icon">▶</span>
+              </button>
+              <div class="nova-voice-main">
+                <div class="nova-voice-waveform" data-voice-waveform aria-label="Прогресс голосового сообщения">
+                  ${novaVoiceWaveformMarkup(m.id)}
+                </div>
+                <div class="nova-voice-meta">
+                  <span class="nova-voice-current">0:00</span>
+                  <span class="nova-voice-duration">${formatVoiceDuration(m.voiceDuration || 0)}</span>
+                </div>
+              </div>
+              <button type="button" class="nova-voice-volume" data-voice-mute title="Выключить звук" aria-label="Выключить звук">🔊</button>
             </div>
           ` : ''}
 
@@ -3242,17 +3265,63 @@ initAuth();
     background: #f23f43;
   }
   .nova-voice-message {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: .65rem;
-    max-width: 430px;
-    background: rgba(30,31,34,.72);
-    border: 1px solid rgba(148,155,164,.2);
-    border-radius: 14px;
-    padding: 8px 10px;
+    gap: 10px;
+    width: min(460px, 100%);
+    min-height: 66px;
+    padding: 10px 12px;
+    border: 1px solid rgba(148,155,164,.18);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(49,51,56,.96), rgba(32,34,37,.96));
+    box-shadow: 0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.04);
+    overflow: hidden;
   }
-  .nova-voice-message audio { width: min(310px, 100%); height: 38px; }
-  .nova-voice-duration { min-width: 36px; text-align: right; font-size: 11px; color: #949ba4; }
+  .nova-voice-message::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle at 18% 0%, rgba(88,101,242,.16), transparent 42%);
+  }
+  .nova-voice-audio { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .nova-voice-play {
+    position: relative; z-index: 2; flex: 0 0 42px; width: 42px; height: 42px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.1); background: #5865f2; color: #fff;
+    display: grid; place-items: center; font-size: 14px; line-height: 1;
+    box-shadow: 0 5px 14px rgba(88,101,242,.32); transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
+  }
+  .nova-voice-play:hover { transform: scale(1.05); filter: brightness(1.08); box-shadow: 0 7px 18px rgba(88,101,242,.42); }
+  .nova-voice-play:active { transform: scale(.97); }
+  .nova-voice-play-icon { transform: translateX(1px); }
+  .nova-voice-main { position: relative; z-index: 2; min-width: 0; flex: 1; padding-top: 1px; }
+  .nova-voice-waveform {
+    position: relative; height: 34px; display: flex; align-items: center; gap: 2px; cursor: pointer;
+    padding: 0 1px; overflow: hidden;
+  }
+  .nova-voice-waveform::after {
+    content: ''; position: absolute; left: 0; top: 50%; width: 100%; height: 1px;
+    background: rgba(255,255,255,.05); transform: translateY(-50%); pointer-events: none;
+  }
+  .nova-voice-wave-bar {
+    position: relative; z-index: 1; flex: 1 1 0; min-width: 2px; max-width: 5px;
+    height: var(--bar-height, 14px); border-radius: 99px; background: rgba(148,155,164,.35);
+    transition: height .16s ease, background .12s ease, opacity .12s ease; opacity: .9;
+  }
+  .nova-voice-wave-bar.is-played { background: #8ea0ff; opacity: 1; }
+  .nova-voice-player:hover .nova-voice-wave-bar { opacity: 1; }
+  .nova-voice-meta { display:flex; justify-content:space-between; gap:10px; margin-top:2px; font-size:10px; line-height:1; color:#949ba4; font-variant-numeric: tabular-nums; }
+  .nova-voice-current { color:#c9ccd1; }
+  .nova-voice-duration { min-width: 32px; text-align: right; font-size: 10px; color: #949ba4; }
+  .nova-voice-volume {
+    position: relative; z-index: 2; flex: 0 0 auto; width: 30px; height: 30px; display:grid; place-items:center;
+    border-radius: 9px; color:#949ba4; background:transparent; border:1px solid transparent; font-size:14px;
+    transition: background .15s ease, color .15s ease;
+  }
+  .nova-voice-volume:hover { background: rgba(255,255,255,.06); color:#fff; }
+  .nova-voice-message.is-playing { border-color: rgba(88,101,242,.35); box-shadow: 0 10px 26px rgba(88,101,242,.12), inset 0 1px 0 rgba(255,255,255,.05); }
+  @media (max-width: 520px) {
+    .nova-voice-message { width: 100%; padding-right: 8px; }
+    .nova-voice-volume { display:none; }
+  }
   #voice-recording-bar { min-width: min(520px, calc(100vw - 24px)); }
   .nova-recording-waveform{height:38px;display:flex;align-items:center;gap:2px;width:100%;margin-top:5px;overflow:hidden}
   .nova-wave-bar{display:block;flex:1;min-width:2px;height:4px;border-radius:999px;background:linear-gradient(to top,#5865f2,#8ea0ff);opacity:.6;transition:height .06s linear,opacity .06s linear}
@@ -3356,6 +3425,67 @@ initAuth();
 })();
 </script>
 <!-- /NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
+
+<script>
+(function(){
+  function formatPlayerTime(seconds){
+    const s=Math.max(0,Math.floor(Number(seconds)||0));
+    return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  }
+  function refreshPlayer(player){
+    const audio=player.querySelector('.nova-voice-audio');
+    const current=player.querySelector('.nova-voice-current');
+    const duration=player.querySelector('.nova-voice-duration');
+    const bars=[...player.querySelectorAll('.nova-voice-wave-bar')];
+    if(!audio) return;
+    const total=Number.isFinite(audio.duration)&&audio.duration>0 ? audio.duration : 0;
+    const progress=total ? audio.currentTime/total : 0;
+    if(current) current.textContent=formatPlayerTime(audio.currentTime);
+    if(duration && total) duration.textContent=formatPlayerTime(total);
+    const played=Math.floor(progress*bars.length);
+    bars.forEach((bar,i)=>bar.classList.toggle('is-played',i<played));
+    const btn=player.querySelector('.nova-voice-play-icon');
+    if(btn) btn.textContent=audio.paused?'▶':'Ⅱ';
+    player.classList.toggle('is-playing',!audio.paused);
+    const volumeBtn=player.querySelector('.nova-voice-volume');
+    if(volumeBtn) volumeBtn.textContent=audio.muted?'🔇':'🔊';
+  }
+  function setupPlayer(player){
+    if(player.dataset.voiceReady==='1') return;
+    const audio=player.querySelector('.nova-voice-audio');
+    const play=player.querySelector('[data-voice-play]');
+    const mute=player.querySelector('[data-voice-mute]');
+    const wave=player.querySelector('[data-voice-waveform]');
+    if(!audio||!play||!wave) return;
+    player.dataset.voiceReady='1';
+    play.addEventListener('click',async()=>{
+      try{
+        document.querySelectorAll('.nova-voice-player').forEach(other=>{
+          if(other!==player){const a=other.querySelector('.nova-voice-audio'); if(a&&!a.paused){a.pause(); refreshPlayer(other);}}
+        });
+        if(audio.paused) await audio.play(); else audio.pause();
+        refreshPlayer(player);
+      }catch(err){
+        console.warn('Voice playback failed:',err);
+        showToast?.('Не удалось воспроизвести голосовое',true);
+      }
+    });
+    mute?.addEventListener('click',()=>{audio.muted=!audio.muted;refreshPlayer(player);});
+    wave.addEventListener('click',(e)=>{
+      const r=wave.getBoundingClientRect();
+      const ratio=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
+      if(Number.isFinite(audio.duration)&&audio.duration>0){audio.currentTime=audio.duration*ratio;refreshPlayer(player);}
+    });
+    ['loadedmetadata','durationchange','timeupdate','play','pause','ended','volumechange'].forEach(ev=>audio.addEventListener(ev,()=>refreshPlayer(player)));
+    refreshPlayer(player);
+  }
+  function setupAll(){document.querySelectorAll('.nova-voice-player').forEach(setupPlayer);}
+  const feed=document.getElementById('message-feed');
+  if(feed){new MutationObserver(setupAll).observe(feed,{childList:true,subtree:true});}
+  document.addEventListener('click',()=>{},true);
+  setTimeout(setupAll,50);
+})();
+</script>
 
 </body>
 </html>
