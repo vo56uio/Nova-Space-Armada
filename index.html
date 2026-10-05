@@ -2742,6 +2742,20 @@ window.deleteCurrentServer = async function() {
   renderServers();
 };
 
+// Module-scope aliases for handlers exposed on window.
+// In <script type="module"> bare names like openModal() do not resolve from window.openModal.
+const handleLogin = window.handleLogin;
+const loginWithGoogle = window.loginWithGoogle;
+const openRoleEditor = window.openRoleEditor;
+const saveMemberRoles = window.saveMemberRoles;
+const renameChannelPrompt = window.renameChannelPrompt;
+const deleteChannel = window.deleteChannel;
+const openServerSettings = window.openServerSettings;
+const openModal = window.openModal;
+const banMember = window.banMember;
+const toggleAdmin = window.toggleAdmin;
+const deleteCurrentServer = window.deleteCurrentServer;
+
 initAuth();
 </script>
 </body>
