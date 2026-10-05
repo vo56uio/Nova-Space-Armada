@@ -61,6 +61,8 @@
   html:not(.dark) .bg-discord-rail { background-color: #e3e5e8; }
   html:not(.dark) .text-white { color: #060607; }
   html:not(.dark) .text-gray-100, html:not(.dark) .text-gray-200 { color: #2e3035; }
+  .user-popout { animation: contextMenuIn .14s ease-out; transform-origin: top left; }
+  .user-popout-role { display:inline-flex; align-items:center; padding:.25rem .5rem; border-radius:9999px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-size:.68rem; }
   .context-menu { animation: contextMenuIn .12s ease-out; transform-origin: top left; }
   @keyframes contextMenuIn { from { opacity: 0; transform: scale(.96) translateY(-3px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   .context-menu-item { display:flex; align-items:center; gap:.65rem; width:100%; padding:.62rem .78rem; color:#e5e7eb; font-size:.82rem; text-align:left; transition:background .12s ease,color .12s ease; }
@@ -75,6 +77,32 @@
 
 <!-- Custom Context Menu -->
 <div id="context-menu" class="context-menu fixed hidden z-[100] min-w-56 max-w-72 rounded-xl border border-gray-700/70 bg-discord-rail/95 backdrop-blur-xl shadow-2xl overflow-hidden py-1"></div>
+
+<!-- Discord-like user profile popout -->
+<div id="user-popout" class="fixed hidden z-[110] w-72 overflow-hidden rounded-2xl border border-gray-700/70 bg-discord-rail/95 backdrop-blur-xl shadow-2xl">
+  <div class="h-16 bg-gradient-to-r from-discord-accent/80 to-violet-500/80"></div>
+  <div class="px-4 pb-4">
+    <div class="-mt-7 flex items-end justify-between">
+      <div id="user-popout-avatar" class="w-14 h-14 rounded-2xl border-4 border-discord-rail bg-discord-accent flex items-center justify-center text-white font-bold text-xl shadow-lg">U</div>
+      <span id="user-popout-status-dot" class="mb-1 w-3 h-3 rounded-full border-2 border-discord-rail bg-discord-green"></span>
+    </div>
+    <div class="mt-2">
+      <div class="flex items-center gap-2">
+        <div id="user-popout-name" class="text-lg font-bold text-white truncate">Пользователь</div>
+        <span id="user-popout-owner" class="hidden text-sm" title="Владелец сервера">👑</span>
+      </div>
+      <div id="user-popout-status" class="text-xs text-discord-muted mt-0.5">🟢 В сети</div>
+      <div id="user-popout-custom-status" class="text-sm text-gray-200 mt-3 break-words"></div>
+    </div>
+    <div id="user-popout-roles" class="flex flex-wrap gap-1.5 mt-3"></div>
+    <div class="mt-4 grid gap-2">
+      <button id="user-popout-primary" type="button" class="w-full rounded-xl bg-discord-accent hover:bg-discord-accentHover text-white py-2.5 text-sm font-semibold transition">Открыть личный чат</button>
+      <button id="user-popout-profile" type="button" class="w-full rounded-xl bg-discord-surface hover:bg-discord-hover text-white py-2.5 text-sm font-semibold transition">Профиль</button>
+      <button id="user-popout-copy-id" type="button" class="w-full rounded-xl bg-discord-surface hover:bg-discord-hover text-white py-2.5 text-sm font-semibold transition">📋 Скопировать ID</button>
+      <div id="user-popout-moderation" class="grid grid-cols-2 gap-2"></div>
+    </div>
+  </div>
+</div>
 
 <!-- Toast Notification -->
 <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 transform -translate-y-12 opacity-0 transition-all duration-300 pointer-events-none bg-discord-accent text-white px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2">
@@ -837,6 +865,116 @@ function showContextMenu(x, y, items) {
   menu.style.top = `${Math.min(Math.max(6,y), Math.max(6,window.innerHeight-rect.height-6))}px`;
 }
 
+
+function hideUserPopout() {
+  document.getElementById('user-popout')?.classList.add('hidden');
+}
+
+function statusDotClass(status) {
+  if (status === 'idle') return 'bg-discord-yellow';
+  if (status === 'dnd') return 'bg-discord-red';
+  return 'bg-discord-green';
+}
+
+function getUserForPopout(uid) {
+  if (uid === currentUser.uid) return currentUser;
+  return usersData.find(u => u.uid === uid) || null;
+}
+
+function showUserPopout(x, y, uid, serverId = currentServerId) {
+  const pop = document.getElementById('user-popout');
+  const user = getUserForPopout(uid);
+  if (!pop || !user) return;
+
+  const srv = serversData.find(s => s.id === serverId) || null;
+  const isSelf = uid === currentUser.uid;
+  const isOwner = !!(srv && uid === srv.ownerId);
+  const canRoles = !!(srv && !isSelf && !isOwner && hasServerPermission(srv, 'manage_roles'));
+  const canBan = !!(srv && !isSelf && !isOwner && hasServerPermission(srv, 'manage_members'));
+
+  document.getElementById('user-popout-avatar').textContent = (user.nickname || 'U').charAt(0).toUpperCase();
+  document.getElementById('user-popout-name').textContent = user.nickname || 'Пользователь';
+  document.getElementById('user-popout-status').textContent = getStatusLabel(user.status || 'online');
+  document.getElementById('user-popout-custom-status').textContent = user.customStatus || '';
+  document.getElementById('user-popout-custom-status').classList.toggle('hidden', !user.customStatus);
+  document.getElementById('user-popout-status-dot').className =
+    'mb-1 w-3 h-3 rounded-full border-2 border-discord-rail ' + statusDotClass(user.status || 'online');
+  document.getElementById('user-popout-owner').classList.toggle('hidden', !isOwner);
+
+  const rolesWrap = document.getElementById('user-popout-roles');
+  rolesWrap.innerHTML = '';
+  if (srv) {
+    ensureServerRoleSchema(srv);
+    const roleIds = getMemberRoleIds(srv, uid);
+    roleIds.forEach(roleId => {
+      const role = srv.roles.find(r => r.id === roleId);
+      if (!role) return;
+      const span = document.createElement('span');
+      span.className = 'user-popout-role';
+      span.style.color = role.color || '#99AAB5';
+      span.textContent = role.name;
+      rolesWrap.appendChild(span);
+    });
+  }
+
+  const primary = document.getElementById('user-popout-primary');
+  primary.textContent = isSelf ? '✏️ Изменить профиль' : '💬 Открыть личный чат';
+  primary.onclick = () => {
+    hideUserPopout();
+    if (isSelf) openModal('modal-profile');
+    else openDirectMessage(uid);
+  };
+
+  const profileBtn = document.getElementById('user-popout-profile');
+  profileBtn.textContent = isSelf ? '⚙️ Настройки аккаунта' : '👤 Показать профиль';
+  profileBtn.onclick = () => {
+    hideUserPopout();
+    if (isSelf) openModal('modal-account-settings');
+    else showToast((user.nickname || 'Пользователь') + ' · ' + getStatusLabel(user.status || 'online'));
+  };
+
+  document.getElementById('user-popout-copy-id').onclick = () => {
+    hideUserPopout();
+    copyTextSilently(uid)
+      .then(() => showToast('ID скопирован'))
+      .catch(() => showToast('Не удалось скопировать ID', true));
+  };
+
+  const moderation = document.getElementById('user-popout-moderation');
+  moderation.innerHTML = '';
+
+  if (canRoles) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rounded-xl bg-discord-surface hover:bg-discord-hover text-white py-2 text-xs font-semibold transition';
+    b.textContent = '🛡️ Роли';
+    b.onclick = () => {
+      hideUserPopout();
+      openServerSettings('members');
+    };
+    moderation.appendChild(b);
+  }
+
+  if (canBan) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 py-2 text-xs font-semibold transition';
+    b.textContent = '🚫 Блок';
+    b.onclick = () => {
+      hideUserPopout();
+      window.banMember(uid);
+    };
+    moderation.appendChild(b);
+  }
+
+  pop.classList.remove('hidden');
+  pop.style.left = '0px';
+  pop.style.top = '0px';
+  const rect = pop.getBoundingClientRect();
+  pop.style.left = Math.min(Math.max(6, x), Math.max(6, window.innerWidth - rect.width - 6)) + 'px';
+  pop.style.top = Math.min(Math.max(6, y), Math.max(6, window.innerHeight - rect.height - 6)) + 'px';
+}
+
 function openDirectMessage(uid) {
   if (!uid || uid === currentUser.uid) return;
   currentView='dm'; currentDmUserId=uid;
@@ -858,10 +996,10 @@ function copyTextSilently(text) {
   return Promise.resolve();
 }
 
-document.addEventListener('click', hideContextMenu);
-document.addEventListener('scroll', hideContextMenu, true);
-document.addEventListener('keydown', e => { if (e.key==='Escape') hideContextMenu(); });
-window.addEventListener('resize', hideContextMenu);
+document.addEventListener('click', (e) => { hideContextMenu(); if (!e.target.closest('#user-popout') && !e.target.closest('[data-member-uid]')) hideUserPopout(); });
+document.addEventListener('scroll', () => { hideContextMenu(); hideUserPopout(); }, true);
+document.addEventListener('keydown', e => { if (e.key==='Escape') { hideContextMenu(); hideUserPopout(); } });
+window.addEventListener('resize', () => { hideContextMenu(); hideUserPopout(); });
 
 function copyTextToClipboard(text) {
   const textarea = document.createElement('textarea');
@@ -1716,25 +1854,47 @@ function renderMembersSidebar() {
   container.innerHTML = rows + deleteBtn;
 
   container.querySelectorAll('[data-member-uid]').forEach(row => {
+    const uid = row.getAttribute('data-member-uid');
+
+    row.onclick = (e) => {
+      if (e.target.closest('button, select, input, a')) return;
+      e.stopPropagation();
+      const rect = row.getBoundingClientRect();
+      showUserPopout(rect.right - 290, rect.top + 8, uid, srv.id);
+    };
+
     row.oncontextmenu = (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const uid = row.getAttribute('data-member-uid');
+      e.preventDefault();
+      e.stopPropagation();
+      hideUserPopout();
+
       const member = usersData.find(u => u.uid === uid) || (uid === currentUser.uid ? currentUser : null);
       if (!member) return;
+
       const isSelf = uid === currentUser.uid;
       const isOwner = uid === srv.ownerId;
       const canRoles = hasServerPermission(srv, 'manage_roles') && !isOwner && !isSelf;
       const canBan = hasServerPermission(srv, 'manage_members') && !isOwner && !isSelf;
+
       const items = [
-        {icon:'✉️', label:'Написать сообщение', action:()=>openDirectMessage(uid)},
-        {icon:'💬', label:'Открыть личный чат', action:()=>openDirectMessage(uid)}
+        {icon:'👤', label:'Открыть профиль', action:()=>showUserPopout(e.clientX,e.clientY,uid,srv.id)},
+        {icon:'📋', label:'Скопировать ID', action:()=>copyTextSilently(uid).then(()=>showToast('ID скопирован')).catch(()=>showToast('Не удалось скопировать ID', true))}
       ];
+
+      if (!isSelf) {
+        items.splice(1, 0, {icon:'💬', label:'Открыть личный чат', action:()=>openDirectMessage(uid)});
+      } else {
+        items.push({icon:'✏️', label:'Редактировать профиль', action:()=>openModal('modal-profile')});
+      }
+
       if (canRoles) items.push({icon:'🛡️', label:'Управлять ролями', action:()=>openServerSettings('members')});
+
       if (canBan) {
         items.push('separator');
         items.push({icon:'🚫', label:'Заблокировать участника', danger:true, action:()=>window.banMember(uid)});
       }
-      showContextMenu(e.clientX, e.clientY, items);
+
+      showContextMenu(e.clientX,e.clientY,items);
     };
   });
 }
