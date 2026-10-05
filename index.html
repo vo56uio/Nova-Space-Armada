@@ -347,8 +347,8 @@
         📎
       </button>
 
-      <button type="button" id="btn-voice-record" title="Записать голосовое сообщение" aria-label="Записать голосовое сообщение" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition flex-shrink-0">
-        🎙️
+      <button type="button" id="btn-voice-record" title="Записать голосовое сообщение" aria-label="Записать голосовое сообщение" class="nova-voice-btn p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition flex-shrink-0" data-voice-button="true">
+        <span aria-hidden="true">🎙️</span>
       </button>
 
       <div class="relative flex-1 flex items-center">
@@ -2958,9 +2958,27 @@ const banMember = window.banMember;
 const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
+// Final voice-button wiring check. This intentionally runs after all function declarations.
+const novaVoiceButton = document.getElementById('btn-voice-record');
+if (novaVoiceButton && !novaVoiceButton.dataset.voiceBound) {
+  novaVoiceButton.dataset.voiceBound = 'true';
+  novaVoiceButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (typeof novaStartVoiceRecording === 'function' && (!novaMediaRecorder || novaMediaRecorder.state !== 'recording')) {
+      novaStartVoiceRecording();
+    }
+  });
+}
+
 initAuth();
 </script>
 
+<style id="NOVA_VOICE_BUTTON_CSS">
+  #btn-voice-record.nova-voice-btn { min-width: 42px; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; }
+  #btn-voice-record.nova-voice-btn:hover { transform: translateY(-1px); }
+  #btn-voice-record.is-recording { animation: novaVoicePulse 1.2s ease-in-out infinite; }
+  @keyframes novaVoicePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(242,63,67,.15); } 50% { box-shadow: 0 0 0 7px rgba(242,63,67,0); } }
+</style>
 <style id="NOVA_VOICE_MESSAGES_PATCH_CSS">
   #btn-voice-record.is-recording {
     color: #fff;
@@ -2980,6 +2998,7 @@ initAuth();
   .nova-voice-duration { min-width: 36px; text-align: right; font-size: 11px; color: #949ba4; }
 </style>
 <!-- NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
+<!-- NOVA_VOICE_FIXED_2026-10-05 -->
 <style>
   .nova-user-card{width:min(390px,calc(100vw - 28px));background:rgba(43,45,49,.98);border:1px solid rgba(148,155,164,.22);box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(18px)}
   .nova-user-banner{height:92px;background:linear-gradient(135deg,#5865F2,#7c5cff 55%,#242b5f);position:relative;overflow:hidden}
