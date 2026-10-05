@@ -82,6 +82,7 @@
       <h1 class="text-2xl font-bold text-white">Добро пожаловать в Чат!</h1>
       <p class="text-discord-muted text-sm mt-1">Придумайте никнейм и выберите статус для общения в реальном времени.</p>
     </div>
+    <button id="btn-google-login" type="button" class="w-full mb-4 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-3 rounded-xl shadow-md transition-all">Войти через Google</button>
     <form id="auth-form" onsubmit="return handleLogin(event);" class="space-y-4 text-left">
       <div>
         <label class="block text-xs font-semibold text-discord-muted uppercase tracking-wider mb-2">Ваш Никнейм</label>
@@ -469,7 +470,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Web Audio API Synthesizer for notifications
@@ -670,6 +671,12 @@ window.handleLogin = function(e) {
   const nickInput = document.getElementById('auth-nickname').value.trim();
   const statusInput = document.getElementById('auth-status').value;
   if (!nickInput) return false;
+  if (isCloudEnabled && (!auth.currentUser || auth.currentUser.isAnonymous)) {
+    currentUser.nickname = nickInput;
+    localStorage.setItem('chat_nickname', nickInput);
+    loginWithGoogle();
+    return false;
+  }
   
   currentUser.nickname = nickInput;
   currentUser.status = statusInput;
@@ -687,18 +694,34 @@ document.getElementById('btn-logout').onclick = () => {
 };
 
 function initAuth() {
-  if (isCloudEnabled && auth) {
-    signInAnonymously(auth).then((cred) => {
-      if (cred && cred.user) currentUser.uid = cred.user.uid;
-      checkLoginState();
-    }).catch((err) => {
-      console.warn("Анонимная авторизация не удалась:", err);
-      checkLoginState();
-    });
-  } else {
+  if (!(isCloudEnabled && auth)) {
     checkLoginState();
+    return;
   }
+  onAuthStateChanged(auth, (user) => {
+    if (user && !user.isAnonymous) {
+      currentUser.uid = user.uid;
+      localStorage.setItem('chat_uid', user.uid);
+      if (!currentUser.nickname) {
+        currentUser.nickname = user.displayName || 'Игрок';
+        localStorage.setItem('chat_nickname', currentUser.nickname);
+      }
+      document.getElementById('auth-nickname').value = currentUser.nickname;
+      checkLoginState();
+    }
+    // Если не вошли через Google, остаётся экран входа
+  });
 }
+
+window.loginWithGoogle = async function() {
+  try {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  } catch (err) {
+    showToast('Вход через Google не удался: ' + (err.code || err.message), true);
+  }
+};
+
+document.getElementById('btn-google-login').onclick = () => window.loginWithGoogle();
 
 function checkLoginState() {
   if (currentUser.nickname) {
@@ -847,6 +870,7 @@ function subscribeCloudData() {
     
     if (pendingInviteCode) handlePendingInvite();
     renderServers();
+    renderMembersSidebar();
   });
 
   onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
@@ -1105,16 +1129,15 @@ function renderDirectMessagesList() {
 
 function renderMembersSidebar() {
   const container = document.getElementById('members-list-content');
-  const currentServer = serversData.find(s => s.id === currentServerId);
-  if (!currentServer || currentView === 'dm') {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || currentView === 'dm') {
     container.innerHTML = `<p class="text-xs text-discord-muted">Выберите сервер для просмотра списка участников.</p>`;
     return;
   }
 
-  const memberIds = currentServer.members || [];
+  const memberIds = srv.members || [];
   const members = usersData.filter(u => memberIds.includes(u.uid));
 
-  // If user is not synced in usersData yet, show current user locally
   if (!members.some(m => m.uid === currentUser.uid)) {
     members.push({
       uid: currentUser.uid,
@@ -1124,11 +1147,19 @@ function renderMembersSidebar() {
     });
   }
 
-  container.innerHTML = members.map(m => {
-    const isOwner = m.uid === currentServer.ownerId;
+  const manager = isServerManager(srv);
+  const owner = isServerOwner(srv);
+
+  const rows = members.map(m => {
+    const isOwner = m.uid === srv.ownerId;
+    const isAdmin = (srv.admins || []).includes(m.uid);
+    const isSelf = m.uid === currentUser.uid;
     const initial = (m.nickname || 'U').charAt(0).toUpperCase();
+    const canBan = manager && !isOwner && !isSelf;
+    const canRole = owner && !isOwner && !isSelf;
+
     return `
-      <div class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 cursor-pointer transition group">
+      <div class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 transition group">
         <div class="relative">
           <div class="w-8 h-8 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-xs">
             ${escapeHtml(initial)}
@@ -1141,12 +1172,20 @@ function renderMembersSidebar() {
           <div class="flex items-center gap-1">
             <span class="text-xs font-semibold text-gray-200 group-hover:text-white truncate">${escapeHtml(m.nickname)}</span>
             ${isOwner ? '<span title="Владелец сервера">👑</span>' : ''}
+            ${isAdmin ? '<span title="Админ сервера">🛡️</span>' : ''}
           </div>
           <div class="text-[10px] text-discord-muted truncate">${escapeHtml(m.customStatus || m.status || 'В сети')}</div>
         </div>
-      </div>
-    `;
+        ${canRole ? `<button onclick="toggleAdmin('${m.uid}')" class="text-[10px] text-discord-muted hover:text-white">${isAdmin ? 'Снять' : 'Админ'}</button>` : ''}
+        ${canBan ? `<button onclick="banMember('${m.uid}')" class="text-[10px] text-discord-red hover:underline">Бан</button>` : ''}
+      </div>`;
   }).join('');
+
+  const deleteBtn = owner
+    ? `<button onclick="deleteCurrentServer()" class="mt-4 w-full text-xs py-2 rounded-lg bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white transition">Удалить сервер</button>`
+    : '';
+
+  container.innerHTML = rows + deleteBtn;
 }
 
 
@@ -1548,6 +1587,10 @@ document.getElementById('form-join-server').onsubmit = async (e) => {
 };
 
 async function joinServerByDoc(serverDocObj) {
+  if ((serverDocObj.bans || []).includes(currentUser.uid)) {
+    showToast(`Вы забанены на сервере "${serverDocObj.name}"`, true);
+    return;
+  }
   const existingMembers = Array.isArray(serverDocObj.members) ? serverDocObj.members : [];
 
   if (!existingMembers.includes(currentUser.uid)) {
@@ -1658,6 +1701,80 @@ document.getElementById('btn-theme-toggle').onclick = () => {
   isDark = !isDark;
   document.documentElement.classList.toggle('dark', isDark);
   document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀';
+};
+
+/* ===== Модерация: баны, роли, удаление сервера ===== */
+function isServerOwner(srv) {
+  return !!srv && srv.ownerId === currentUser.uid;
+}
+function isServerManager(srv) {
+  return !!srv && (srv.ownerId === currentUser.uid || (srv.admins || []).includes(currentUser.uid));
+}
+
+async function updateServerFields(srv, fields) {
+  Object.assign(srv, fields);
+  if (isCloudEnabled) {
+    try {
+      await updateDoc(doc(COLLECTION_SERVERS, srv.id), fields);
+    } catch (e) {
+      showToast('Нет прав или ошибка сети', true);
+      return false;
+    }
+  } else {
+    saveLocalStore();
+  }
+  renderMembersSidebar();
+  return true;
+}
+
+window.banMember = async function(uid) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!isServerManager(srv) || uid === srv.ownerId || uid === currentUser.uid) return;
+  if (!confirm('Забанить этого игрока на сервере?')) return;
+
+  const bans = [...new Set([...(srv.bans || []), uid])];
+  const members = (srv.members || []).filter(m => m !== uid);
+  const admins = (srv.admins || []).filter(a => a !== uid);
+  if (await updateServerFields(srv, { bans, members, admins })) showToast('Игрок забанен');
+};
+
+window.toggleAdmin = async function(uid) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!isServerOwner(srv) || uid === srv.ownerId) return;
+
+  const current = srv.admins || [];
+  const admins = current.includes(uid) ? current.filter(a => a !== uid) : [...current, uid];
+  if (await updateServerFields(srv, { admins })) showToast('Роли обновлены');
+};
+
+window.deleteCurrentServer = async function() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!isServerOwner(srv)) return;
+  if (!confirm(`Удалить сервер "${srv.name}" вместе со всеми сообщениями? Это нельзя отменить.`)) return;
+
+  const chans = channelsData.filter(c => c.serverId === srv.id);
+  const msgs = messagesData.filter(m => m.serverId === srv.id);
+
+  try {
+    if (isCloudEnabled) {
+      for (const m of msgs) await deleteDoc(doc(COLLECTION_MESSAGES, m.id));
+      for (const c of chans) await deleteDoc(doc(COLLECTION_CHANNELS, c.id));
+      await deleteDoc(doc(COLLECTION_SERVERS, srv.id));
+    } else {
+      serversData = serversData.filter(s => s.id !== srv.id);
+      channelsData = channelsData.filter(c => c.serverId !== srv.id);
+      messagesData = messagesData.filter(m => m.serverId !== srv.id);
+      saveLocalStore();
+    }
+  } catch (e) {
+    showToast('Ошибка удаления сервера', true);
+    return;
+  }
+
+  currentServerId = null;
+  currentChannelId = null;
+  showToast('Сервер удалён');
+  renderServers();
 };
 
 initAuth();
