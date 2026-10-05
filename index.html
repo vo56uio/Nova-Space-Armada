@@ -470,7 +470,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Web Audio API Synthesizer for notifications
@@ -715,11 +715,16 @@ function initAuth() {
 
 window.loginWithGoogle = async function() {
   try {
-    await signInWithPopup(auth, new GoogleAuthProvider());
+    await signInWithRedirect(auth, new GoogleAuthProvider());
   } catch (err) {
     showToast('Вход через Google не удался: ' + (err.code || err.message), true);
   }
 };
+
+// Возврат после входа через Google: показываем ошибку, если она была
+getRedirectResult(auth).catch(err => {
+  showToast('Вход через Google не удался: ' + (err.code || err.message), true);
+});
 
 document.getElementById('btn-google-login').onclick = () => window.loginWithGoogle();
 
