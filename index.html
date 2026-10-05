@@ -2868,8 +2868,10 @@ const deleteCurrentServer = window.deleteCurrentServer;
   function novaOpenUserProfileFromElement(uid, el){
     if (!el) return novaOpenUserProfile(uid);
     const r = el.getBoundingClientRect();
-    const x = Math.min(window.innerWidth - 410, Math.max(12, r.right + 10));
-    const y = Math.min(window.innerHeight - 500, Math.max(12, r.top));
+    // Discord-style placement: to the right of the clicked user and directly below them.
+    // The final positioning helper handles viewport edges so the card stays on-screen.
+    const x = Math.max(12, r.right + 10);
+    const y = Math.max(12, r.bottom + 10);
     novaOpenUserProfile(uid, x, y);
   }
 
