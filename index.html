@@ -2756,35 +2756,10 @@ const banMember = window.banMember;
 const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
-initAuth();
-</script>
-<!-- NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
-<style>
-  .nova-user-card{width:min(390px,calc(100vw - 28px));background:rgba(43,45,49,.98);border:1px solid rgba(148,155,164,.22);box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(18px)}
-  .nova-user-banner{height:92px;background:linear-gradient(135deg,#5865F2,#7c5cff 55%,#242b5f);position:relative;overflow:hidden}
-  .nova-user-banner:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(255,255,255,.22),transparent 34%)}
-  .nova-profile-avatar{width:82px;height:82px;border:6px solid #2b2d31;box-shadow:0 8px 22px rgba(0,0,0,.35)}
-  .nova-profile-action{background:#1e1f22;border:1px solid rgba(148,155,164,.18);transition:.15s ease}
-  .nova-profile-action:hover{background:#35373c;border-color:rgba(88,101,242,.55);transform:translateY(-1px)}
-</style>
-<div id="nova-user-profile-modal" class="fixed inset-0 z-[120] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-  <div class="nova-user-card rounded-2xl overflow-hidden text-left">
-    <div class="nova-user-banner"></div>
-    <div class="relative px-5 pb-5">
-      <div id="nova-profile-avatar" class="nova-profile-avatar -mt-10 rounded-full bg-discord-accent flex items-center justify-center text-white text-2xl font-bold"></div>
-      <button id="nova-profile-close" type="button" class="absolute right-4 top-3 w-9 h-9 rounded-full bg-black/25 text-white/80 hover:bg-black/45 hover:text-white">✕</button>
-      <div class="mt-3">
-        <div class="flex items-center gap-2"><h3 id="nova-profile-name" class="text-xl font-bold text-white truncate"></h3><span id="nova-profile-owner" class="hidden text-sm" title="Владелец сервера">👑</span></div>
-        <div id="nova-profile-status" class="text-xs text-discord-muted mt-1"></div>
-        <div id="nova-profile-custom-status" class="text-sm text-gray-200 mt-3 break-words"></div>
-      </div>
-      <div id="nova-profile-role" class="hidden mt-3 text-xs"></div>
-      <div id="nova-profile-actions" class="grid grid-cols-2 gap-2 mt-5"></div>
-    </div>
-  </div>
-</div>
-<script>
+
+// Stage 4: profile cards + full context menus. Kept inside the Firebase module so it can access module-scope state.
 (function(){
+  let novaProfileUid=null;
   const STATUS_LABELS={online:'В сети',idle:'Не активен',dnd:'Не беспокоить'};
   const STATUS_DOTS={online:'🟢',idle:'🟡',dnd:'🔴'};
   function novaUser(uid){if(uid===currentUser?.uid)return currentUser;return(usersData||[]).find(u=>u.uid===uid)||null;}
@@ -2792,6 +2767,7 @@ initAuth();
   function novaMemberRole(server,uid){try{return getMemberRole(server,uid)||null}catch(e){return null;}}
   window.novaOpenUserProfile=function(uid){
     const u=novaUser(uid),modal=document.getElementById('nova-user-profile-modal');if(!u||!modal)return;
+    novaProfileUid=u.uid;
     const initial=(u.nickname||'U').charAt(0).toUpperCase();
     document.getElementById('nova-profile-avatar').textContent=initial;
     document.getElementById('nova-profile-name').textContent=u.nickname||'Пользователь';
@@ -2809,7 +2785,7 @@ initAuth();
   document.getElementById('nova-profile-close')?.addEventListener('click',novaCloseProfile);
   document.getElementById('nova-user-profile-modal')?.addEventListener('click',e=>{if(e.target.id==='nova-user-profile-modal')novaCloseProfile();});
   document.addEventListener('click',e=>{
-    const b=e.target.closest?.('[data-nova-profile-action]');if(!b)return;const action=b.dataset.novaProfileAction,name=document.getElementById('nova-profile-name')?.textContent,u=(usersData||[]).find(x=>x.nickname===name)||currentUser;
+    const b=e.target.closest?.('[data-nova-profile-action]');if(!b)return;const action=b.dataset.novaProfileAction,u=novaUser(novaProfileUid)||currentUser;
     if(action==='close')return novaCloseProfile();
     if(action==='dm'){novaCloseProfile();if(u?.uid)openDirectMessage(u.uid);}
     if(action==='copy'&&u?.uid)copyTextSilently(u.uid).then(()=>showToast('ID скопирован'));
@@ -2820,7 +2796,7 @@ initAuth();
   function novaItemsForServer(srv){
     const items=[{icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},{icon:'👤',label:'Открыть участников',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}},{icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode||'').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}];
     if(hasServerPermission(srv,'create_invites'))items.push({icon:'📨',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite')?.click();}});
-    if(hasServerPermission(srv,'manage_channels'))items.push({icon:'➕',label:'Создать канал',action:()=>openModal('modal-channel')});
+    if(hasServerPermission(srv,'manage_channels'))items.push({icon:'➕',label:'Создать канал',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;renderServers();openModal('modal-channel');}});
     if(isServerManager(srv))items.push({icon:'⚙️',label:'Настройки сервера',action:()=>openServerSettings('general')});
     if(isServerOwner(srv))items.push('separator',{icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()});return items;
   }
@@ -2854,7 +2830,37 @@ initAuth();
   },true);
   document.addEventListener('click',e=>{const row=e.target.closest?.('[data-member-uid]');if(row&&!e.target.closest('button')){const uid=row.dataset.memberUid;if(uid)novaOpenUserProfile(uid);}});
 })();
+
+initAuth();
 </script>
+
+
+<!-- NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
+<style>
+  .nova-user-card{width:min(390px,calc(100vw - 28px));background:rgba(43,45,49,.98);border:1px solid rgba(148,155,164,.22);box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(18px)}
+  .nova-user-banner{height:92px;background:linear-gradient(135deg,#5865F2,#7c5cff 55%,#242b5f);position:relative;overflow:hidden}
+  .nova-user-banner:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(255,255,255,.22),transparent 34%)}
+  .nova-profile-avatar{width:82px;height:82px;border:6px solid #2b2d31;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+  .nova-profile-action{background:#1e1f22;border:1px solid rgba(148,155,164,.18);transition:.15s ease}
+  .nova-profile-action:hover{background:#35373c;border-color:rgba(88,101,242,.55);transform:translateY(-1px)}
+</style>
+<div id="nova-user-profile-modal" class="fixed inset-0 z-[120] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+  <div class="nova-user-card rounded-2xl overflow-hidden text-left">
+    <div class="nova-user-banner"></div>
+    <div class="relative px-5 pb-5">
+      <div id="nova-profile-avatar" class="nova-profile-avatar -mt-10 rounded-full bg-discord-accent flex items-center justify-center text-white text-2xl font-bold"></div>
+      <button id="nova-profile-close" type="button" class="absolute right-4 top-3 w-9 h-9 rounded-full bg-black/25 text-white/80 hover:bg-black/45 hover:text-white">✕</button>
+      <div class="mt-3">
+        <div class="flex items-center gap-2"><h3 id="nova-profile-name" class="text-xl font-bold text-white truncate"></h3><span id="nova-profile-owner" class="hidden text-sm" title="Владелец сервера">👑</span></div>
+        <div id="nova-profile-status" class="text-xs text-discord-muted mt-1"></div>
+        <div id="nova-profile-custom-status" class="text-sm text-gray-200 mt-3 break-words"></div>
+      </div>
+      <div id="nova-profile-role" class="hidden mt-3 text-xs"></div>
+      <div id="nova-profile-actions" class="grid grid-cols-2 gap-2 mt-5"></div>
+    </div>
+  </div>
+</div>
+
 <!-- /NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
 
 </body>
