@@ -61,10 +61,20 @@
   html:not(.dark) .bg-discord-rail { background-color: #e3e5e8; }
   html:not(.dark) .text-white { color: #060607; }
   html:not(.dark) .text-gray-100, html:not(.dark) .text-gray-200 { color: #2e3035; }
+  .context-menu { animation: contextMenuIn .12s ease-out; transform-origin: top left; }
+  @keyframes contextMenuIn { from { opacity: 0; transform: scale(.96) translateY(-3px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .context-menu-item { display:flex; align-items:center; gap:.65rem; width:100%; padding:.62rem .78rem; color:#e5e7eb; font-size:.82rem; text-align:left; transition:background .12s ease,color .12s ease; }
+  .context-menu-item:hover { background:rgba(88,101,242,.22); color:#fff; }
+  .context-menu-item.danger { color:#ff6b71; }
+  .context-menu-item.danger:hover { background:rgba(242,63,67,.16); color:#fff; }
+  .context-menu-sep { height:1px; margin:.28rem .45rem; background:rgba(148,155,164,.16); }
 </style>
 </head>
 <body class="bg-discord-bg text-gray-100 dark:bg-discord-bg dark:text-gray-100 antialiased h-[100dvh] overflow-hidden flex flex-col">
 
+
+<!-- Custom Context Menu -->
+<div id="context-menu" class="context-menu fixed hidden z-[100] min-w-56 max-w-72 rounded-xl border border-gray-700/70 bg-discord-rail/95 backdrop-blur-xl shadow-2xl overflow-hidden py-1"></div>
 
 <!-- Toast Notification -->
 <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 transform -translate-y-12 opacity-0 transition-all duration-300 pointer-events-none bg-discord-accent text-white px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2">
@@ -176,9 +186,12 @@
     <aside class="w-60 bg-discord-surface flex flex-col flex-shrink-0 border-r border-gray-800/40 h-full">
       <div class="h-14 border-b border-gray-800/60 px-4 flex items-center justify-between shadow-sm flex-shrink-0">
         <h2 id="sidebar-header-title" class="font-bold text-white truncate text-base">Загрузка...</h2>
-        <button id="btn-server-invite" title="Пригласить друзей" class="hidden text-xs bg-discord-accent/20 text-discord-accent hover:bg-discord-accent hover:text-white px-2 py-1 rounded-md font-semibold transition">
-          + Пригласить
-        </button>
+        <div class="flex items-center gap-1">
+          <button id="btn-server-settings" title="Настройки сервера" class="hidden text-discord-muted hover:text-white hover:bg-discord-hover px-1.5 py-1 rounded-md transition">⚙️</button>
+          <button id="btn-server-invite" title="Пригласить друзей" class="hidden text-xs bg-discord-accent/20 text-discord-accent hover:bg-discord-accent hover:text-white px-2 py-1 rounded-md font-semibold transition">
+            + Пригласить
+          </button>
+        </div>
       </div>
 
       <!-- Navigation tabs (Text / Voice / DMs) -->
@@ -285,6 +298,10 @@
           <span>🔗</span> <span class="hidden md:inline">Ссылка</span>
         </button>
 
+        <button id="btn-open-pins" title="Закреплённые сообщения" class="text-discord-muted hover:text-white p-1.5 rounded-lg hover:bg-discord-surface text-lg">
+          📌
+        </button>
+
         <button id="btn-toggle-members" title="Список участников" class="text-discord-muted hover:text-white p-1.5 rounded-lg hover:bg-discord-surface text-lg">
           👥
         </button>
@@ -319,8 +336,13 @@
 
     <!-- Chat Input Form -->
     <form id="chat-form" onsubmit="return handleSendMessage(event);" class="p-3 sm:p-4 bg-discord-bg border-t border-gray-800/40 flex items-center gap-2 flex-shrink-0 sticky bottom-0 z-20">
+      <iframe id="nova-voice-frame" src="./index_voice.html" title="Запись голосового сообщения" allow="microphone" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-[140] w-[min(560px,calc(100vw-20px))] h-[86px] border-0 bg-transparent"></iframe>
       <button type="button" id="btn-attach-file" title="Прикрепить ссылку на картинку" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition">
         📎
+      </button>
+
+      <button type="button" id="btn-voice-record" title="Записать голосовое сообщение" aria-label="Записать голосовое сообщение" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition flex-shrink-0">
+        🎙️
       </button>
 
       <div class="relative flex-1 flex items-center">
@@ -502,13 +524,144 @@
         Сохранить изменения
       </button>
     </form>
+    <button type="button" id="btn-open-account-settings" class="w-full bg-discord-rail hover:bg-discord-hover text-white font-semibold py-2.5 rounded-xl transition border border-gray-700/50">
+      ⚙️ Настройки аккаунта
+    </button>
+  </div>
+</div>
+
+<!-- Modal: Server Settings -->
+<div id="modal-server-settings" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-hidden shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/50">
+      <div>
+        <h3 class="text-xl font-bold text-white">Настройки сервера</h3>
+        <p id="server-settings-subtitle" class="text-xs text-discord-muted mt-0.5">Управление сервером</p>
+      </div>
+      <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
+    </div>
+    <div class="flex min-h-0 flex-1">
+      <nav class="w-44 bg-discord-rail/50 border-r border-gray-700/50 p-2 space-y-1 shrink-0">
+        <button data-server-settings-tab="general" class="server-settings-tab active w-full text-left px-3 py-2 rounded-lg text-sm">⚙️ Общие</button>
+        <button data-server-settings-tab="roles" class="server-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🛡️ Роли</button>
+        <button data-server-settings-tab="members" class="server-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">👥 Участники</button>
+        <button data-server-settings-tab="channels" class="server-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm"># Каналы</button>
+        <button data-server-settings-tab="invites" class="server-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🔗 Приглашения</button>
+      </nav>
+      <div class="flex-1 overflow-y-auto p-6">
+        <section id="server-settings-panel-general" class="server-settings-panel space-y-4">
+          <div>
+            <h4 class="font-bold text-white text-lg">Основные настройки</h4>
+            <p class="text-xs text-discord-muted mt-1">Название и описание, которые увидят участники.</p>
+          </div>
+          <form id="form-server-general" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название сервера</label>
+              <input id="input-settings-server-name" maxlength="32" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Описание</label>
+              <textarea id="input-settings-server-description" maxlength="250" rows="4" placeholder="О чём этот сервер?" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent resize-none"></textarea>
+            </div>
+            <button class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить общие настройки</button>
+          </form>
+          <div class="pt-4 border-t border-gray-700/50">
+            <button id="btn-settings-delete-server" type="button" class="w-full text-sm py-2.5 rounded-xl bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white transition">Удалить сервер</button>
+          </div>
+        </section>
+
+        <section id="server-settings-panel-roles" class="server-settings-panel space-y-4 hidden">
+          <div class="flex items-start justify-between gap-3">
+            <div><h4 class="font-bold text-white text-lg">Роли</h4><p class="text-xs text-discord-muted mt-1">Создавай роли сам и выбирай, что им разрешено делать.</p></div>
+            <button id="btn-create-role" type="button" class="bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg text-sm font-semibold">+ Создать роль</button>
+          </div>
+          <div id="roles-list" class="space-y-2"></div>
+          <div id="role-editor" class="hidden border border-gray-700/60 rounded-xl p-4 bg-discord-rail/40 space-y-4">
+            <div class="flex items-center justify-between"><h5 id="role-editor-title" class="font-bold text-white">Новая роль</h5><button type="button" id="btn-close-role-editor" class="text-discord-muted hover:text-white">✕</button></div>
+            <form id="form-role-editor" class="space-y-4">
+              <input type="hidden" id="input-role-id">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название</label><input id="input-role-name" maxlength="32" required class="w-full bg-discord-surface border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent"></div>
+                <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Цвет</label><input id="input-role-color" type="color" value="#5865F2" class="w-full h-11 bg-discord-surface border border-gray-700/60 rounded-xl p-1"></div>
+              </div>
+              <div><div class="text-xs font-semibold text-discord-muted uppercase mb-2">Разрешения</div><div id="role-permissions-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div></div>
+              <div class="flex gap-2"><button class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить роль</button><button id="btn-delete-role" type="button" class="hidden px-4 bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white rounded-xl font-semibold">Удалить</button></div>
+            </form>
+          </div>
+        </section>
+
+        <section id="server-settings-panel-members" class="server-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Участники</h4><p class="text-xs text-discord-muted mt-1">Назначай роли участникам сервера.</p></div>
+          <div id="server-members-settings-list" class="space-y-2"></div>
+        </section>
+
+        <section id="server-settings-panel-channels" class="server-settings-panel space-y-4 hidden">
+          <div class="flex items-start justify-between gap-3"><div><h4 class="font-bold text-white text-lg">Каналы</h4><p class="text-xs text-discord-muted mt-1">Быстрый доступ к созданию и удалению каналов.</p></div><button id="btn-settings-add-channel" type="button" class="bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg text-sm font-semibold">+ Канал</button></div>
+          <div id="server-channels-settings-list" class="space-y-2"></div>
+        </section>
+
+        <section id="server-settings-panel-invites" class="server-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Приглашения</h4><p class="text-xs text-discord-muted mt-1">Коды уже работающих приглашений для сервера.</p></div>
+          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-3"><div class="text-xs text-discord-muted uppercase font-semibold">Код сервера</div><div class="font-mono text-lg text-discord-accent font-bold" id="settings-invite-code">—</div><button id="btn-settings-copy-invite" type="button" class="bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg text-sm font-semibold">Скопировать код</button></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Account Settings -->
+<div id="modal-account-settings" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-2xl max-h-[88vh] overflow-hidden shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/50"><div><h3 class="text-xl font-bold text-white">Настройки аккаунта</h3><p class="text-xs text-discord-muted mt-0.5">Общие настройки, как в обычном Discord-подобном клиенте.</p></div><button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button></div>
+    <div class="flex min-h-0 flex-1">
+      <nav class="w-44 bg-discord-rail/50 border-r border-gray-700/50 p-2 space-y-1 shrink-0">
+        <button data-account-settings-tab="account" class="account-settings-tab active w-full text-left px-3 py-2 rounded-lg text-sm">👤 Учётная запись</button>
+        <button data-account-settings-tab="notifications" class="account-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🔔 Уведомления</button>
+        <button data-account-settings-tab="appearance" class="account-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🎨 Внешний вид</button>
+      </nav>
+      <div class="flex-1 overflow-y-auto p-6">
+        <section id="account-settings-panel-account" class="account-settings-panel space-y-5">
+          <div><h4 class="font-bold text-white text-lg">Учётная запись</h4><p class="text-xs text-discord-muted mt-1">Управление входом и безопасностью.</p></div>
+          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4"><div class="text-xs text-discord-muted uppercase font-semibold">Email</div><div id="account-settings-email" class="mt-1 text-white font-semibold break-all">—</div><div id="account-settings-provider" class="text-xs text-discord-muted mt-1">—</div></div>
+          <form id="form-change-password" class="space-y-3 border-t border-gray-700/50 pt-4">
+            <div class="font-bold text-white">Сменить пароль</div>
+            <p id="password-change-note" class="text-xs text-discord-muted">Для аккаунтов с входом по email и паролю.</p>
+            <input id="input-new-password" type="password" minlength="6" placeholder="Новый пароль (минимум 6 символов)" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+            <input id="input-new-password-confirm" type="password" minlength="6" placeholder="Повторите новый пароль" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+            <div class="flex gap-2"><button type="submit" id="btn-change-password" class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить новый пароль</button><button type="button" id="btn-reset-password-email" class="px-4 bg-discord-rail hover:bg-discord-hover text-white rounded-xl font-semibold">Письмо для сброса</button></div>
+          </form>
+        </section>
+
+        <section id="account-settings-panel-notifications" class="account-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Уведомления</h4><p class="text-xs text-discord-muted mt-1">Базовые уведомления о новых сообщениях.</p></div>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Уведомления в приложении</b><span class="block text-xs text-discord-muted mt-1">Показывать всплывающие уведомления и звук.</span></span><input id="setting-notify-inapp" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Личные сообщения</b><span class="block text-xs text-discord-muted mt-1">Уведомлять о новых сообщениях в ЛС.</span></span><input id="setting-notify-dm" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Упоминания</b><span class="block text-xs text-discord-muted mt-1">Уведомлять, когда в сообщении есть ваш ник.</span></span><input id="setting-notify-mentions" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          <button id="btn-browser-notifications" type="button" class="w-full bg-discord-rail hover:bg-discord-hover border border-gray-700/50 text-white font-semibold py-2.5 rounded-xl">Разрешить уведомления браузера</button>
+        </section>
+
+        <section id="account-settings-panel-appearance" class="account-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Внешний вид</h4><p class="text-xs text-discord-muted mt-1">Небольшие визуальные настройки интерфейса.</p></div>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Тёмная тема</b><span class="block text-xs text-discord-muted mt-1">Переключение основной темы клиента.</span></span><input id="setting-dark-theme" type="checkbox" class="w-5 h-5 accent-discord-accent" checked></label>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Pinned Messages -->
+<div id="modal-pins" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/50"><h3 class="text-xl font-bold text-white">Закреплённые сообщения</h3><button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button></div>
+    <div id="pinned-messages-list" class="p-5 overflow-y-auto space-y-3"></div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, linkWithCredential, reauthenticateWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 // Web Audio API Synthesizer for notifications
 class AudioEngine {
@@ -583,12 +736,14 @@ let isCloudEnabled = false;
 
 let db = null;
 let auth = null;
+let storage = null;
 let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS;
 
 try {
   const app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
   COLLECTION_SERVERS = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
   COLLECTION_CHANNELS = collection(db, 'artifacts', appId, 'public', 'data', 'channels');
   COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
@@ -612,6 +767,11 @@ let currentServerId = null;
 let currentChannelId = null;
 let currentDmUserId = null;
 let activeVoiceChannelId = null;
+let accountNotificationSettings = { inApp: true, dm: true, mentions: true, browser: false };
+let messagesInitialized = false;
+let previousMessageIds = new Set();
+let activeServerSettingsTab = 'general';
+let activeAccountSettingsTab = 'account';
 
 let isMuted = false;
 let isDeafened = false;
@@ -665,6 +825,52 @@ function showToast(msg, isError = false) {
   }, 3000);
 }
 
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  if (menu) menu.classList.add('hidden');
+}
+
+function showContextMenu(x, y, items) {
+  const menu = document.getElementById('context-menu');
+  if (!menu) return;
+  menu.innerHTML = items.map(item => item === 'separator' ? '<div class="context-menu-sep"></div>' : `<button type="button" class="context-menu-item ${item.danger ? 'danger' : ''}"><span class="text-base w-5 text-center">${item.icon || '•'}</span><span class="truncate">${escapeHtml(item.label)}</span></button>`).join('');
+  const actionItems = items.filter(item => item !== 'separator');
+  menu.querySelectorAll('button.context-menu-item').forEach((btn, index) => {
+    btn.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); hideContextMenu(); actionItems[index]?.action?.(); };
+  });
+  menu.classList.remove('hidden');
+  menu.style.left='0px'; menu.style.top='0px';
+  const rect=menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(Math.max(6,x), Math.max(6,window.innerWidth-rect.width-6))}px`;
+  menu.style.top = `${Math.min(Math.max(6,y), Math.max(6,window.innerHeight-rect.height-6))}px`;
+}
+
+function openDirectMessage(uid) {
+  if (!uid || uid === currentUser.uid) return;
+  currentView='dm'; currentDmUserId=uid;
+  document.getElementById('server-channels-container').classList.add('hidden');
+  document.getElementById('dm-channels-container').classList.remove('hidden');
+  document.getElementById('sidebar-header-title').textContent='Личные сообщения';
+  document.getElementById('btn-server-invite').classList.add('hidden');
+  document.getElementById('btn-server-settings').classList.add('hidden');
+  document.getElementById('server-invite-badge').classList.add('hidden');
+  renderDirectMessagesList(); renderMessages();
+  if (window.innerWidth < 768) closeDrawer();
+}
+
+function copyTextSilently(text) {
+  if (!text) return Promise.reject(new Error('empty'));
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+  const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } finally { ta.remove(); }
+  return Promise.resolve();
+}
+
+document.addEventListener('click', hideContextMenu);
+document.addEventListener('scroll', hideContextMenu, true);
+document.addEventListener('keydown', e => { if (e.key==='Escape') hideContextMenu(); });
+window.addEventListener('resize', hideContextMenu);
+
 function copyTextToClipboard(text) {
   const textarea = document.createElement('textarea');
   textarea.value = text;
@@ -703,103 +909,252 @@ function formatMarkdown(str) {
 }
 
 
-let authMode='register';
-let googleProfilePending=false;
-function setAuthMode(mode){
-  authMode=mode==='login'?'login':'register';
-  const register=authMode==='register';
-  document.getElementById('auth-tab-register').classList.toggle('active',register);
-  document.getElementById('auth-tab-login').classList.toggle('active',!register);
-  document.getElementById('auth-nickname-wrap').classList.toggle('hidden',!register);
-  document.getElementById('auth-confirm-wrap').classList.toggle('hidden',!register);
-  document.getElementById('auth-status-wrap').classList.toggle('hidden',!register);
-  document.getElementById('auth-strength-wrap').classList.toggle('hidden',!register);
-  document.getElementById('auth-password').setAttribute('autocomplete',register?'new-password':'current-password');
-  document.getElementById('auth-password-confirm').required=register;
-  document.getElementById('auth-nickname').required=register;
-  document.getElementById('auth-submit').textContent=register?'Создать аккаунт':'Войти в аккаунт';
-  document.getElementById('auth-subtitle').textContent=register?'Создайте новый аккаунт и присоединяйтесь к чату.':'Введите данные уже созданного аккаунта.';
+let authMode = 'register';
+let googleProfilePending = false;
+
+function setAuthMode(mode) {
+  authMode = mode === 'login' ? 'login' : 'register';
+  const register = authMode === 'register';
+  document.getElementById('auth-tab-register').classList.toggle('active', register);
+  document.getElementById('auth-tab-login').classList.toggle('active', !register);
+  document.getElementById('auth-nickname-wrap').classList.toggle('hidden', !register);
+  document.getElementById('auth-confirm-wrap').classList.toggle('hidden', !register);
+  document.getElementById('auth-status-wrap').classList.toggle('hidden', !register);
+  document.getElementById('auth-strength-wrap').classList.toggle('hidden', !register);
+  document.getElementById('auth-password').setAttribute('autocomplete', register ? 'new-password' : 'current-password');
+  document.getElementById('auth-password-confirm').required = register;
+  document.getElementById('auth-nickname').required = register;
+  document.getElementById('auth-submit').textContent = register ? 'Создать аккаунт' : 'Войти в аккаунт';
+  document.getElementById('auth-subtitle').textContent = register ? 'Создайте новый аккаунт и присоединяйтесь к чату.' : 'Введите данные уже созданного аккаунта.';
   document.getElementById('auth-error').classList.add('hidden');
-  googleProfilePending=false;
-  document.getElementById('auth-email').readOnly=false;
-  document.getElementById('auth-password').required=true;
+  googleProfilePending = false;
+  document.getElementById('auth-email').readOnly = false;
+  document.getElementById('auth-password').required = true;
   document.getElementById('auth-password').classList.remove('opacity-50');
-  document.getElementById('auth-password-confirm').required=register;
+  document.getElementById('auth-password-confirm').required = register;
   document.getElementById('auth-password-confirm').classList.remove('opacity-50');
   updatePasswordStrength();
 }
-function showAuthError(message){const el=document.getElementById('auth-error');el.textContent=message;el.classList.remove('hidden')}
-function authErrorText(code){return ({'auth/email-already-in-use':'Эта почта уже зарегистрирована. Перейдите во вкладку «Вход».','auth/invalid-email':'Проверьте адрес электронной почты.','auth/weak-password':'Пароль слишком простой. Используйте минимум 6 символов.','auth/invalid-credential':'Почта или пароль указаны неверно.','auth/user-not-found':'Аккаунт с такой почтой не найден.','auth/wrong-password':'Неверный пароль.','auth/operation-not-allowed':'В Firebase не включён вход по электронной почте и паролю.','auth/network-request-failed':'Не удалось связаться с сервером авторизации.','auth/popup-blocked':'Браузер заблокировал окно Google. Разрешите всплывающие окна для сайта.','auth/popup-closed-by-user':'Окно Google было закрыто до завершения входа.','auth/unauthorized-domain':'Домен сайта не разрешён в Firebase Authentication.','auth/too-many-requests':'Слишком много попыток. Попробуйте немного позже.'}[code]||'Не удалось выполнить авторизацию. Попробуйте ещё раз.')}
-function updatePasswordStrength(){const bar=document.getElementById('auth-strength-bar'),value=document.getElementById('auth-password').value||'';if(authMode!=='register'||!value){bar.style.width='0%';return}let score=0;if(value.length>=6)score++;if(value.length>=10)score++;if(/[A-ZА-Я]/.test(value)&&/[a-zа-я]/.test(value))score++;if(/\d/.test(value))score++;if(/[^A-Za-zА-Яа-я0-9]/.test(value))score++;bar.style.width=Math.min(100,score*20)+'%'}
-async function loadCloudProfile(uid){if(!isCloudEnabled)return false;try{const snap=await getDoc(doc(COLLECTION_USERS,uid));if(!snap.exists())return false;const data=snap.data();if(!data.nickname)return false;currentUser.uid=uid;currentUser.nickname=data.nickname;currentUser.status=data.status||'online';currentUser.customStatus=data.customStatus||'';localStorage.setItem('chat_uid',uid);localStorage.setItem('chat_nickname',currentUser.nickname);localStorage.setItem('chat_status',currentUser.status);localStorage.setItem('chat_custom_status',currentUser.customStatus);return true}catch(e){console.error('Profile read error:',e);return false}}
-async function saveCloudProfile(){await setDoc(doc(COLLECTION_USERS,currentUser.uid),{uid:currentUser.uid,email:auth.currentUser?.email||'',nickname:currentUser.nickname,status:currentUser.status||'online',customStatus:currentUser.customStatus||'',lastSeen:Date.now()},{merge:true})}
 
-window.handleLogin=async function(e){
-  if(e)e.preventDefault();
+function showAuthError(message) {
+  const el = document.getElementById('auth-error');
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function authErrorText(code) {
+  return ({
+    'auth/email-already-in-use':'Эта почта уже зарегистрирована. Перейдите во вкладку «Вход».',
+    'auth/invalid-email':'Проверьте адрес электронной почты.',
+    'auth/weak-password':'Пароль слишком простой. Используйте минимум 6 символов.',
+    'auth/invalid-credential':'Почта или пароль указаны неверно.',
+    'auth/user-not-found':'Аккаунт с такой почтой не найден.',
+    'auth/wrong-password':'Неверный пароль.',
+    'auth/operation-not-allowed':'В Firebase не включён вход по электронной почте и паролю.',
+    'auth/network-request-failed':'Не удалось связаться с сервером авторизации. Проверьте соединение.',
+    'auth/popup-blocked':'Браузер заблокировал окно Google. Разрешите всплывающие окна для сайта.',
+    'auth/popup-closed-by-user':'Окно Google было закрыто до завершения входа.',
+    'auth/unauthorized-domain':'Домен сайта не разрешён в Firebase Authentication.',
+    'auth/too-many-requests':'Слишком много попыток. Попробуйте немного позже.'
+  }[code] || 'Не удалось выполнить авторизацию. Попробуйте ещё раз.');
+}
+
+function updatePasswordStrength() {
+  const bar = document.getElementById('auth-strength-bar');
+  const value = document.getElementById('auth-password').value || '';
+  if (authMode !== 'register' || !value) { bar.style.width = '0%'; return; }
+  let score = 0;
+  if (value.length >= 6) score++;
+  if (value.length >= 10) score++;
+  if (/[A-ZА-Я]/.test(value) && /[a-zа-я]/.test(value)) score++;
+  if (/\d/.test(value)) score++;
+  if (/[^A-Za-zА-Яа-я0-9]/.test(value)) score++;
+  bar.style.width = Math.min(100, score * 20) + '%';
+}
+
+async function loadCloudProfile(uid) {
+  if (!isCloudEnabled) return false;
+  try {
+    const snap = await getDoc(doc(COLLECTION_USERS, uid));
+    if (!snap.exists()) return false;
+    const data = snap.data();
+    if (!data.nickname) return false;
+    currentUser.uid = uid;
+    currentUser.nickname = data.nickname;
+    currentUser.status = data.status || 'online';
+    currentUser.customStatus = data.customStatus || '';
+    accountNotificationSettings = { inApp: true, dm: true, mentions: true, browser: false, ...(data.notificationSettings || {}) };
+    localStorage.setItem('chat_uid', uid);
+    localStorage.setItem('chat_nickname', currentUser.nickname);
+    localStorage.setItem('chat_status', currentUser.status);
+    localStorage.setItem('chat_custom_status', currentUser.customStatus);
+    return true;
+  } catch (e) {
+    console.error('Profile read error:', e);
+    return false;
+  }
+}
+
+async function saveCloudProfile() {
+  await setDoc(doc(COLLECTION_USERS, currentUser.uid), {
+    uid: currentUser.uid,
+    email: auth.currentUser?.email || '',
+    nickname: currentUser.nickname,
+    status: currentUser.status || 'online',
+    customStatus: currentUser.customStatus || '',
+    notificationSettings: accountNotificationSettings,
+    lastSeen: Date.now()
+  }, { merge: true });
+}
+
+window.handleLogin = async function(e) {
+  if (e) e.preventDefault();
   document.getElementById('auth-error').classList.add('hidden');
-  if(!(isCloudEnabled&&auth)){showAuthError('Firebase сейчас недоступен.');return false}
-  const email=document.getElementById('auth-email').value.trim();
-  const password=document.getElementById('auth-password').value;
-  const nickname=document.getElementById('auth-nickname').value.trim();
-  const confirm=document.getElementById('auth-password-confirm').value;
-  const status=document.getElementById('auth-status').value;
-  if(googleProfilePending&&auth.currentUser&&!auth.currentUser.isAnonymous){
-    if(!nickname){showAuthError('Придумайте никнейм, чтобы завершить регистрацию.');return false}
-    currentUser.uid=auth.currentUser.uid;currentUser.nickname=nickname;currentUser.status=status;currentUser.customStatus='';await saveCloudProfile();
-    localStorage.setItem('chat_uid',currentUser.uid);localStorage.setItem('chat_nickname',nickname);localStorage.setItem('chat_status',status);googleProfilePending=false;startApp();return false;
+  if (!(isCloudEnabled && auth)) { showAuthError('Firebase сейчас недоступен.'); return false; }
+
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const nickname = document.getElementById('auth-nickname').value.trim();
+  const confirm = document.getElementById('auth-password-confirm').value;
+  const status = document.getElementById('auth-status').value;
+
+  if (googleProfilePending && auth.currentUser && !auth.currentUser.isAnonymous) {
+    if (!nickname) { showAuthError('Придумайте никнейм, чтобы завершить регистрацию.'); return false; }
+    currentUser.uid = auth.currentUser.uid;
+    currentUser.nickname = nickname;
+    currentUser.status = status;
+    currentUser.customStatus = '';
+    await saveCloudProfile();
+    localStorage.setItem('chat_uid', currentUser.uid);
+    localStorage.setItem('chat_nickname', nickname);
+    localStorage.setItem('chat_status', status);
+    googleProfilePending = false;
+    startApp();
+    return false;
   }
-  if(!email||!password)return false;
-  if(authMode==='register'){
-    if(!nickname){showAuthError('Придумайте никнейм.');return false}
-    if(password.length<6){showAuthError('Пароль должен содержать минимум 6 символов.');return false}
-    if(password!==confirm){showAuthError('Пароли не совпадают.');return false}
+
+  if (!email || !password) return false;
+  if (authMode === 'register') {
+    if (!nickname) { showAuthError('Придумайте никнейм.'); return false; }
+    if (password.length < 6) { showAuthError('Пароль должен содержать минимум 6 символов.'); return false; }
+    if (password !== confirm) { showAuthError('Пароли не совпадают.'); return false; }
   }
-  const btn=document.getElementById('auth-submit');btn.disabled=true;btn.classList.add('opacity-70','cursor-wait');
-  try{
-    if(authMode==='register'){
-      const credential=await createUserWithEmailAndPassword(auth,email,password);currentUser.uid=credential.user.uid;currentUser.nickname=nickname;currentUser.status=status;currentUser.customStatus='';
-      localStorage.setItem('chat_uid',currentUser.uid);localStorage.setItem('chat_nickname',nickname);localStorage.setItem('chat_status',status);localStorage.setItem('chat_custom_status','');await saveCloudProfile();showToast('Аккаунт создан. Добро пожаловать!');startApp();
-    }else{
-      const credential=await signInWithEmailAndPassword(auth,email,password);const hasProfile=await loadCloudProfile(credential.user.uid);
-      if(!hasProfile){setAuthMode('register');document.getElementById('auth-email').value=email;showAuthError('Аккаунт найден, но профиль ещё не настроен. Выберите никнейм и завершите регистрацию.');return false}
-      showToast('С возвращением!');startApp();
+
+  const btn = document.getElementById('auth-submit');
+  btn.disabled = true; btn.classList.add('opacity-70','cursor-wait');
+  try {
+    if (authMode === 'register') {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      currentUser.uid = credential.user.uid;
+      currentUser.nickname = nickname;
+      currentUser.status = status;
+      currentUser.customStatus = '';
+      localStorage.setItem('chat_uid', currentUser.uid);
+      localStorage.setItem('chat_nickname', nickname);
+      localStorage.setItem('chat_status', status);
+      localStorage.setItem('chat_custom_status', '');
+      await saveCloudProfile();
+      showToast('Аккаунт создан. Добро пожаловать!');
+      startApp();
+    } else {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const hasProfile = await loadCloudProfile(credential.user.uid);
+      if (!hasProfile) {
+        setAuthMode('register');
+        document.getElementById('auth-email').value = email;
+        showAuthError('Аккаунт найден, но профиль ещё не настроен. Выберите никнейм и завершите регистрацию.');
+        return false;
+      }
+      showToast('С возвращением!');
+      startApp();
     }
-  }catch(err){console.error('Email auth error:',err);showAuthError(authErrorText(err?.code))}finally{btn.disabled=false;btn.classList.remove('opacity-70','cursor-wait')}
+  } catch (err) {
+    console.error('Email auth error:', err);
+    showAuthError(authErrorText(err?.code));
+  } finally {
+    btn.disabled = false; btn.classList.remove('opacity-70','cursor-wait');
+  }
   return false;
 };
 
-window.loginWithGoogle=async function(){
-  if(!(isCloudEnabled&&auth)){showAuthError('Firebase сейчас недоступен.');return}
-  try{
-    const credential=await signInWithPopup(auth,new GoogleAuthProvider());const hasProfile=await loadCloudProfile(credential.user.uid);
-    if(hasProfile){showToast('Вход через Google выполнен!');startApp()}
-    else{
-      setAuthMode('register');googleProfilePending=true;document.getElementById('auth-email').value=credential.user.email||'';document.getElementById('auth-email').readOnly=true;document.getElementById('auth-password').required=false;document.getElementById('auth-password').classList.add('opacity-50');document.getElementById('auth-password-confirm').required=false;document.getElementById('auth-password-confirm').classList.add('opacity-50');document.getElementById('auth-subtitle').textContent='Google подключён. Осталось выбрать никнейм.';document.getElementById('auth-submit').textContent='Завершить регистрацию';document.getElementById('auth-nickname').focus();showToast('Google подключён — выберите никнейм.')
+window.loginWithGoogle = async function() {
+  if (!(isCloudEnabled && auth)) { showAuthError('Firebase сейчас недоступен.'); return; }
+  try {
+    const credential = await signInWithPopup(auth, new GoogleAuthProvider());
+    const hasProfile = await loadCloudProfile(credential.user.uid);
+    if (hasProfile) {
+      showToast('Вход через Google выполнен!');
+      startApp();
+    } else {
+      setAuthMode('register');
+      googleProfilePending = true;
+      document.getElementById('auth-email').value = credential.user.email || '';
+      document.getElementById('auth-email').readOnly = true;
+      document.getElementById('auth-password').required = false;
+      document.getElementById('auth-password').classList.add('opacity-50');
+      document.getElementById('auth-password-confirm').required = false;
+      document.getElementById('auth-password-confirm').classList.add('opacity-50');
+      document.getElementById('auth-subtitle').textContent = 'Google подключён. Осталось выбрать никнейм.';
+      document.getElementById('auth-submit').textContent = 'Завершить регистрацию';
+      document.getElementById('auth-nickname').focus();
+      showToast('Google подключён — выберите никнейм.');
     }
-  }catch(err){console.error('Google sign-in error:',err);showAuthError(authErrorText(err?.code))}
+  } catch (err) {
+    console.error('Google sign-in error:', err);
+    showAuthError(authErrorText(err?.code));
+  }
 };
 
-document.getElementById('auth-tab-register').onclick=()=>setAuthMode('register');
-document.getElementById('auth-tab-login').onclick=()=>setAuthMode('login');
-document.getElementById('btn-google-login').onclick=()=>window.loginWithGoogle();
-document.getElementById('auth-password').addEventListener('input',updatePasswordStrength);
-document.getElementById('auth-password-toggle').onclick=()=>{const input=document.getElementById('auth-password');input.type=input.type==='password'?'text':'password'};
-document.getElementById('btn-logout').onclick=async()=>{try{if(auth)await signOut(auth)}catch(e){}['chat_nickname','chat_status','chat_custom_status','chat_uid'].forEach(k=>localStorage.removeItem(k));window.location.reload()};
+document.getElementById('auth-tab-register').onclick = () => setAuthMode('register');
+document.getElementById('auth-tab-login').onclick = () => setAuthMode('login');
+document.getElementById('btn-google-login').onclick = () => window.loginWithGoogle();
+document.getElementById('auth-password').addEventListener('input', updatePasswordStrength);
+document.getElementById('auth-password-toggle').onclick = () => {
+  const input = document.getElementById('auth-password');
+  input.type = input.type === 'password' ? 'text' : 'password';
+};
 
-function initAuth(){
-  if(!(isCloudEnabled&&auth)){document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register');return}
-  onAuthStateChanged(auth,async(user)=>{
-    if(user&&!user.isAnonymous){
-      const hasProfile=await loadCloudProfile(user.uid);
-      if(hasProfile){document.getElementById('auth-screen').classList.add('hidden');startApp()}
-      else{
-        document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register');document.getElementById('auth-email').value=user.email||'';
-        if(user.providerData?.some(p=>p.providerId==='google.com')){googleProfilePending=true;document.getElementById('auth-email').readOnly=true;document.getElementById('auth-password').required=false;document.getElementById('auth-password').classList.add('opacity-50');document.getElementById('auth-password-confirm').required=false;document.getElementById('auth-password-confirm').classList.add('opacity-50');document.getElementById('auth-submit').textContent='Завершить регистрацию';document.getElementById('auth-subtitle').textContent='Google подключён. Осталось выбрать никнейм.'}
+document.getElementById('btn-logout').onclick = async () => {
+  try { if (auth) await signOut(auth); } catch (e) {}
+  ['chat_nickname','chat_status','chat_custom_status','chat_uid'].forEach(k => localStorage.removeItem(k));
+  window.location.reload();
+};
+
+function initAuth() {
+  if (!(isCloudEnabled && auth)) {
+    document.getElementById('auth-screen').classList.remove('hidden');
+    setAuthMode('register');
+    return;
+  }
+  onAuthStateChanged(auth, async (user) => {
+    if (user && !user.isAnonymous) {
+      const hasProfile = await loadCloudProfile(user.uid);
+      if (hasProfile) {
+        document.getElementById('auth-screen').classList.add('hidden');
+        startApp();
+      } else {
+        document.getElementById('auth-screen').classList.remove('hidden');
+        setAuthMode('register');
+        document.getElementById('auth-email').value = user.email || '';
+        if (user.providerData?.some(p => p.providerId === 'google.com')) {
+          googleProfilePending = true;
+          document.getElementById('auth-email').readOnly = true;
+          document.getElementById('auth-password').required = false;
+          document.getElementById('auth-password-confirm').required = false;
+          document.getElementById('auth-submit').textContent = 'Завершить регистрацию';
+          document.getElementById('auth-subtitle').textContent = 'Google подключён. Осталось выбрать никнейм.';
+        }
       }
-    }else{document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register')}
+    } else {
+      document.getElementById('auth-screen').classList.remove('hidden');
+      setAuthMode('register');
+    }
   });
 }
-function checkLoginState(){document.getElementById('auth-screen').classList.remove('hidden')}
+
+function checkLoginState() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+}
 
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
@@ -815,6 +1170,57 @@ function startApp() {
     document.getElementById('status-text').textContent = getStatusLabel(currentUser.status);
     loadLocalStore();
   }
+}
+
+const ROLE_PERMISSIONS = [
+  ['view_channels', 'Просматривать каналы'],
+  ['send_messages', 'Отправлять сообщения'],
+  ['delete_messages', 'Удалять свои сообщения'],
+  ['manage_messages', 'Управлять сообщениями'],
+  ['pin_messages', 'Закреплять сообщения'],
+  ['create_invites', 'Создавать приглашения'],
+  ['manage_channels', 'Управлять каналами'],
+  ['manage_members', 'Управлять участниками'],
+  ['manage_roles', 'Управлять ролями'],
+  ['manage_server', 'Управлять сервером'],
+  ['administrator', 'Администратор']
+];
+
+function defaultRolePermissions() {
+  return Object.fromEntries(ROLE_PERMISSIONS.map(([key]) => [key, key === 'view_channels' || key === 'send_messages' || key === 'delete_messages']));
+}
+
+function ensureServerRoleSchema(srv) {
+  if (!srv) return;
+  if (!Array.isArray(srv.roles) || srv.roles.length === 0) {
+    srv.roles = [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true }];
+  }
+  if (!srv.memberRoles || typeof srv.memberRoles !== 'object') srv.memberRoles = {};
+}
+
+function getServerRoles(srv) { ensureServerRoleSchema(srv); return srv.roles || []; }
+function getMemberRoleIds(srv, uid) { ensureServerRoleSchema(srv); return Array.isArray(srv.memberRoles?.[uid]) ? srv.memberRoles[uid] : ['everyone']; }
+function hasServerPermission(srv, permission, uid = currentUser.uid) {
+  if (!srv) return false;
+  if (srv.ownerId === uid) return true;
+  if ((srv.admins || []).includes(uid)) return true;
+  ensureServerRoleSchema(srv);
+  const roleIds = getMemberRoleIds(srv, uid);
+  return roleIds.some(roleId => {
+    const role = srv.roles.find(r => r.id === roleId);
+    return !!(role && (role.permissions?.administrator || role.permissions?.[permission]));
+  });
+}
+
+function getMemberRole(srv, uid) {
+  ensureServerRoleSchema(srv);
+  const roleIds = getMemberRoleIds(srv, uid);
+  const custom = srv.roles.find(r => r.id !== 'everyone' && roleIds.includes(r.id));
+  return custom || srv.roles.find(r => r.id === 'everyone') || null;
+}
+
+function getPermissionLabel(key) {
+  return (ROLE_PERMISSIONS.find(([k]) => k === key) || ['', key])[1];
 }
 
 function getStatusLabel(status) {
@@ -855,6 +1261,9 @@ function loadLocalStore() {
   channelsData = JSON.parse(localStorage.getItem('discord_channels') || '[]');
   messagesData = JSON.parse(localStorage.getItem('discord_messages') || '[]');
   usersData = JSON.parse(localStorage.getItem('discord_users') || '[]');
+  try { accountNotificationSettings = { ...accountNotificationSettings, ...(JSON.parse(localStorage.getItem('notification_settings') || '{}')) }; } catch(e) {}
+  const savedTheme = localStorage.getItem('theme_dark');
+  if (savedTheme !== null) { isDark = savedTheme !== 'false'; document.documentElement.classList.toggle('dark', isDark); document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀'; }
 
   if (serversData.length === 0) {
     createDefaultStarterServer();
@@ -884,6 +1293,9 @@ async function createDefaultStarterServer() {
     inviteCode: 'MAIN123',
     ownerId: currentUser.uid,
     members: [currentUser.uid],
+    roles: [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true }],
+    memberRoles: { [currentUser.uid]: ['everyone'] },
+    description: '',
     createdAt: Date.now()
   };
 
@@ -926,7 +1338,7 @@ function subscribeCloudData() {
 
   onSnapshot(COLLECTION_SERVERS, (snapshot) => {
     serversData = [];
-    snapshot.forEach(docSnap => serversData.push({ id: docSnap.id, ...docSnap.data() }));
+    snapshot.forEach(docSnap => { const srv = { id: docSnap.id, ...docSnap.data() }; ensureServerRoleSchema(srv); serversData.push(srv); });
     
     const myServers = serversData.filter(s => Array.isArray(s.members) && s.members.includes(currentUser.uid));
     if (myServers.length === 0) {
@@ -940,6 +1352,7 @@ function subscribeCloudData() {
     if (pendingInviteCode) handlePendingInvite();
     renderServers();
     renderMembersSidebar();
+    if (!document.getElementById('modal-server-settings').classList.contains('hidden')) renderServerSettings();
   });
 
   onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
@@ -949,14 +1362,17 @@ function subscribeCloudData() {
   });
 
   onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
-    const prevCount = messagesData.length;
-    messagesData = [];
-    snapshot.forEach(docSnap => messagesData.push({ id: docSnap.id, ...docSnap.data() }));
-    
-    if (messagesData.length > prevCount && prevCount > 0) {
-      audioFX.playReceive();
+    const nextMessages = [];
+    snapshot.forEach(docSnap => nextMessages.push({ id: docSnap.id, ...docSnap.data() }));
+    const nextIds = new Set(nextMessages.map(m => m.id));
+    if (messagesInitialized) {
+      for (const m of nextMessages) if (!previousMessageIds.has(m.id)) notifyIncomingMessage(m);
     }
+    messagesData = nextMessages;
+    previousMessageIds = nextIds;
+    messagesInitialized = true;
     renderMessages();
+    if (!document.getElementById('modal-pins').classList.contains('hidden')) renderPinnedMessages();
   });
 }
 
@@ -1011,6 +1427,21 @@ function renderServers() {
       document.getElementById('dm-channels-container').classList.add('hidden');
       renderServers();
     };
+    btn.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const sid=btn.getAttribute('data-server-id');
+      const srv=serversData.find(x=>x.id===sid);
+      if (!srv) return;
+      const items=[
+        {icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},
+        {icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode || '').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))},
+        {icon:'👥',label:'Участники',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}}
+      ];
+      if (hasServerPermission(srv,'create_invites')) items.push({icon:'👥',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite').click();}});
+      if (isServerManager(srv)) items.push({icon:'⚙️',label:'Настройки сервера',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('general');}});
+      if (isServerOwner(srv)) { items.push('separator'); items.push({icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()}); }
+      showContextMenu(e.clientX,e.clientY,items);
+    };
   });
 
   renderChannels();
@@ -1022,6 +1453,7 @@ document.getElementById('btn-home').onclick = () => {
   document.getElementById('dm-channels-container').classList.remove('hidden');
   document.getElementById('sidebar-header-title').textContent = "Личные сообщения";
   document.getElementById('btn-server-invite').classList.add('hidden');
+  document.getElementById('btn-server-settings').classList.add('hidden');
   document.getElementById('server-invite-badge').classList.add('hidden');
   renderServers();
   renderDirectMessagesList();
@@ -1043,6 +1475,7 @@ function renderChannels() {
     headerTitle.textContent = "Нет серверов";
     inviteBtn.classList.add('hidden');
     addChanBtn.classList.add('hidden');
+    document.getElementById('btn-server-settings').classList.add('hidden');
     inviteBadge.classList.add('hidden');
     chanList.innerHTML = `<p class="text-xs text-discord-muted p-2">Создайте сервер (+), чтобы начать!</p>`;
     voiceList.innerHTML = '';
@@ -1050,9 +1483,11 @@ function renderChannels() {
     return;
   }
 
+  ensureServerRoleSchema(currentServer);
   headerTitle.textContent = currentServer.name;
-  inviteBtn.classList.remove('hidden');
-  addChanBtn.classList.remove('hidden');
+  inviteBtn.classList.toggle('hidden', !hasServerPermission(currentServer, 'create_invites'));
+  addChanBtn.classList.toggle('hidden', !hasServerPermission(currentServer, 'manage_channels'));
+  document.getElementById('btn-server-settings').classList.toggle('hidden', !hasServerPermission(currentServer, 'manage_server') && !hasServerPermission(currentServer, 'manage_roles') && !hasServerPermission(currentServer, 'manage_members'));
   inviteBadge.classList.remove('hidden');
   inviteCodeSpan.textContent = currentServer.inviteCode || '...';
 
@@ -1088,6 +1523,19 @@ function renderChannels() {
       renderChannels();
       if (window.innerWidth < 768) closeDrawer();
     };
+    btn.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const id = btn.getAttribute('data-chan-id');
+      const chan = channelsData.find(c => c.id === id);
+      if (!chan) return;
+      const srv = serversData.find(s => s.id === chan.serverId);
+      const items = [{icon:'➜', label:'Открыть канал', action:()=>{currentView='server'; currentServerId=chan.serverId; currentChannelId=id; renderServers();}}];
+      if (srv && hasServerPermission(srv,'manage_channels')) {
+        items.push({icon:'✏️', label:'Переименовать', action:()=>window.renameChannelPrompt(id)});
+        items.push({icon:'🗑️', label:'Удалить канал', danger:true, action:()=>window.deleteChannel(id)});
+      }
+      showContextMenu(e.clientX, e.clientY, items);
+    };
   });
 
   voiceList.innerHTML = voiceChannels.map(vc => {
@@ -1111,6 +1559,19 @@ function renderChannels() {
     btn.onclick = () => {
       const voiceId = btn.getAttribute('data-voice-id');
       connectVoiceChannel(voiceId, vcNameById(voiceId));
+    };
+    btn.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const id = btn.getAttribute('data-voice-id');
+      const chan = channelsData.find(c => c.id === id);
+      if (!chan) return;
+      const srv = serversData.find(s => s.id === chan.serverId);
+      const items = [{icon:'🔊', label:'Подключиться', action:()=>connectVoiceChannel(id, chan.name)}];
+      if (srv && hasServerPermission(srv,'manage_channels')) {
+        items.push({icon:'✏️', label:'Переименовать', action:()=>window.renameChannelPrompt(id)});
+        items.push({icon:'🗑️', label:'Удалить канал', danger:true, action:()=>window.deleteChannel(id)});
+      }
+      showContextMenu(e.clientX, e.clientY, items);
     };
   });
 
@@ -1186,12 +1647,16 @@ function renderDirectMessagesList() {
   }).join('');
 
   dmContainer.querySelectorAll('button[data-dm-user-id]').forEach(btn => {
-    btn.onclick = () => {
-      currentView = 'dm';
-      currentDmUserId = btn.getAttribute('data-dm-user-id');
-      renderDirectMessagesList();
-      renderMessages();
-      if (window.innerWidth < 768) closeDrawer();
+    btn.onclick = () => openDirectMessage(btn.getAttribute('data-dm-user-id'));
+    btn.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const uid=btn.getAttribute('data-dm-user-id');
+      const u=usersData.find(x=>x.uid===uid);
+      if (!u) return;
+      showContextMenu(e.clientX,e.clientY,[
+        {icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(uid)},
+        {icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(uid).then(()=>showToast('ID скопирован'))}
+      ]);
     };
   });
 }
@@ -1222,13 +1687,14 @@ function renderMembersSidebar() {
   const rows = members.map(m => {
     const isOwner = m.uid === srv.ownerId;
     const isAdmin = (srv.admins || []).includes(m.uid);
+    const memberRole = getMemberRole(srv, m.uid);
     const isSelf = m.uid === currentUser.uid;
     const initial = (m.nickname || 'U').charAt(0).toUpperCase();
-    const canBan = manager && !isOwner && !isSelf;
-    const canRole = owner && !isOwner && !isSelf;
+    const canBan = hasServerPermission(srv, 'manage_members') && !isOwner && !isSelf;
+    const canRole = hasServerPermission(srv, 'manage_roles') && !isOwner && !isSelf;
 
     return `
-      <div class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 transition group">
+      <div data-member-uid="${escapeHtml(m.uid)}" class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 transition group">
         <div class="relative">
           <div class="w-8 h-8 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-xs">
             ${escapeHtml(initial)}
@@ -1242,10 +1708,11 @@ function renderMembersSidebar() {
             <span class="text-xs font-semibold text-gray-200 group-hover:text-white truncate">${escapeHtml(m.nickname)}</span>
             ${isOwner ? '<span title="Владелец сервера">👑</span>' : ''}
             ${isAdmin ? '<span title="Админ сервера">🛡️</span>' : ''}
+            ${memberRole && memberRole.id !== 'everyone' ? `<span class="text-[10px] font-semibold" style="color:${escapeHtml(memberRole.color || '#99AAB5')}">${escapeHtml(memberRole.name)}</span>` : ''}
           </div>
           <div class="text-[10px] text-discord-muted truncate">${escapeHtml(m.customStatus || m.status || 'В сети')}</div>
         </div>
-        ${canRole ? `<button onclick="toggleAdmin('${m.uid}')" class="text-[10px] text-discord-muted hover:text-white">${isAdmin ? 'Снять' : 'Админ'}</button>` : ''}
+        ${canRole ? `<button onclick="openServerSettings('members')" class="text-[10px] text-discord-muted hover:text-white">Роль</button>` : ''}
         ${canBan ? `<button onclick="banMember('${m.uid}')" class="text-[10px] text-discord-red hover:underline">Бан</button>` : ''}
       </div>`;
   }).join('');
@@ -1255,6 +1722,29 @@ function renderMembersSidebar() {
     : '';
 
   container.innerHTML = rows + deleteBtn;
+
+  container.querySelectorAll('[data-member-uid]').forEach(row => {
+    row.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const uid = row.getAttribute('data-member-uid');
+      const member = usersData.find(u => u.uid === uid) || (uid === currentUser.uid ? currentUser : null);
+      if (!member) return;
+      const isSelf = uid === currentUser.uid;
+      const isOwner = uid === srv.ownerId;
+      const canRoles = hasServerPermission(srv, 'manage_roles') && !isOwner && !isSelf;
+      const canBan = hasServerPermission(srv, 'manage_members') && !isOwner && !isSelf;
+      const items = [
+        {icon:'✉️', label:'Написать сообщение', action:()=>openDirectMessage(uid)},
+        {icon:'💬', label:'Открыть личный чат', action:()=>openDirectMessage(uid)}
+      ];
+      if (canRoles) items.push({icon:'🛡️', label:'Управлять ролями', action:()=>openServerSettings('members')});
+      if (canBan) {
+        items.push('separator');
+        items.push({icon:'🚫', label:'Заблокировать участника', danger:true, action:()=>window.banMember(uid)});
+      }
+      showContextMenu(e.clientX, e.clientY, items);
+    };
+  });
 }
 
 
@@ -1325,6 +1815,9 @@ function renderMessages() {
     const timeStr = m.ts ? new Date(m.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
     const initial = (m.authorName || 'U').charAt(0).toUpperCase();
     const isOwnerOfMsg = m.authorId === currentUser.uid;
+    const serverForMsg = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+    const canManageMessage = isOwnerOfMsg || (serverForMsg && hasServerPermission(serverForMsg, 'manage_messages'));
+    const canPinMessage = serverForMsg && hasServerPermission(serverForMsg, 'pin_messages');
 
     // Reaction markup
     const reactions = m.reactions || {};
@@ -1343,7 +1836,7 @@ function renderMessages() {
     }).join('');
 
     return `
-      <div class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 py-1.5 rounded-lg transition group relative">
+      <div data-message-id="${m.id}" class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 py-1.5 rounded-lg transition group relative">
         <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-sm flex-shrink-0 mt-0.5 shadow">
           ${escapeHtml(initial)}
         </div>
@@ -1358,10 +1851,19 @@ function renderMessages() {
 
           <div class="flex items-baseline gap-2">
             <span class="font-semibold text-sm text-white hover:underline cursor-pointer">${escapeHtml(m.authorName || 'Аноним')}</span>
-            <span class="text-[11px] text-discord-muted">${timeStr}</span>
+            <span class="text-[11px] text-discord-muted">${timeStr}${m.editedAt ? ' · изменено' : ''}</span>
+            ${m.pinned ? '<span title="Закреплено" class="text-[11px]">📌</span>' : ''}
           </div>
 
-          <div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>
+          ${m.text ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>` : ''}
+
+          ${m.voiceUrl ? `
+            <div class="nova-voice-message mt-2">
+              <span class="text-lg" aria-hidden="true">🎙️</span>
+              <audio controls preload="metadata" src="${escapeHtml(m.voiceUrl)}"></audio>
+              <span class="nova-voice-duration">${formatVoiceDuration(m.voiceDuration || 0)}</span>
+            </div>
+          ` : ''}
 
           <!-- Attachment image if present -->
           ${m.attachmentUrl ? `
@@ -1383,13 +1885,37 @@ function renderMessages() {
           <button onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text)}')" title="Ответить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">↩️</button>
           <button onclick="toggleQuickReaction('${m.id}', '❤️')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">❤️</button>
           <button onclick="toggleQuickReaction('${m.id}', '👍')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">👍</button>
-          ${isOwnerOfMsg ? `
+          ${canManageMessage ? `<button onclick="editMessage('${m.id}')" title="Изменить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">✏️</button>` : ''}
+          ${canPinMessage && currentView === 'server' ? `<button onclick="togglePinMessage('${m.id}')" title="${m.pinned ? 'Открепить' : 'Закрепить'}" class="p-1 hover:bg-discord-hover rounded ${m.pinned ? 'text-discord-accent' : 'text-discord-muted'}">📌</button>` : ''}
+          ${canManageMessage ? `
             <button onclick="deleteMessage('${m.id}')" title="Удалить" class="p-1 hover:bg-discord-hover rounded text-red-400">🗑️</button>
           ` : ''}
         </div>
       </div>
     `;
   }).join('');
+
+  feed.querySelectorAll('[data-message-id]').forEach(row => {
+    row.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const id = row.getAttribute('data-message-id');
+      const msg = messagesData.find(m => m.id === id);
+      if (!msg) return;
+      const serverForMsg = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+      const canManage = msg.authorId === currentUser.uid || (serverForMsg && hasServerPermission(serverForMsg,'manage_messages'));
+      const canPin = !!(serverForMsg && hasServerPermission(serverForMsg,'pin_messages'));
+      const items = [
+        {icon:'↩️', label:'Ответить', action:()=>window.setReplyMessage(msg.id, msg.authorName || 'Аноним', msg.text || '')},
+        {icon:'📋', label:'Копировать текст', action:()=>copyTextSilently(msg.text || '').then(()=>showToast('Текст сообщения скопирован')).catch(()=>showToast('Не удалось скопировать', true))}
+      ];
+      if (canPin && currentView === 'server') items.push({icon:'📌', label:msg.pinned ? 'Открепить сообщение' : 'Закрепить сообщение', action:()=>window.togglePinMessage(msg.id)});
+      if (canManage) {
+        items.push({icon:'✏️', label:'Изменить сообщение', action:()=>window.editMessage(msg.id)});
+        items.push({icon:'🗑️', label:'Удалить сообщение', danger:true, action:()=>window.deleteMessage(msg.id)});
+      }
+      showContextMenu(e.clientX, e.clientY, items);
+    };
+  });
 
   feed.scrollTop = feed.scrollHeight;
 }
@@ -1446,6 +1972,10 @@ window.toggleQuickReaction = function(msgId, emoji) {
 };
 
 window.deleteMessage = async function(msgId) {
+  const msg = messagesData.find(m => m.id === msgId);
+  const srv = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+  if (!msg) return;
+  if (msg.authorId !== currentUser.uid && !(srv && hasServerPermission(srv, 'manage_messages'))) return;
   if (isCloudEnabled) {
     try {
       await deleteDoc(doc(COLLECTION_MESSAGES, msgId));
@@ -1459,6 +1989,52 @@ window.deleteMessage = async function(msgId) {
     renderMessages();
     showToast("Сообщение удалено");
   }
+};
+
+window.editMessage = async function(msgId) {
+  const msg = messagesData.find(m => m.id === msgId);
+  if (!msg) return;
+  const srv = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+  if (msg.authorId !== currentUser.uid && !(srv && hasServerPermission(srv, 'manage_messages'))) return;
+  const next = prompt('Изменить сообщение:', msg.text || '');
+  if (next === null) return;
+  const text = next.trim();
+  if (!text && !msg.attachmentUrl && !msg.voiceUrl) { showToast('Сообщение не может быть пустым', true); return; }
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_MESSAGES, msgId), { text, editedAt: Date.now() });
+    else { msg.text = text; msg.editedAt = Date.now(); saveLocalStore(); renderMessages(); }
+    showToast('Сообщение изменено');
+  } catch (e) { showToast('Не удалось изменить сообщение', true); }
+};
+
+window.togglePinMessage = async function(msgId) {
+  const msg = messagesData.find(m => m.id === msgId);
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!msg || !srv || !hasServerPermission(srv, 'pin_messages')) return;
+  const pinned = !msg.pinned;
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_MESSAGES, msgId), { pinned, pinnedAt: pinned ? Date.now() : null, pinnedBy: pinned ? currentUser.uid : null });
+    else { msg.pinned = pinned; msg.pinnedAt = pinned ? Date.now() : null; msg.pinnedBy = pinned ? currentUser.uid : null; saveLocalStore(); renderMessages(); }
+    showToast(pinned ? 'Сообщение закреплено' : 'Сообщение откреплено');
+  } catch(e) { showToast('Не удалось изменить закрепление', true); }
+};
+
+function renderPinnedMessages() {
+  const list = document.getElementById('pinned-messages-list');
+  const currentServer = serversData.find(s => s.id === currentServerId);
+  if (!currentServer || currentView !== 'server' || !currentChannelId) { list.innerHTML = '<p class="text-sm text-discord-muted">Закреплённые сообщения доступны внутри сервера.</p>'; return; }
+  const pinned = messagesData.filter(m => m.channelId === currentChannelId && m.pinned).sort((a,b) => (b.pinnedAt || b.ts || 0) - (a.pinnedAt || a.ts || 0));
+  list.innerHTML = pinned.length ? pinned.map(m => `
+    <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-3">
+      <div class="flex items-center justify-between gap-2"><div class="text-xs font-bold text-white">${escapeHtml(m.authorName || 'Аноним')}</div><div class="text-[10px] text-discord-muted">${m.ts ? new Date(m.ts).toLocaleString('ru-RU') : ''}</div></div>
+      <div class="text-sm text-gray-200 mt-1 whitespace-pre-wrap break-words">${formatMarkdown(m.text || '')}</div>
+      <button onclick="scrollToMessage('${m.id}')" class="mt-2 text-xs text-discord-accent hover:underline">Перейти к сообщению</button>
+    </div>`).join('') : '<div class="text-sm text-discord-muted text-center py-8">В этом канале пока нет закреплённых сообщений.</div>';
+}
+
+window.scrollToMessage = function(msgId) {
+  closeModals();
+  setTimeout(() => { const el = document.querySelector(`[data-message-id="${msgId}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
 };
 
 // Attachment modal logic
@@ -1483,12 +2059,23 @@ window.handleSendMessage = async function(e) {
   if (e) e.preventDefault();
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
-  
+
   if ((!text && !pendingAttachmentUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
   }
 
-  input.value = '';
+  await novaSendMessagePayload({ text, attachmentUrl: pendingAttachmentUrl || null });
+  return false;
+};
+
+async function novaSendMessagePayload({ text = '', attachmentUrl = null, voiceUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
+  const cleanText = String(text || '').trim();
+  if ((!cleanText && !attachmentUrl && !voiceUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
+    return false;
+  }
+
+  const input = document.getElementById('chat-input');
+  if (!voiceUrl && input) input.value = '';
 
   const newMsg = {
     id: 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -1497,18 +2084,20 @@ window.handleSendMessage = async function(e) {
     targetDmId: currentView === 'dm' ? currentDmUserId : null,
     authorId: currentUser.uid,
     authorName: currentUser.nickname,
-    text: text,
-    attachmentUrl: pendingAttachmentUrl || null,
+    text: cleanText,
+    attachmentUrl: attachmentUrl || null,
+    voiceUrl: voiceUrl || null,
+    voiceDuration: Math.max(0, Math.round(voiceDuration || 0)),
+    voiceMimeType: voiceMimeType || null,
     replyTo: activeReplyMessage ? { authorName: activeReplyMessage.authorName, text: activeReplyMessage.text } : null,
     reactions: {},
     ts: Date.now()
   };
 
-  // Reset previews
   activeReplyMessage = null;
   pendingAttachmentUrl = '';
-  document.getElementById('reply-preview-bar').classList.add('hidden');
-  document.getElementById('attachment-preview-bar').classList.add('hidden');
+  document.getElementById('reply-preview-bar')?.classList.add('hidden');
+  document.getElementById('attachment-preview-bar')?.classList.add('hidden');
 
   audioFX.playSend();
 
@@ -1516,16 +2105,146 @@ window.handleSendMessage = async function(e) {
     try {
       await setDoc(doc(COLLECTION_MESSAGES, newMsg.id), newMsg);
     } catch(err) {
-      showToast("Ошибка отправки сообщения", true);
+      showToast('Ошибка отправки сообщения', true);
+      return false;
     }
   } else {
     messagesData.push(newMsg);
     saveLocalStore();
     renderMessages();
   }
-  return false;
-};
+  return true;
+}
 
+function formatVoiceDuration(seconds) {
+  const s = Math.max(0, Math.round(Number(seconds) || 0));
+  const mins = Math.floor(s / 60);
+  const secs = String(s % 60).padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+// ===== Voice patch bridge =====
+// Вся тяжёлая логика записи/загрузки находится в ./index_voice.html.
+// Этот блок только передаёт текущий контекст и принимает результат.
+const novaVoiceFrame = document.getElementById('nova-voice-frame');
+let novaVoiceFrameReady = false;
+let novaVoiceRecording = false;
+let novaVoiceStartQueued = false;
+const NOVA_MAX_VOICE_SECONDS = 120;
+
+function getNovaVoiceContext() {
+  return {
+    uid: currentUser?.uid || '',
+    view: currentView,
+    serverId: currentServerId || null,
+    channelId: currentChannelId || null,
+    dmUserId: currentDmUserId || null,
+    maxSeconds: NOVA_MAX_VOICE_SECONDS
+  };
+}
+
+function novaPostVoice(type, extra = {}) {
+  if (!novaVoiceFrame?.contentWindow) return false;
+  novaVoiceFrame.contentWindow.postMessage({
+    type,
+    context: getNovaVoiceContext(),
+    ...extra
+  }, window.location.origin);
+  return true;
+}
+
+function novaShowVoiceFrame() {
+  if (!novaVoiceFrame) return;
+  novaVoiceFrame.classList.remove('hidden');
+  novaVoiceFrame.classList.add('flex');
+  novaPostVoice('NOVA_VOICE_SET_CONTEXT');
+}
+
+function novaHideVoiceFrame() {
+  if (!novaVoiceFrame) return;
+  novaVoiceFrame.classList.add('hidden');
+  novaVoiceFrame.classList.remove('flex');
+}
+
+novaVoiceFrame?.addEventListener('load', () => {
+  novaVoiceFrameReady = true;
+  novaPostVoice('NOVA_VOICE_SET_CONTEXT');
+  if (novaVoiceStartQueued) {
+    novaVoiceStartQueued = false;
+    novaPostVoice('NOVA_VOICE_START');
+  }
+});
+
+window.addEventListener('message', async (e) => {
+  if (e.origin !== window.location.origin || e.source !== novaVoiceFrame?.contentWindow) return;
+  const msg = e.data || {};
+
+  if (msg.type === 'NOVA_VOICE_READY') {
+    novaVoiceFrameReady = true;
+    novaPostVoice('NOVA_VOICE_SET_CONTEXT');
+    if (novaVoiceStartQueued) {
+      novaVoiceStartQueued = false;
+      novaPostVoice('NOVA_VOICE_START');
+    }
+    return;
+  }
+
+  if (msg.type === 'NOVA_VOICE_STATE') {
+    novaVoiceRecording = !!msg.recording;
+    const btn = document.getElementById('btn-voice-record');
+    btn?.classList.toggle('is-recording', novaVoiceRecording);
+    return;
+  }
+
+  if (msg.type === 'NOVA_VOICE_PROGRESS') {
+    return;
+  }
+
+  if (msg.type === 'NOVA_VOICE_CANCELLED') {
+    novaVoiceRecording = false;
+    document.getElementById('btn-voice-record')?.classList.remove('is-recording');
+    novaHideVoiceFrame();
+    return;
+  }
+
+  if (msg.type === 'NOVA_VOICE_ERROR') {
+    novaVoiceRecording = false;
+    document.getElementById('btn-voice-record')?.classList.remove('is-recording');
+    novaHideVoiceFrame();
+    showToast(msg.message || 'Ошибка голосового сообщения', true);
+    return;
+  }
+
+  if (msg.type === 'NOVA_VOICE_SENT') {
+    novaVoiceRecording = false;
+    document.getElementById('btn-voice-record')?.classList.remove('is-recording');
+    novaHideVoiceFrame();
+
+    const sent = await novaSendMessagePayload({
+      voiceUrl: msg.voiceUrl,
+      voiceDuration: msg.voiceDuration,
+      voiceMimeType: msg.voiceMimeType
+    });
+    if (sent) showToast('Голосовое сообщение отправлено');
+    else showToast('Файл загрузился, но сообщение не удалось отправить', true);
+  }
+});
+
+document.getElementById('btn-voice-record')?.addEventListener('click', () => {
+  if (!currentUser?.uid) {
+    showToast('Сначала войдите в аккаунт', true);
+    return;
+  }
+  if ((currentView === 'server' && (!currentServerId || !currentChannelId)) || (currentView === 'dm' && !currentDmUserId)) {
+    showToast('Сначала выберите канал или личный чат', true);
+    return;
+  }
+
+  novaShowVoiceFrame();
+  novaPostVoice('NOVA_VOICE_SET_CONTEXT');
+  if (novaVoiceFrameReady) novaPostVoice('NOVA_VOICE_START');
+  else novaVoiceStartQueued = true;
+});
 
 // Emoji picker interaction
 const btnEmoji = document.getElementById('btn-emoji');
@@ -1585,6 +2304,9 @@ document.getElementById('form-create-server').onsubmit = async (e) => {
     inviteCode: inviteCode,
     ownerId: currentUser.uid,
     members: [currentUser.uid],
+    roles: [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true }],
+    memberRoles: { [currentUser.uid]: ['everyone'] },
+    description: '',
     createdAt: Date.now()
   };
 
@@ -1737,11 +2459,196 @@ document.getElementById('form-update-profile').onsubmit = async (e) => {
   showToast("Профиль обновлен!");
 };
 
+function setServerSettingsTab(tab) {
+  activeServerSettingsTab = tab;
+  document.querySelectorAll('.server-settings-tab').forEach(btn => {
+    const active = btn.dataset.serverSettingsTab === tab;
+    btn.classList.toggle('bg-discord-hover', active);
+    btn.classList.toggle('text-white', active);
+    btn.classList.toggle('text-discord-muted', !active);
+  });
+  document.querySelectorAll('.server-settings-panel').forEach(panel => panel.classList.add('hidden'));
+  document.getElementById(`server-settings-panel-${tab}`)?.classList.remove('hidden');
+  renderServerSettings();
+}
+
+function setAccountSettingsTab(tab) {
+  activeAccountSettingsTab = tab;
+  document.querySelectorAll('.account-settings-tab').forEach(btn => {
+    const active = btn.dataset.accountSettingsTab === tab;
+    btn.classList.toggle('bg-discord-hover', active);
+    btn.classList.toggle('text-white', active);
+    btn.classList.toggle('text-discord-muted', !active);
+  });
+  document.querySelectorAll('.account-settings-panel').forEach(panel => panel.classList.add('hidden'));
+  document.getElementById(`account-settings-panel-${tab}`)?.classList.remove('hidden');
+}
+
+function renderRolePermissions(role) {
+  const grid = document.getElementById('role-permissions-grid');
+  grid.innerHTML = ROLE_PERMISSIONS.map(([key, label]) => `
+    <label class="flex items-center gap-2 p-2 rounded-lg bg-discord-surface border border-gray-700/40 text-xs text-gray-200 ${role?.managed && key !== 'view_channels' && key !== 'send_messages' && key !== 'delete_messages' ? 'opacity-60' : ''}">
+      <input type="checkbox" data-role-permission="${key}" class="w-4 h-4 accent-discord-accent" ${role?.permissions?.[key] ? 'checked' : ''} ${role?.managed && !['view_channels','send_messages','delete_messages'].includes(key) ? 'disabled' : ''}>
+      <span>${escapeHtml(label)}</span>
+    </label>`).join('');
+}
+
+window.openRoleEditor = function(roleId = null) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
+  ensureServerRoleSchema(srv);
+  const role = roleId ? srv.roles.find(r => r.id === roleId) : null;
+  document.getElementById('role-editor').classList.remove('hidden');
+  document.getElementById('role-editor-title').textContent = role ? `Роль: ${role.name}` : 'Новая роль';
+  document.getElementById('input-role-id').value = role?.id || '';
+  document.getElementById('input-role-name').value = role?.name || '';
+  document.getElementById('input-role-color').value = role?.color || '#5865F2';
+  renderRolePermissions(role || { permissions: defaultRolePermissions() });
+  document.getElementById('btn-delete-role').classList.toggle('hidden', !role || role.managed);
+}
+
+function renderRolesSettings() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const list = document.getElementById('roles-list');
+  if (!srv) { list.innerHTML = ''; return; }
+  ensureServerRoleSchema(srv);
+  const canManage = hasServerPermission(srv, 'manage_roles');
+  document.getElementById('btn-create-role').classList.toggle('hidden', !canManage);
+  list.innerHTML = srv.roles.map(role => {
+    const count = Object.values(srv.memberRoles || {}).filter(ids => (ids || []).includes(role.id)).length;
+    const perms = Object.entries(role.permissions || {}).filter(([,v]) => v).map(([k]) => getPermissionLabel(k)).slice(0,3);
+    return `<button type="button" ${canManage ? `onclick="openRoleEditor('${role.id}')"` : ''} class="w-full text-left bg-discord-rail border border-gray-700/50 rounded-xl p-3 hover:bg-discord-hover transition ${!canManage ? 'cursor-default' : ''}">
+      <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:${escapeHtml(role.color || '#99AAB5')}"></span><span class="font-semibold text-white flex-1">${escapeHtml(role.name)}</span><span class="text-[10px] text-discord-muted">${count} уч.</span>${role.managed ? '<span class="text-[10px] text-discord-muted">по умолчанию</span>' : ''}</div>
+      <div class="text-[10px] text-discord-muted mt-1 truncate">${escapeHtml(perms.join(' · ') || 'Без специальных разрешений')}</div>
+    </button>`;
+  }).join('');
+}
+
+function renderServerMembersSettings() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const list = document.getElementById('server-members-settings-list');
+  if (!srv) { list.innerHTML = ''; return; }
+  ensureServerRoleSchema(srv);
+  const members = usersData.filter(u => (srv.members || []).includes(u.uid));
+  if (!members.some(m => m.uid === currentUser.uid)) members.push({uid:currentUser.uid,nickname:currentUser.nickname,status:currentUser.status});
+  const canRoles = hasServerPermission(srv, 'manage_roles');
+  list.innerHTML = members.map(m => {
+    const roleIds = getMemberRoleIds(srv, m.uid);
+    const isOwner = m.uid === srv.ownerId;
+    const roleOptions = srv.roles.map(role => `<option value="${role.id}" ${roleIds.includes(role.id) ? 'selected' : ''}>${escapeHtml(role.name)}</option>`).join('');
+    return `<div data-member-uid="${escapeHtml(m.uid)}" class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
+      <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm">${escapeHtml((m.nickname || 'U').charAt(0).toUpperCase())}</div>
+      <div class="min-w-0 flex-1"><div class="font-semibold text-white text-sm truncate">${escapeHtml(m.nickname || 'Пользователь')} ${isOwner ? '👑' : ''}</div><div class="text-[10px] text-discord-muted">${escapeHtml(m.uid)}</div></div>
+      <select data-member-role="${m.uid}" multiple size="1" ${(!canRoles || isOwner) ? 'disabled' : ''} class="min-w-40 max-w-48 bg-discord-surface border border-gray-700/60 rounded-lg px-2 py-1.5 text-xs text-white">${roleOptions}</select>
+      ${canRoles && !isOwner ? `<button type="button" onclick="saveMemberRoles('${m.uid}')" class="text-xs bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg">Сохранить</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+window.saveMemberRoles = async function(uid) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
+  ensureServerRoleSchema(srv);
+  const sel = document.querySelector(`[data-member-role="${uid}"]`);
+  if (!sel) return;
+  const selected = Array.from(sel.selectedOptions).map(o => o.value);
+  const roles = selected.includes('everyone') ? selected : ['everyone', ...selected];
+  const memberRoles = { ...(srv.memberRoles || {}), [uid]: roles };
+  if (isCloudEnabled) {
+    try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), { memberRoles }); } catch(e) { showToast('Не удалось сохранить роли', true); return; }
+  } else { srv.memberRoles = memberRoles; saveLocalStore(); }
+  showToast('Роли участника обновлены');
+};
+
+function renderServerChannelsSettings() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const list = document.getElementById('server-channels-settings-list');
+  if (!srv) { list.innerHTML=''; return; }
+  const canManage = hasServerPermission(srv, 'manage_channels');
+  const chans = channelsData.filter(c => c.serverId === srv.id).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  list.innerHTML = chans.map(c => `<div class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3"><span>${c.type === 'voice' ? '🔊' : '#'}</span><span class="text-sm text-white flex-1">${escapeHtml(c.name)}</span><span class="text-[10px] text-discord-muted">${c.type === 'voice' ? 'голосовой' : 'текстовый'}</span>${canManage ? `<button type="button" onclick="renameChannelPrompt('${c.id}')" class="text-xs text-discord-muted hover:text-white">Переименовать</button><button type="button" onclick="deleteChannel('${c.id}')" class="text-xs text-discord-red hover:underline">Удалить</button>` : ''}</div>`).join('');
+}
+
+window.renameChannelPrompt = async function(chanId) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const chan = channelsData.find(c => c.id === chanId);
+  if (!srv || !chan || chan.serverId !== srv.id || !hasServerPermission(srv,'manage_channels')) return;
+  const name = prompt('Новое название канала:', chan.name);
+  if (name === null) return;
+  const clean = name.trim().toLowerCase().replace(/\s+/g,'-');
+  if (!clean) return;
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_CHANNELS, chan.id), { name: clean });
+    else { chan.name = clean; saveLocalStore(); renderChannels(); }
+    showToast('Канал переименован');
+    renderServerSettings();
+  } catch(e) { showToast('Ошибка переименования канала', true); }
+};
+
+window.deleteChannel = async function(chanId) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const chan = channelsData.find(c => c.id === chanId);
+  if (!srv || !chan || chan.serverId !== srv.id || !hasServerPermission(srv,'manage_channels')) return;
+  if (channelsData.filter(c=>c.serverId===srv.id && c.type==='text').length <= 1 && chan.type === 'text') { showToast('Нельзя удалить последний текстовый канал', true); return; }
+  if (!confirm(`Удалить канал ${chan.name}?`)) return;
+  try {
+    if (isCloudEnabled) {
+      await deleteDoc(doc(COLLECTION_CHANNELS, chan.id));
+      for (const m of messagesData.filter(m => m.channelId === chan.id)) await deleteDoc(doc(COLLECTION_MESSAGES, m.id));
+    } else { channelsData = channelsData.filter(c=>c.id!==chanId); messagesData = messagesData.filter(m=>m.channelId!==chanId); saveLocalStore(); }
+    if (currentChannelId === chanId) currentChannelId = null;
+    renderChannels(); renderServerSettings();
+    showToast('Канал удалён');
+  } catch(e) { showToast('Ошибка удаления канала', true); }
+};
+
+function renderServerSettings() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv) return;
+  ensureServerRoleSchema(srv);
+  document.getElementById('server-settings-subtitle').textContent = srv.name;
+  document.getElementById('input-settings-server-name').value = srv.name || '';
+  document.getElementById('input-settings-server-description').value = srv.description || '';
+  document.getElementById('settings-invite-code').textContent = srv.inviteCode || '—';
+  document.getElementById('btn-settings-delete-server').classList.toggle('hidden', !isServerOwner(srv));
+  renderRolesSettings();
+  renderServerMembersSettings();
+  renderServerChannelsSettings();
+}
+
+window.openServerSettings = function(tab='general') {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv) return;
+  if (!hasServerPermission(srv, 'manage_server') && !hasServerPermission(srv, 'manage_roles') && !hasServerPermission(srv, 'manage_members')) { showToast('Недостаточно прав', true); return; }
+  openModal('modal-server-settings');
+  setServerSettingsTab(tab);
+};
+
 window.openModal = function(id) {
   if (id === 'modal-profile') {
     document.getElementById('input-profile-nickname').value = currentUser.nickname;
     document.getElementById('select-profile-status').value = currentUser.status;
     document.getElementById('input-profile-custom-status').value = currentUser.customStatus || '';
+  }
+  if (id === 'modal-server-settings') renderServerSettings();
+  if (id === 'modal-account-settings') {
+    document.getElementById('account-settings-email').textContent = auth?.currentUser?.email || '—';
+    const providers = auth?.currentUser?.providerData?.map(p => p.providerId).join(', ') || '—';
+    document.getElementById('account-settings-provider').textContent = `Способы входа: ${providers}`;
+    const isPasswordProvider = auth?.currentUser?.providerData?.some(p => p.providerId === 'password');
+    const canManagePassword = !!auth?.currentUser?.email;
+    document.getElementById('input-new-password').disabled = !canManagePassword;
+    document.getElementById('input-new-password-confirm').disabled = !canManagePassword;
+    document.getElementById('btn-change-password').disabled = !canManagePassword;
+    document.getElementById('btn-change-password').textContent = isPasswordProvider ? 'Сохранить новый пароль' : 'Установить пароль';
+    document.getElementById('btn-reset-password-email').disabled = !isPasswordProvider;
+    document.getElementById('btn-reset-password-email').classList.toggle('opacity-50', !isPasswordProvider);
+    document.getElementById('password-change-note').textContent = isPasswordProvider ? 'Можно изменить пароль прямо здесь.' : 'У этого аккаунта вход через Google. Здесь можно добавить пароль и затем входить также по email.';
+    document.getElementById('setting-notify-inapp').checked = accountNotificationSettings.inApp !== false;
+    document.getElementById('setting-notify-dm').checked = accountNotificationSettings.dm !== false;
+    document.getElementById('setting-notify-mentions').checked = accountNotificationSettings.mentions !== false;
+    document.getElementById('setting-dark-theme').checked = isDark;
+    document.getElementById('btn-browser-notifications').textContent = ('Notification' in window && Notification.permission === 'granted') ? 'Уведомления браузера разрешены' : 'Разрешить уведомления браузера';
   }
   document.getElementById(id).classList.remove('hidden');
 };
@@ -1772,12 +2679,160 @@ document.getElementById('btn-theme-toggle').onclick = () => {
   document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀';
 };
 
+document.getElementById('btn-server-settings').onclick = () => openServerSettings('general');
+document.getElementById('btn-open-account-settings').onclick = () => { closeModals(); openModal('modal-account-settings'); setAccountSettingsTab('account'); };
+document.getElementById('btn-open-pins').onclick = () => { renderPinnedMessages(); openModal('modal-pins'); };
+document.querySelectorAll('.server-settings-tab').forEach(btn => btn.onclick = () => setServerSettingsTab(btn.dataset.serverSettingsTab));
+document.querySelectorAll('.account-settings-tab').forEach(btn => btn.onclick = () => setAccountSettingsTab(btn.dataset.accountSettingsTab));
+document.getElementById('btn-create-role').onclick = () => openRoleEditor();
+document.getElementById('btn-close-role-editor').onclick = () => document.getElementById('role-editor').classList.add('hidden');
+document.getElementById('btn-settings-add-channel').onclick = () => { closeModals(); openModal('modal-channel'); };
+document.getElementById('btn-settings-copy-invite').onclick = () => copyTextToClipboard(document.getElementById('settings-invite-code').textContent);
+document.getElementById('btn-settings-delete-server').onclick = () => window.deleteCurrentServer();
+
+document.getElementById('form-server-general').onsubmit = async (e) => {
+  e.preventDefault();
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv,'manage_server')) return;
+  const name = document.getElementById('input-settings-server-name').value.trim();
+  const description = document.getElementById('input-settings-server-description').value.trim();
+  if (!name) return;
+  if (isCloudEnabled) { try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), { name, description }); } catch(e) { showToast('Не удалось сохранить настройки сервера', true); return; } }
+  else { srv.name = name; srv.description = description; saveLocalStore(); }
+  renderChannels(); renderServers(); showToast('Настройки сервера сохранены');
+};
+
+document.getElementById('form-role-editor').onsubmit = async (e) => {
+  e.preventDefault();
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv,'manage_roles')) return;
+  ensureServerRoleSchema(srv);
+  const roleId = document.getElementById('input-role-id').value.trim();
+  const roleName = document.getElementById('input-role-name').value.trim();
+  const roleColor = document.getElementById('input-role-color').value || '#5865F2';
+  if (!roleName) return;
+  const permissions = {};
+  document.querySelectorAll('[data-role-permission]').forEach(cb => permissions[cb.dataset.rolePermission] = cb.checked);
+  if (roleId) {
+    const role = srv.roles.find(r=>r.id===roleId);
+    if (!role) return;
+    if (role.managed) { showToast('Роль @everyone нельзя переименовать или изменить', true); return; }
+    role.name = roleName; role.color = roleColor; role.permissions = permissions;
+  } else {
+    const role = { id: 'r_' + Date.now().toString(36), name: roleName, color: roleColor, permissions };
+    srv.roles.push(role);
+  }
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_SERVERS, srv.id), { roles: srv.roles });
+    else saveLocalStore();
+    document.getElementById('role-editor').classList.add('hidden');
+    renderRolesSettings(); renderMembersSidebar();
+    showToast('Роль сохранена');
+  } catch(e) { showToast('Не удалось сохранить роль', true); }
+};
+
+document.getElementById('btn-delete-role').onclick = async () => {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const roleId = document.getElementById('input-role-id').value;
+  if (!srv || !roleId || !hasServerPermission(srv,'manage_roles')) return;
+  ensureServerRoleSchema(srv);
+  const role = srv.roles.find(r=>r.id===roleId);
+  if (!role || role.managed) return;
+  if (!confirm(`Удалить роль «${role.name}»?`)) return;
+  srv.roles = srv.roles.filter(r=>r.id!==roleId);
+  const memberRoles = Object.fromEntries(Object.entries(srv.memberRoles || {}).map(([uid, ids]) => [uid, (ids||[]).filter(id=>id!==roleId)]));
+  srv.memberRoles = memberRoles;
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_SERVERS, srv.id), { roles: srv.roles, memberRoles });
+    else saveLocalStore();
+    document.getElementById('role-editor').classList.add('hidden');
+    renderRolesSettings(); renderServerMembersSettings(); renderMembersSidebar();
+    showToast('Роль удалена');
+  } catch(e) { showToast('Не удалось удалить роль', true); }
+};
+
+document.getElementById('form-change-password').onsubmit = async (e) => {
+  e.preventDefault();
+  const user=auth?.currentUser;
+  const p1=document.getElementById('input-new-password').value;
+  const p2=document.getElementById('input-new-password-confirm').value;
+  if (!user || !user.email) { showToast('У аккаунта нет email',true); return; }
+  if (p1.length<6) { showToast('Пароль должен содержать минимум 6 символов',true); return; }
+  if (p1!==p2) { showToast('Новые пароли не совпадают',true); return; }
+  const hasPasswordProvider=user.providerData?.some(p=>p.providerId==='password');
+  try {
+    if (hasPasswordProvider) {
+      await updatePassword(user,p1);
+      showToast('Пароль изменён');
+    } else {
+      const credential=EmailAuthProvider.credential(user.email,p1);
+      try {
+        await linkWithCredential(user,credential);
+      } catch(linkError) {
+        if (linkError?.code==='auth/requires-recent-login' && user.providerData?.some(p=>p.providerId==='google.com')) {
+          await reauthenticateWithPopup(user,new GoogleAuthProvider());
+          await linkWithCredential(user,credential);
+        } else throw linkError;
+      }
+      showToast('Пароль добавлен. Теперь можно входить через email и пароль.');
+    }
+    document.getElementById('input-new-password').value='';
+    document.getElementById('input-new-password-confirm').value='';
+    document.getElementById('account-settings-provider').textContent = `Способы входа: ${user.providerData?.map(p=>p.providerId).join(', ') || '—'}`;
+    openModal('modal-account-settings');
+  } catch(err) {
+    if (err?.code==='auth/requires-recent-login') showToast('Нужен недавний вход. Выйди и войди снова, затем повтори.',true);
+    else if (err?.code==='auth/credential-already-in-use' || err?.code==='auth/email-already-in-use') showToast('Этот email уже связан с другим аккаунтом.',true);
+    else if (err?.code==='auth/weak-password') showToast('Пароль слишком слабый.',true);
+    else showToast('Не удалось сохранить пароль.',true);
+  }
+};
+
+document.getElementById('btn-reset-password-email').onclick = async () => {
+  const email = auth?.currentUser?.email;
+  if (!email) return;
+  try { await sendPasswordResetEmail(auth, email); showToast('Письмо для сброса пароля отправлено на почту'); }
+  catch(e) { showToast('Не удалось отправить письмо для сброса', true); }
+};
+
+function saveNotificationSettings() {
+  accountNotificationSettings = {
+    ...accountNotificationSettings,
+    inApp: document.getElementById('setting-notify-inapp').checked,
+    dm: document.getElementById('setting-notify-dm').checked,
+    mentions: document.getElementById('setting-notify-mentions').checked
+  };
+  syncUserProfileCloud();
+  localStorage.setItem('notification_settings', JSON.stringify(accountNotificationSettings));
+}
+['setting-notify-inapp','setting-notify-dm','setting-notify-mentions'].forEach(id => document.getElementById(id).addEventListener('change', saveNotificationSettings));
+document.getElementById('setting-dark-theme').addEventListener('change', e => { isDark = e.target.checked; document.documentElement.classList.toggle('dark', isDark); localStorage.setItem('theme_dark', String(isDark)); document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀'; });
+document.getElementById('btn-browser-notifications').onclick = async () => {
+  if (!('Notification' in window)) { showToast('Браузер не поддерживает уведомления', true); return; }
+  const perm = await Notification.requestPermission();
+  accountNotificationSettings.browser = perm === 'granted';
+  saveNotificationSettings();
+  showToast(perm === 'granted' ? 'Уведомления браузера разрешены' : 'Разрешение не выдано', perm !== 'granted');
+};
+
+function notifyIncomingMessage(msg) {
+  if (!msg || msg.authorId === currentUser.uid) return;
+  const isDm = !!msg.targetDmId;
+  const activeContext = currentView === 'dm' && isDm && msg.targetDmId === currentUser.uid && msg.authorId === currentDmUserId;
+  const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase());
+  const allowed = accountNotificationSettings.inApp !== false && ((isDm && accountNotificationSettings.dm !== false) || (!isDm && mention && accountNotificationSettings.mentions !== false));
+  if (!allowed || activeContext) return;
+  showToast(`${isDm ? 'ЛС' : 'Упоминание'}: ${msg.authorName || 'Пользователь'} — ${(msg.text || '').slice(0,90)}`);
+  audioFX.playReceive();
+  if (accountNotificationSettings.browser && 'Notification' in window && Notification.permission === 'granted') { try { new Notification(`${isDm ? 'Личное сообщение' : 'Упоминание'} · ${msg.authorName || 'Пользователь'}`, { body: msg.text || '' }); } catch(e) {} }
+}
+
 /* ===== Модерация: баны, роли, удаление сервера ===== */
 function isServerOwner(srv) {
   return !!srv && srv.ownerId === currentUser.uid;
 }
 function isServerManager(srv) {
-  return !!srv && (srv.ownerId === currentUser.uid || (srv.admins || []).includes(currentUser.uid));
+  return !!srv && (hasServerPermission(srv, 'manage_server') || hasServerPermission(srv, 'manage_members') || hasServerPermission(srv, 'manage_roles'));
 }
 
 async function updateServerFields(srv, fields) {
@@ -1798,7 +2853,7 @@ async function updateServerFields(srv, fields) {
 
 window.banMember = async function(uid) {
   const srv = serversData.find(s => s.id === currentServerId);
-  if (!isServerManager(srv) || uid === srv.ownerId || uid === currentUser.uid) return;
+  if (!hasServerPermission(srv, 'manage_members') || uid === srv.ownerId || uid === currentUser.uid) return;
   if (!confirm('Забанить этого игрока на сервере?')) return;
 
   const bans = [...new Set([...(srv.bans || []), uid])];
@@ -1846,7 +2901,127 @@ window.deleteCurrentServer = async function() {
   renderServers();
 };
 
+// Module-scope aliases for handlers exposed on window.
+// In <script type="module"> bare names like openModal() do not resolve from window.openModal.
+const handleLogin = window.handleLogin;
+const loginWithGoogle = window.loginWithGoogle;
+const openRoleEditor = window.openRoleEditor;
+const saveMemberRoles = window.saveMemberRoles;
+const renameChannelPrompt = window.renameChannelPrompt;
+const deleteChannel = window.deleteChannel;
+const openServerSettings = window.openServerSettings;
+const openModal = window.openModal;
+const banMember = window.banMember;
+const toggleAdmin = window.toggleAdmin;
+const deleteCurrentServer = window.deleteCurrentServer;
+
 initAuth();
 </script>
+
+<style id="NOVA_VOICE_MESSAGES_PATCH_CSS">
+  #btn-voice-record.is-recording { color:#fff; background:#f23f43; box-shadow:0 0 0 3px rgba(242,63,67,.18); }
+  #nova-voice-frame { pointer-events:auto; }
+  .nova-voice-message audio { width:min(310px,100%); height:38px; }
+  .nova-voice-duration { min-width:36px; text-align:right; font-size:11px; color:#949ba4; }
+</style>
+<!-- NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
+<style>
+  .nova-user-card{width:min(390px,calc(100vw - 28px));background:rgba(43,45,49,.98);border:1px solid rgba(148,155,164,.22);box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(18px)}
+  .nova-user-banner{height:92px;background:linear-gradient(135deg,#5865F2,#7c5cff 55%,#242b5f);position:relative;overflow:hidden}
+  .nova-user-banner:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(255,255,255,.22),transparent 34%)}
+  .nova-profile-avatar{width:82px;height:82px;border:6px solid #2b2d31;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+  .nova-profile-action{background:#1e1f22;border:1px solid rgba(148,155,164,.18);transition:.15s ease}
+  .nova-profile-action:hover{background:#35373c;border-color:rgba(88,101,242,.55);transform:translateY(-1px)}
+</style>
+<div id="nova-user-profile-modal" class="fixed inset-0 z-[120] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+  <div class="nova-user-card rounded-2xl overflow-hidden text-left">
+    <div class="nova-user-banner"></div>
+    <div class="relative px-5 pb-5">
+      <div id="nova-profile-avatar" class="nova-profile-avatar -mt-10 rounded-full bg-discord-accent flex items-center justify-center text-white text-2xl font-bold"></div>
+      <button id="nova-profile-close" type="button" class="absolute right-4 top-3 w-9 h-9 rounded-full bg-black/25 text-white/80 hover:bg-black/45 hover:text-white">✕</button>
+      <div class="mt-3">
+        <div class="flex items-center gap-2"><h3 id="nova-profile-name" class="text-xl font-bold text-white truncate"></h3><span id="nova-profile-owner" class="hidden text-sm" title="Владелец сервера">👑</span></div>
+        <div id="nova-profile-status" class="text-xs text-discord-muted mt-1"></div>
+        <div id="nova-profile-custom-status" class="text-sm text-gray-200 mt-3 break-words"></div>
+      </div>
+      <div id="nova-profile-role" class="hidden mt-3 text-xs"></div>
+      <div id="nova-profile-actions" class="grid grid-cols-2 gap-2 mt-5"></div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const STATUS_LABELS={online:'В сети',idle:'Не активен',dnd:'Не беспокоить'};
+  const STATUS_DOTS={online:'🟢',idle:'🟡',dnd:'🔴'};
+  function novaUser(uid){if(uid===currentUser?.uid)return currentUser;return(usersData||[]).find(u=>u.uid===uid)||null;}
+  function novaCurrentServer(){return(serversData||[]).find(s=>s.id===currentServerId)||null;}
+  function novaMemberRole(server,uid){try{return getMemberRole(server,uid)||null}catch(e){return null;}}
+  window.novaOpenUserProfile=function(uid){
+    const u=novaUser(uid),modal=document.getElementById('nova-user-profile-modal');if(!u||!modal)return;
+    const initial=(u.nickname||'U').charAt(0).toUpperCase();
+    document.getElementById('nova-profile-avatar').textContent=initial;
+    document.getElementById('nova-profile-name').textContent=u.nickname||'Пользователь';
+    document.getElementById('nova-profile-status').textContent=`${STATUS_DOTS[u.status]||'⚪'} ${STATUS_LABELS[u.status]||'Неизвестно'}`;
+    document.getElementById('nova-profile-custom-status').textContent=u.customStatus||'Пользовательский статус не установлен';
+    const srv=novaCurrentServer(),role=srv?novaMemberRole(srv,u.uid):null,roleEl=document.getElementById('nova-profile-role'),ownerEl=document.getElementById('nova-profile-owner');
+    ownerEl.classList.toggle('hidden',!(srv&&srv.ownerId===u.uid));
+    if(role&&role.id!=='everyone'){roleEl.textContent=`Роль: ${role.name}`;roleEl.style.color=role.color||'#99AAB5';roleEl.classList.remove('hidden');}else roleEl.classList.add('hidden');
+    const actions=document.getElementById('nova-profile-actions');
+    if(u.uid===currentUser.uid)actions.innerHTML=`<button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="edit">✏️ Редактировать</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="account">⚙️ Аккаунт</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="copy">📋 Скопировать ID</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="close">Закрыть</button>`;
+    else actions.innerHTML=`<button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="dm">✉️ Написать сообщение</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white" data-nova-profile-action="copy">📋 Скопировать ID</button><button type="button" class="nova-profile-action rounded-xl px-3 py-2.5 text-sm text-white col-span-2" data-nova-profile-action="close">Закрыть</button>`;
+    modal.classList.remove('hidden');modal.classList.add('flex');
+  };
+  function novaCloseProfile(){const m=document.getElementById('nova-user-profile-modal');if(m){m.classList.add('hidden');m.classList.remove('flex');}}
+  document.getElementById('nova-profile-close')?.addEventListener('click',novaCloseProfile);
+  document.getElementById('nova-user-profile-modal')?.addEventListener('click',e=>{if(e.target.id==='nova-user-profile-modal')novaCloseProfile();});
+  document.addEventListener('click',e=>{
+    const b=e.target.closest?.('[data-nova-profile-action]');if(!b)return;const action=b.dataset.novaProfileAction,name=document.getElementById('nova-profile-name')?.textContent,u=(usersData||[]).find(x=>x.nickname===name)||currentUser;
+    if(action==='close')return novaCloseProfile();
+    if(action==='dm'){novaCloseProfile();if(u?.uid)openDirectMessage(u.uid);}
+    if(action==='copy'&&u?.uid)copyTextSilently(u.uid).then(()=>showToast('ID скопирован'));
+    if(action==='edit'){novaCloseProfile();openModal('modal-profile');}
+    if(action==='account'){novaCloseProfile();openModal('modal-account-settings');}
+  });
+  async function novaSetStatus(status){if(!currentUser)return;currentUser.status=status;localStorage.setItem('chat_status',status);updateUserProfileDisplay?.();try{await syncUserProfileCloud?.();}catch(e){}try{renderMembersSidebar?.();renderDirectMessagesList?.();}catch(e){}showToast(`Статус: ${STATUS_LABELS[status]||status}`);}
+  function novaItemsForServer(srv){
+    const items=[{icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},{icon:'👤',label:'Открыть участников',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}},{icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode||'').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}];
+    if(hasServerPermission(srv,'create_invites'))items.push({icon:'📨',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite')?.click();}});
+    if(hasServerPermission(srv,'manage_channels'))items.push({icon:'➕',label:'Создать канал',action:()=>openModal('modal-channel')});
+    if(isServerManager(srv))items.push({icon:'⚙️',label:'Настройки сервера',action:()=>openServerSettings('general')});
+    if(isServerOwner(srv))items.push('separator',{icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()});return items;
+  }
+  function novaItemsForMember(member,srv){
+    const self=member.uid===currentUser.uid,owner=srv&&srv.ownerId===member.uid,items=[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(member.uid)}];
+    if(!self)items.push({icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(member.uid)});
+    items.push({icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(member.uid).then(()=>showToast('ID скопирован'))});
+    if(self)items.push('separator',{icon:'🟢',label:'В сети',action:()=>novaSetStatus('online')},{icon:'🟡',label:'Не активен',action:()=>novaSetStatus('idle')},{icon:'🔴',label:'Не беспокоить',action:()=>novaSetStatus('dnd')},'separator',{icon:'⚙️',label:'Настройки аккаунта',action:()=>openModal('modal-account-settings')});
+    else if(srv&&!owner){if(hasServerPermission(srv,'manage_roles'))items.push({icon:'🛡️',label:'Управлять ролями',action:()=>openServerSettings('members')});if(hasServerPermission(srv,'manage_members'))items.push({icon:'🚪',label:'Заблокировать участника',danger:true,action:()=>window.banMember(member.uid)});}
+    return items;
+  }
+  function novaItemsForMessage(msg){
+    const srv=currentView==='server'?novaCurrentServer():null,own=msg.authorId===currentUser.uid,canManage=srv&&hasServerPermission(srv,'manage_messages'),items=[{icon:'↩️',label:'Ответить',action:()=>setReplyMessage(msg.id,msg.authorName,msg.text)},{icon:'📋',label:'Копировать текст',action:()=>copyTextSilently(msg.text||'').then(()=>showToast('Текст скопирован'))}];
+    if(msg.authorId)items.push({icon:'👤',label:'Открыть профиль автора',action:()=>novaOpenUserProfile(msg.authorId)});
+    if(own||canManage){items.push('separator');if(own)items.push({icon:'✏️',label:'Изменить сообщение',action:()=>editMessage(msg.id)});items.push({icon:'🗑️',label:'Удалить сообщение',danger:true,action:()=>deleteMessage(msg.id)});}return items;
+  }
+  function novaItemsForChannel(chan,srv){
+    const items=[{icon:'➜',label:'Открыть канал',action:()=>{currentView='server';currentServerId=chan.serverId;currentChannelId=chan.id;renderServers();}}];
+    if(srv){items.push({icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(chan.id).then(()=>showToast('ID канала скопирован'))});if(hasServerPermission(srv,'manage_channels'))items.push('separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(chan.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(chan.id)});}return items;
+  }
+  function novaItemsForDM(u){return[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(u.uid)},{icon:'✉️',label:'Открыть личный чат',action:()=>openDirectMessage(u.uid)},{icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(u.uid).then(()=>showToast('ID скопирован'))}];}
+  document.addEventListener('contextmenu',e=>{
+    const target=e.target.closest?.('[data-server-id],[data-chan-id],[data-voice-id],[data-dm-user-id],[data-member-uid],[data-message-id],#user-avatar,#user-status-dot');if(!target)return;e.preventDefault();e.stopPropagation();
+    if(target.matches('#user-avatar,#user-status-dot')){showContextMenu(e.clientX,e.clientY,novaItemsForMember(currentUser,novaCurrentServer()));return;}
+    if(target.dataset.serverId){const s=serversData.find(x=>x.id===target.dataset.serverId);if(s)showContextMenu(e.clientX,e.clientY,novaItemsForServer(s));return;}
+    if(target.dataset.chanId){const c=channelsData.find(x=>x.id===target.dataset.chanId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,novaItemsForChannel(c,s));return;}
+    if(target.dataset.voiceId){const c=channelsData.find(x=>x.id===target.dataset.voiceId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,[{icon:'🔊',label:'Подключиться',action:()=>connectVoiceChannel(c.id,vcNameById(c.id))},{icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(c.id).then(()=>showToast('ID канала скопирован'))},...(s&&hasServerPermission(s,'manage_channels')?['separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(c.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(c.id)}]:[])]);return;}
+    if(target.dataset.dmUserId){const u=novaUser(target.dataset.dmUserId);if(u)showContextMenu(e.clientX,e.clientY,novaItemsForDM(u));return;}
+    if(target.dataset.memberUid){const u=novaUser(target.dataset.memberUid);if(u)showContextMenu(e.clientX,e.clientY,novaItemsForMember(u,novaCurrentServer()));return;}
+    if(target.dataset.messageId){const m=(messagesData||[]).find(x=>x.id===target.dataset.messageId);if(m)showContextMenu(e.clientX,e.clientY,novaItemsForMessage(m));return;}
+  },true);
+  document.addEventListener('click',e=>{const row=e.target.closest?.('[data-member-uid]');if(row&&!e.target.closest('button')){const uid=row.dataset.memberUid;if(uid)novaOpenUserProfile(uid);}});
+})();
+</script>
+<!-- /NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
+
 </body>
 </html>
