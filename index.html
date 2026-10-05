@@ -703,103 +703,250 @@ function formatMarkdown(str) {
 }
 
 
-let authMode='register';
-let googleProfilePending=false;
-function setAuthMode(mode){
-  authMode=mode==='login'?'login':'register';
-  const register=authMode==='register';
-  document.getElementById('auth-tab-register').classList.toggle('active',register);
-  document.getElementById('auth-tab-login').classList.toggle('active',!register);
-  document.getElementById('auth-nickname-wrap').classList.toggle('hidden',!register);
-  document.getElementById('auth-confirm-wrap').classList.toggle('hidden',!register);
-  document.getElementById('auth-status-wrap').classList.toggle('hidden',!register);
-  document.getElementById('auth-strength-wrap').classList.toggle('hidden',!register);
-  document.getElementById('auth-password').setAttribute('autocomplete',register?'new-password':'current-password');
-  document.getElementById('auth-password-confirm').required=register;
-  document.getElementById('auth-nickname').required=register;
-  document.getElementById('auth-submit').textContent=register?'Создать аккаунт':'Войти в аккаунт';
-  document.getElementById('auth-subtitle').textContent=register?'Создайте новый аккаунт и присоединяйтесь к чату.':'Введите данные уже созданного аккаунта.';
+let authMode = 'register';
+let googleProfilePending = false;
+
+function setAuthMode(mode) {
+  authMode = mode === 'login' ? 'login' : 'register';
+  const register = authMode === 'register';
+  document.getElementById('auth-tab-register').classList.toggle('active', register);
+  document.getElementById('auth-tab-login').classList.toggle('active', !register);
+  document.getElementById('auth-nickname-wrap').classList.toggle('hidden', !register);
+  document.getElementById('auth-confirm-wrap').classList.toggle('hidden', !register);
+  document.getElementById('auth-status-wrap').classList.toggle('hidden', !register);
+  document.getElementById('auth-strength-wrap').classList.toggle('hidden', !register);
+  document.getElementById('auth-password').setAttribute('autocomplete', register ? 'new-password' : 'current-password');
+  document.getElementById('auth-password-confirm').required = register;
+  document.getElementById('auth-nickname').required = register;
+  document.getElementById('auth-submit').textContent = register ? 'Создать аккаунт' : 'Войти в аккаунт';
+  document.getElementById('auth-subtitle').textContent = register ? 'Создайте новый аккаунт и присоединяйтесь к чату.' : 'Введите данные уже созданного аккаунта.';
   document.getElementById('auth-error').classList.add('hidden');
-  googleProfilePending=false;
-  document.getElementById('auth-email').readOnly=false;
-  document.getElementById('auth-password').required=true;
+  googleProfilePending = false;
+  document.getElementById('auth-email').readOnly = false;
+  document.getElementById('auth-password').required = true;
   document.getElementById('auth-password').classList.remove('opacity-50');
-  document.getElementById('auth-password-confirm').required=register;
+  document.getElementById('auth-password-confirm').required = register;
   document.getElementById('auth-password-confirm').classList.remove('opacity-50');
   updatePasswordStrength();
 }
-function showAuthError(message){const el=document.getElementById('auth-error');el.textContent=message;el.classList.remove('hidden')}
-function authErrorText(code){return ({'auth/email-already-in-use':'Эта почта уже зарегистрирована. Перейдите во вкладку «Вход».','auth/invalid-email':'Проверьте адрес электронной почты.','auth/weak-password':'Пароль слишком простой. Используйте минимум 6 символов.','auth/invalid-credential':'Почта или пароль указаны неверно.','auth/user-not-found':'Аккаунт с такой почтой не найден.','auth/wrong-password':'Неверный пароль.','auth/operation-not-allowed':'В Firebase не включён вход по электронной почте и паролю.','auth/network-request-failed':'Не удалось связаться с сервером авторизации.','auth/popup-blocked':'Браузер заблокировал окно Google. Разрешите всплывающие окна для сайта.','auth/popup-closed-by-user':'Окно Google было закрыто до завершения входа.','auth/unauthorized-domain':'Домен сайта не разрешён в Firebase Authentication.','auth/too-many-requests':'Слишком много попыток. Попробуйте немного позже.'}[code]||'Не удалось выполнить авторизацию. Попробуйте ещё раз.')}
-function updatePasswordStrength(){const bar=document.getElementById('auth-strength-bar'),value=document.getElementById('auth-password').value||'';if(authMode!=='register'||!value){bar.style.width='0%';return}let score=0;if(value.length>=6)score++;if(value.length>=10)score++;if(/[A-ZА-Я]/.test(value)&&/[a-zа-я]/.test(value))score++;if(/\d/.test(value))score++;if(/[^A-Za-zА-Яа-я0-9]/.test(value))score++;bar.style.width=Math.min(100,score*20)+'%'}
-async function loadCloudProfile(uid){if(!isCloudEnabled)return false;try{const snap=await getDoc(doc(COLLECTION_USERS,uid));if(!snap.exists())return false;const data=snap.data();if(!data.nickname)return false;currentUser.uid=uid;currentUser.nickname=data.nickname;currentUser.status=data.status||'online';currentUser.customStatus=data.customStatus||'';localStorage.setItem('chat_uid',uid);localStorage.setItem('chat_nickname',currentUser.nickname);localStorage.setItem('chat_status',currentUser.status);localStorage.setItem('chat_custom_status',currentUser.customStatus);return true}catch(e){console.error('Profile read error:',e);return false}}
-async function saveCloudProfile(){await setDoc(doc(COLLECTION_USERS,currentUser.uid),{uid:currentUser.uid,email:auth.currentUser?.email||'',nickname:currentUser.nickname,status:currentUser.status||'online',customStatus:currentUser.customStatus||'',lastSeen:Date.now()},{merge:true})}
 
-window.handleLogin=async function(e){
-  if(e)e.preventDefault();
+function showAuthError(message) {
+  const el = document.getElementById('auth-error');
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function authErrorText(code) {
+  return ({
+    'auth/email-already-in-use':'Эта почта уже зарегистрирована. Перейдите во вкладку «Вход».',
+    'auth/invalid-email':'Проверьте адрес электронной почты.',
+    'auth/weak-password':'Пароль слишком простой. Используйте минимум 6 символов.',
+    'auth/invalid-credential':'Почта или пароль указаны неверно.',
+    'auth/user-not-found':'Аккаунт с такой почтой не найден.',
+    'auth/wrong-password':'Неверный пароль.',
+    'auth/operation-not-allowed':'В Firebase не включён вход по электронной почте и паролю.',
+    'auth/network-request-failed':'Не удалось связаться с сервером авторизации. Проверьте соединение.',
+    'auth/popup-blocked':'Браузер заблокировал окно Google. Разрешите всплывающие окна для сайта.',
+    'auth/popup-closed-by-user':'Окно Google было закрыто до завершения входа.',
+    'auth/unauthorized-domain':'Домен сайта не разрешён в Firebase Authentication.',
+    'auth/too-many-requests':'Слишком много попыток. Попробуйте немного позже.'
+  }[code] || 'Не удалось выполнить авторизацию. Попробуйте ещё раз.');
+}
+
+function updatePasswordStrength() {
+  const bar = document.getElementById('auth-strength-bar');
+  const value = document.getElementById('auth-password').value || '';
+  if (authMode !== 'register' || !value) { bar.style.width = '0%'; return; }
+  let score = 0;
+  if (value.length >= 6) score++;
+  if (value.length >= 10) score++;
+  if (/[A-ZА-Я]/.test(value) && /[a-zа-я]/.test(value)) score++;
+  if (/\d/.test(value)) score++;
+  if (/[^A-Za-zА-Яа-я0-9]/.test(value)) score++;
+  bar.style.width = Math.min(100, score * 20) + '%';
+}
+
+async function loadCloudProfile(uid) {
+  if (!isCloudEnabled) return false;
+  try {
+    const snap = await getDoc(doc(COLLECTION_USERS, uid));
+    if (!snap.exists()) return false;
+    const data = snap.data();
+    if (!data.nickname) return false;
+    currentUser.uid = uid;
+    currentUser.nickname = data.nickname;
+    currentUser.status = data.status || 'online';
+    currentUser.customStatus = data.customStatus || '';
+    localStorage.setItem('chat_uid', uid);
+    localStorage.setItem('chat_nickname', currentUser.nickname);
+    localStorage.setItem('chat_status', currentUser.status);
+    localStorage.setItem('chat_custom_status', currentUser.customStatus);
+    return true;
+  } catch (e) {
+    console.error('Profile read error:', e);
+    return false;
+  }
+}
+
+async function saveCloudProfile() {
+  await setDoc(doc(COLLECTION_USERS, currentUser.uid), {
+    uid: currentUser.uid,
+    email: auth.currentUser?.email || '',
+    nickname: currentUser.nickname,
+    status: currentUser.status || 'online',
+    customStatus: currentUser.customStatus || '',
+    lastSeen: Date.now()
+  }, { merge: true });
+}
+
+window.handleLogin = async function(e) {
+  if (e) e.preventDefault();
   document.getElementById('auth-error').classList.add('hidden');
-  if(!(isCloudEnabled&&auth)){showAuthError('Firebase сейчас недоступен.');return false}
-  const email=document.getElementById('auth-email').value.trim();
-  const password=document.getElementById('auth-password').value;
-  const nickname=document.getElementById('auth-nickname').value.trim();
-  const confirm=document.getElementById('auth-password-confirm').value;
-  const status=document.getElementById('auth-status').value;
-  if(googleProfilePending&&auth.currentUser&&!auth.currentUser.isAnonymous){
-    if(!nickname){showAuthError('Придумайте никнейм, чтобы завершить регистрацию.');return false}
-    currentUser.uid=auth.currentUser.uid;currentUser.nickname=nickname;currentUser.status=status;currentUser.customStatus='';await saveCloudProfile();
-    localStorage.setItem('chat_uid',currentUser.uid);localStorage.setItem('chat_nickname',nickname);localStorage.setItem('chat_status',status);googleProfilePending=false;startApp();return false;
+  if (!(isCloudEnabled && auth)) { showAuthError('Firebase сейчас недоступен.'); return false; }
+
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const nickname = document.getElementById('auth-nickname').value.trim();
+  const confirm = document.getElementById('auth-password-confirm').value;
+  const status = document.getElementById('auth-status').value;
+
+  if (googleProfilePending && auth.currentUser && !auth.currentUser.isAnonymous) {
+    if (!nickname) { showAuthError('Придумайте никнейм, чтобы завершить регистрацию.'); return false; }
+    currentUser.uid = auth.currentUser.uid;
+    currentUser.nickname = nickname;
+    currentUser.status = status;
+    currentUser.customStatus = '';
+    await saveCloudProfile();
+    localStorage.setItem('chat_uid', currentUser.uid);
+    localStorage.setItem('chat_nickname', nickname);
+    localStorage.setItem('chat_status', status);
+    googleProfilePending = false;
+    startApp();
+    return false;
   }
-  if(!email||!password)return false;
-  if(authMode==='register'){
-    if(!nickname){showAuthError('Придумайте никнейм.');return false}
-    if(password.length<6){showAuthError('Пароль должен содержать минимум 6 символов.');return false}
-    if(password!==confirm){showAuthError('Пароли не совпадают.');return false}
+
+  if (!email || !password) return false;
+  if (authMode === 'register') {
+    if (!nickname) { showAuthError('Придумайте никнейм.'); return false; }
+    if (password.length < 6) { showAuthError('Пароль должен содержать минимум 6 символов.'); return false; }
+    if (password !== confirm) { showAuthError('Пароли не совпадают.'); return false; }
   }
-  const btn=document.getElementById('auth-submit');btn.disabled=true;btn.classList.add('opacity-70','cursor-wait');
-  try{
-    if(authMode==='register'){
-      const credential=await createUserWithEmailAndPassword(auth,email,password);currentUser.uid=credential.user.uid;currentUser.nickname=nickname;currentUser.status=status;currentUser.customStatus='';
-      localStorage.setItem('chat_uid',currentUser.uid);localStorage.setItem('chat_nickname',nickname);localStorage.setItem('chat_status',status);localStorage.setItem('chat_custom_status','');await saveCloudProfile();showToast('Аккаунт создан. Добро пожаловать!');startApp();
-    }else{
-      const credential=await signInWithEmailAndPassword(auth,email,password);const hasProfile=await loadCloudProfile(credential.user.uid);
-      if(!hasProfile){setAuthMode('register');document.getElementById('auth-email').value=email;showAuthError('Аккаунт найден, но профиль ещё не настроен. Выберите никнейм и завершите регистрацию.');return false}
-      showToast('С возвращением!');startApp();
+
+  const btn = document.getElementById('auth-submit');
+  btn.disabled = true; btn.classList.add('opacity-70','cursor-wait');
+  try {
+    if (authMode === 'register') {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      currentUser.uid = credential.user.uid;
+      currentUser.nickname = nickname;
+      currentUser.status = status;
+      currentUser.customStatus = '';
+      localStorage.setItem('chat_uid', currentUser.uid);
+      localStorage.setItem('chat_nickname', nickname);
+      localStorage.setItem('chat_status', status);
+      localStorage.setItem('chat_custom_status', '');
+      await saveCloudProfile();
+      showToast('Аккаунт создан. Добро пожаловать!');
+      startApp();
+    } else {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const hasProfile = await loadCloudProfile(credential.user.uid);
+      if (!hasProfile) {
+        setAuthMode('register');
+        document.getElementById('auth-email').value = email;
+        showAuthError('Аккаунт найден, но профиль ещё не настроен. Выберите никнейм и завершите регистрацию.');
+        return false;
+      }
+      showToast('С возвращением!');
+      startApp();
     }
-  }catch(err){console.error('Email auth error:',err);showAuthError(authErrorText(err?.code))}finally{btn.disabled=false;btn.classList.remove('opacity-70','cursor-wait')}
+  } catch (err) {
+    console.error('Email auth error:', err);
+    showAuthError(authErrorText(err?.code));
+  } finally {
+    btn.disabled = false; btn.classList.remove('opacity-70','cursor-wait');
+  }
   return false;
 };
 
-window.loginWithGoogle=async function(){
-  if(!(isCloudEnabled&&auth)){showAuthError('Firebase сейчас недоступен.');return}
-  try{
-    const credential=await signInWithPopup(auth,new GoogleAuthProvider());const hasProfile=await loadCloudProfile(credential.user.uid);
-    if(hasProfile){showToast('Вход через Google выполнен!');startApp()}
-    else{
-      setAuthMode('register');googleProfilePending=true;document.getElementById('auth-email').value=credential.user.email||'';document.getElementById('auth-email').readOnly=true;document.getElementById('auth-password').required=false;document.getElementById('auth-password').classList.add('opacity-50');document.getElementById('auth-password-confirm').required=false;document.getElementById('auth-password-confirm').classList.add('opacity-50');document.getElementById('auth-subtitle').textContent='Google подключён. Осталось выбрать никнейм.';document.getElementById('auth-submit').textContent='Завершить регистрацию';document.getElementById('auth-nickname').focus();showToast('Google подключён — выберите никнейм.')
+window.loginWithGoogle = async function() {
+  if (!(isCloudEnabled && auth)) { showAuthError('Firebase сейчас недоступен.'); return; }
+  try {
+    const credential = await signInWithPopup(auth, new GoogleAuthProvider());
+    const hasProfile = await loadCloudProfile(credential.user.uid);
+    if (hasProfile) {
+      showToast('Вход через Google выполнен!');
+      startApp();
+    } else {
+      googleProfilePending = true;
+      setAuthMode('register');
+      document.getElementById('auth-email').value = credential.user.email || '';
+      document.getElementById('auth-email').readOnly = true;
+      document.getElementById('auth-password').required = false;
+      document.getElementById('auth-password').classList.add('opacity-50');
+      document.getElementById('auth-password-confirm').required = false;
+      document.getElementById('auth-password-confirm').classList.add('opacity-50');
+      document.getElementById('auth-subtitle').textContent = 'Google подключён. Осталось выбрать никнейм.';
+      document.getElementById('auth-submit').textContent = 'Завершить регистрацию';
+      document.getElementById('auth-nickname').focus();
+      showToast('Google подключён — выберите никнейм.');
     }
-  }catch(err){console.error('Google sign-in error:',err);showAuthError(authErrorText(err?.code))}
+  } catch (err) {
+    console.error('Google sign-in error:', err);
+    showAuthError(authErrorText(err?.code));
+  }
 };
 
-document.getElementById('auth-tab-register').onclick=()=>setAuthMode('register');
-document.getElementById('auth-tab-login').onclick=()=>setAuthMode('login');
-document.getElementById('btn-google-login').onclick=()=>window.loginWithGoogle();
-document.getElementById('auth-password').addEventListener('input',updatePasswordStrength);
-document.getElementById('auth-password-toggle').onclick=()=>{const input=document.getElementById('auth-password');input.type=input.type==='password'?'text':'password'};
-document.getElementById('btn-logout').onclick=async()=>{try{if(auth)await signOut(auth)}catch(e){}['chat_nickname','chat_status','chat_custom_status','chat_uid'].forEach(k=>localStorage.removeItem(k));window.location.reload()};
+document.getElementById('auth-tab-register').onclick = () => setAuthMode('register');
+document.getElementById('auth-tab-login').onclick = () => setAuthMode('login');
+document.getElementById('btn-google-login').onclick = () => window.loginWithGoogle();
+document.getElementById('auth-password').addEventListener('input', updatePasswordStrength);
+document.getElementById('auth-password-toggle').onclick = () => {
+  const input = document.getElementById('auth-password');
+  input.type = input.type === 'password' ? 'text' : 'password';
+};
 
-function initAuth(){
-  if(!(isCloudEnabled&&auth)){document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register');return}
-  onAuthStateChanged(auth,async(user)=>{
-    if(user&&!user.isAnonymous){
-      const hasProfile=await loadCloudProfile(user.uid);
-      if(hasProfile){document.getElementById('auth-screen').classList.add('hidden');startApp()}
-      else{
-        document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register');document.getElementById('auth-email').value=user.email||'';
-        if(user.providerData?.some(p=>p.providerId==='google.com')){googleProfilePending=true;document.getElementById('auth-email').readOnly=true;document.getElementById('auth-password').required=false;document.getElementById('auth-password').classList.add('opacity-50');document.getElementById('auth-password-confirm').required=false;document.getElementById('auth-password-confirm').classList.add('opacity-50');document.getElementById('auth-submit').textContent='Завершить регистрацию';document.getElementById('auth-subtitle').textContent='Google подключён. Осталось выбрать никнейм.'}
+document.getElementById('btn-logout').onclick = async () => {
+  try { if (auth) await signOut(auth); } catch (e) {}
+  ['chat_nickname','chat_status','chat_custom_status','chat_uid'].forEach(k => localStorage.removeItem(k));
+  window.location.reload();
+};
+
+function initAuth() {
+  if (!(isCloudEnabled && auth)) {
+    document.getElementById('auth-screen').classList.remove('hidden');
+    setAuthMode('register');
+    return;
+  }
+  onAuthStateChanged(auth, async (user) => {
+    if (user && !user.isAnonymous) {
+      const hasProfile = await loadCloudProfile(user.uid);
+      if (hasProfile) {
+        document.getElementById('auth-screen').classList.add('hidden');
+        startApp();
+      } else {
+        document.getElementById('auth-screen').classList.remove('hidden');
+        setAuthMode('register');
+        document.getElementById('auth-email').value = user.email || '';
+        if (user.providerData?.some(p => p.providerId === 'google.com')) {
+          googleProfilePending = true;
+          document.getElementById('auth-email').readOnly = true;
+          document.getElementById('auth-password').required = false;
+          document.getElementById('auth-password-confirm').required = false;
+          document.getElementById('auth-submit').textContent = 'Завершить регистрацию';
+          document.getElementById('auth-subtitle').textContent = 'Google подключён. Осталось выбрать никнейм.';
+        }
       }
-    }else{document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register')}
+    } else {
+      document.getElementById('auth-screen').classList.remove('hidden');
+      setAuthMode('register');
+    }
   });
 }
-function checkLoginState(){document.getElementById('auth-screen').classList.remove('hidden')}
+
+function checkLoginState() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+}
 
 function startApp() {
   document.getElementById('auth-screen').classList.add('hidden');
