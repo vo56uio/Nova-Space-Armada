@@ -176,9 +176,12 @@
     <aside class="w-60 bg-discord-surface flex flex-col flex-shrink-0 border-r border-gray-800/40 h-full">
       <div class="h-14 border-b border-gray-800/60 px-4 flex items-center justify-between shadow-sm flex-shrink-0">
         <h2 id="sidebar-header-title" class="font-bold text-white truncate text-base">Загрузка...</h2>
-        <button id="btn-server-invite" title="Пригласить друзей" class="hidden text-xs bg-discord-accent/20 text-discord-accent hover:bg-discord-accent hover:text-white px-2 py-1 rounded-md font-semibold transition">
-          + Пригласить
-        </button>
+        <div class="flex items-center gap-1">
+          <button id="btn-server-settings" title="Настройки сервера" class="hidden text-discord-muted hover:text-white hover:bg-discord-hover px-1.5 py-1 rounded-md transition">⚙️</button>
+          <button id="btn-server-invite" title="Пригласить друзей" class="hidden text-xs bg-discord-accent/20 text-discord-accent hover:bg-discord-accent hover:text-white px-2 py-1 rounded-md font-semibold transition">
+            + Пригласить
+          </button>
+        </div>
       </div>
 
       <!-- Navigation tabs (Text / Voice / DMs) -->
@@ -283,6 +286,10 @@
 
         <button id="btn-copy-channel-link" title="Скопировать ссылку" class="hidden text-xs bg-discord-surface hover:bg-discord-hover text-discord-muted hover:text-white px-2.5 py-1.5 rounded-lg border border-gray-700/50 sm:flex items-center gap-1 transition">
           <span>🔗</span> <span class="hidden md:inline">Ссылка</span>
+        </button>
+
+        <button id="btn-open-pins" title="Закреплённые сообщения" class="text-discord-muted hover:text-white p-1.5 rounded-lg hover:bg-discord-surface text-lg">
+          📌
         </button>
 
         <button id="btn-toggle-members" title="Список участников" class="text-discord-muted hover:text-white p-1.5 rounded-lg hover:bg-discord-surface text-lg">
@@ -502,12 +509,142 @@
         Сохранить изменения
       </button>
     </form>
+    <button type="button" id="btn-open-account-settings" class="w-full bg-discord-rail hover:bg-discord-hover text-white font-semibold py-2.5 rounded-xl transition border border-gray-700/50">
+      ⚙️ Настройки аккаунта
+    </button>
+  </div>
+</div>
+
+<!-- Modal: Server Settings -->
+<div id="modal-server-settings" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-hidden shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/50">
+      <div>
+        <h3 class="text-xl font-bold text-white">Настройки сервера</h3>
+        <p id="server-settings-subtitle" class="text-xs text-discord-muted mt-0.5">Управление сервером</p>
+      </div>
+      <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
+    </div>
+    <div class="flex min-h-0 flex-1">
+      <nav class="w-44 bg-discord-rail/50 border-r border-gray-700/50 p-2 space-y-1 shrink-0">
+        <button data-server-settings-tab="general" class="server-settings-tab active w-full text-left px-3 py-2 rounded-lg text-sm">⚙️ Общие</button>
+        <button data-server-settings-tab="roles" class="server-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🛡️ Роли</button>
+        <button data-server-settings-tab="members" class="server-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">👥 Участники</button>
+        <button data-server-settings-tab="channels" class="server-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm"># Каналы</button>
+        <button data-server-settings-tab="invites" class="server-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🔗 Приглашения</button>
+      </nav>
+      <div class="flex-1 overflow-y-auto p-6">
+        <section id="server-settings-panel-general" class="server-settings-panel space-y-4">
+          <div>
+            <h4 class="font-bold text-white text-lg">Основные настройки</h4>
+            <p class="text-xs text-discord-muted mt-1">Название и описание, которые увидят участники.</p>
+          </div>
+          <form id="form-server-general" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название сервера</label>
+              <input id="input-settings-server-name" maxlength="32" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Описание</label>
+              <textarea id="input-settings-server-description" maxlength="250" rows="4" placeholder="О чём этот сервер?" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent resize-none"></textarea>
+            </div>
+            <button class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить общие настройки</button>
+          </form>
+          <div class="pt-4 border-t border-gray-700/50">
+            <button id="btn-settings-delete-server" type="button" class="w-full text-sm py-2.5 rounded-xl bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white transition">Удалить сервер</button>
+          </div>
+        </section>
+
+        <section id="server-settings-panel-roles" class="server-settings-panel space-y-4 hidden">
+          <div class="flex items-start justify-between gap-3">
+            <div><h4 class="font-bold text-white text-lg">Роли</h4><p class="text-xs text-discord-muted mt-1">Создавай роли сам и выбирай, что им разрешено делать.</p></div>
+            <button id="btn-create-role" type="button" class="bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg text-sm font-semibold">+ Создать роль</button>
+          </div>
+          <div id="roles-list" class="space-y-2"></div>
+          <div id="role-editor" class="hidden border border-gray-700/60 rounded-xl p-4 bg-discord-rail/40 space-y-4">
+            <div class="flex items-center justify-between"><h5 id="role-editor-title" class="font-bold text-white">Новая роль</h5><button type="button" id="btn-close-role-editor" class="text-discord-muted hover:text-white">✕</button></div>
+            <form id="form-role-editor" class="space-y-4">
+              <input type="hidden" id="input-role-id">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название</label><input id="input-role-name" maxlength="32" required class="w-full bg-discord-surface border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent"></div>
+                <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Цвет</label><input id="input-role-color" type="color" value="#5865F2" class="w-full h-11 bg-discord-surface border border-gray-700/60 rounded-xl p-1"></div>
+              </div>
+              <div><div class="text-xs font-semibold text-discord-muted uppercase mb-2">Разрешения</div><div id="role-permissions-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div></div>
+              <div class="flex gap-2"><button class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить роль</button><button id="btn-delete-role" type="button" class="hidden px-4 bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white rounded-xl font-semibold">Удалить</button></div>
+            </form>
+          </div>
+        </section>
+
+        <section id="server-settings-panel-members" class="server-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Участники</h4><p class="text-xs text-discord-muted mt-1">Назначай роли участникам сервера.</p></div>
+          <div id="server-members-settings-list" class="space-y-2"></div>
+        </section>
+
+        <section id="server-settings-panel-channels" class="server-settings-panel space-y-4 hidden">
+          <div class="flex items-start justify-between gap-3"><div><h4 class="font-bold text-white text-lg">Каналы</h4><p class="text-xs text-discord-muted mt-1">Быстрый доступ к созданию и удалению каналов.</p></div><button id="btn-settings-add-channel" type="button" class="bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg text-sm font-semibold">+ Канал</button></div>
+          <div id="server-channels-settings-list" class="space-y-2"></div>
+        </section>
+
+        <section id="server-settings-panel-invites" class="server-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Приглашения</h4><p class="text-xs text-discord-muted mt-1">Коды уже работающих приглашений для сервера.</p></div>
+          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-3"><div class="text-xs text-discord-muted uppercase font-semibold">Код сервера</div><div class="font-mono text-lg text-discord-accent font-bold" id="settings-invite-code">—</div><button id="btn-settings-copy-invite" type="button" class="bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg text-sm font-semibold">Скопировать код</button></div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Account Settings -->
+<div id="modal-account-settings" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-2xl max-h-[88vh] overflow-hidden shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/50"><div><h3 class="text-xl font-bold text-white">Настройки аккаунта</h3><p class="text-xs text-discord-muted mt-0.5">Общие настройки, как в обычном Discord-подобном клиенте.</p></div><button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button></div>
+    <div class="flex min-h-0 flex-1">
+      <nav class="w-44 bg-discord-rail/50 border-r border-gray-700/50 p-2 space-y-1 shrink-0">
+        <button data-account-settings-tab="account" class="account-settings-tab active w-full text-left px-3 py-2 rounded-lg text-sm">👤 Учётная запись</button>
+        <button data-account-settings-tab="notifications" class="account-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🔔 Уведомления</button>
+        <button data-account-settings-tab="appearance" class="account-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🎨 Внешний вид</button>
+      </nav>
+      <div class="flex-1 overflow-y-auto p-6">
+        <section id="account-settings-panel-account" class="account-settings-panel space-y-5">
+          <div><h4 class="font-bold text-white text-lg">Учётная запись</h4><p class="text-xs text-discord-muted mt-1">Управление входом и безопасностью.</p></div>
+          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4"><div class="text-xs text-discord-muted uppercase font-semibold">Email</div><div id="account-settings-email" class="mt-1 text-white font-semibold break-all">—</div><div id="account-settings-provider" class="text-xs text-discord-muted mt-1">—</div></div>
+          <form id="form-change-password" class="space-y-3 border-t border-gray-700/50 pt-4">
+            <div class="font-bold text-white">Сменить пароль</div>
+            <p id="password-change-note" class="text-xs text-discord-muted">Для аккаунтов с входом по email и паролю.</p>
+            <input id="input-new-password" type="password" minlength="6" placeholder="Новый пароль (минимум 6 символов)" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+            <input id="input-new-password-confirm" type="password" minlength="6" placeholder="Повторите новый пароль" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+            <div class="flex gap-2"><button type="submit" id="btn-change-password" class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить новый пароль</button><button type="button" id="btn-reset-password-email" class="px-4 bg-discord-rail hover:bg-discord-hover text-white rounded-xl font-semibold">Письмо для сброса</button></div>
+          </form>
+        </section>
+
+        <section id="account-settings-panel-notifications" class="account-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Уведомления</h4><p class="text-xs text-discord-muted mt-1">Базовые уведомления о новых сообщениях.</p></div>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Уведомления в приложении</b><span class="block text-xs text-discord-muted mt-1">Показывать всплывающие уведомления и звук.</span></span><input id="setting-notify-inapp" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Личные сообщения</b><span class="block text-xs text-discord-muted mt-1">Уведомлять о новых сообщениях в ЛС.</span></span><input id="setting-notify-dm" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Упоминания</b><span class="block text-xs text-discord-muted mt-1">Уведомлять, когда в сообщении есть ваш ник.</span></span><input id="setting-notify-mentions" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          <button id="btn-browser-notifications" type="button" class="w-full bg-discord-rail hover:bg-discord-hover border border-gray-700/50 text-white font-semibold py-2.5 rounded-xl">Разрешить уведомления браузера</button>
+        </section>
+
+        <section id="account-settings-panel-appearance" class="account-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Внешний вид</h4><p class="text-xs text-discord-muted mt-1">Небольшие визуальные настройки интерфейса.</p></div>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Тёмная тема</b><span class="block text-xs text-discord-muted mt-1">Переключение основной темы клиента.</span></span><input id="setting-dark-theme" type="checkbox" class="w-5 h-5 accent-discord-accent" checked></label>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Pinned Messages -->
+<div id="modal-pins" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700/50"><h3 class="text-xl font-bold text-white">Закреплённые сообщения</h3><button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button></div>
+    <div id="pinned-messages-list" class="p-5 overflow-y-auto space-y-3"></div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Web Audio API Synthesizer for notifications
@@ -612,6 +749,11 @@ let currentServerId = null;
 let currentChannelId = null;
 let currentDmUserId = null;
 let activeVoiceChannelId = null;
+let accountNotificationSettings = { inApp: true, dm: true, mentions: true, browser: false };
+let messagesInitialized = false;
+let previousMessageIds = new Set();
+let activeServerSettingsTab = 'general';
+let activeAccountSettingsTab = 'account';
 
 let isMuted = false;
 let isDeafened = false;
@@ -777,6 +919,7 @@ async function loadCloudProfile(uid) {
     currentUser.nickname = data.nickname;
     currentUser.status = data.status || 'online';
     currentUser.customStatus = data.customStatus || '';
+    accountNotificationSettings = { inApp: true, dm: true, mentions: true, browser: false, ...(data.notificationSettings || {}) };
     localStorage.setItem('chat_uid', uid);
     localStorage.setItem('chat_nickname', currentUser.nickname);
     localStorage.setItem('chat_status', currentUser.status);
@@ -795,6 +938,7 @@ async function saveCloudProfile() {
     nickname: currentUser.nickname,
     status: currentUser.status || 'online',
     customStatus: currentUser.customStatus || '',
+    notificationSettings: accountNotificationSettings,
     lastSeen: Date.now()
   }, { merge: true });
 }
@@ -964,6 +1108,57 @@ function startApp() {
   }
 }
 
+const ROLE_PERMISSIONS = [
+  ['view_channels', 'Просматривать каналы'],
+  ['send_messages', 'Отправлять сообщения'],
+  ['delete_messages', 'Удалять свои сообщения'],
+  ['manage_messages', 'Управлять сообщениями'],
+  ['pin_messages', 'Закреплять сообщения'],
+  ['create_invites', 'Создавать приглашения'],
+  ['manage_channels', 'Управлять каналами'],
+  ['manage_members', 'Управлять участниками'],
+  ['manage_roles', 'Управлять ролями'],
+  ['manage_server', 'Управлять сервером'],
+  ['administrator', 'Администратор']
+];
+
+function defaultRolePermissions() {
+  return Object.fromEntries(ROLE_PERMISSIONS.map(([key]) => [key, key === 'view_channels' || key === 'send_messages' || key === 'delete_messages']));
+}
+
+function ensureServerRoleSchema(srv) {
+  if (!srv) return;
+  if (!Array.isArray(srv.roles) || srv.roles.length === 0) {
+    srv.roles = [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true }];
+  }
+  if (!srv.memberRoles || typeof srv.memberRoles !== 'object') srv.memberRoles = {};
+}
+
+function getServerRoles(srv) { ensureServerRoleSchema(srv); return srv.roles || []; }
+function getMemberRoleIds(srv, uid) { ensureServerRoleSchema(srv); return Array.isArray(srv.memberRoles?.[uid]) ? srv.memberRoles[uid] : ['everyone']; }
+function hasServerPermission(srv, permission, uid = currentUser.uid) {
+  if (!srv) return false;
+  if (srv.ownerId === uid) return true;
+  if ((srv.admins || []).includes(uid)) return true;
+  ensureServerRoleSchema(srv);
+  const roleIds = getMemberRoleIds(srv, uid);
+  return roleIds.some(roleId => {
+    const role = srv.roles.find(r => r.id === roleId);
+    return !!(role && (role.permissions?.administrator || role.permissions?.[permission]));
+  });
+}
+
+function getMemberRole(srv, uid) {
+  ensureServerRoleSchema(srv);
+  const roleIds = getMemberRoleIds(srv, uid);
+  const custom = srv.roles.find(r => r.id !== 'everyone' && roleIds.includes(r.id));
+  return custom || srv.roles.find(r => r.id === 'everyone') || null;
+}
+
+function getPermissionLabel(key) {
+  return (ROLE_PERMISSIONS.find(([k]) => k === key) || ['', key])[1];
+}
+
 function getStatusLabel(status) {
   switch(status) {
     case 'online': return '🟢 В сети';
@@ -1002,6 +1197,9 @@ function loadLocalStore() {
   channelsData = JSON.parse(localStorage.getItem('discord_channels') || '[]');
   messagesData = JSON.parse(localStorage.getItem('discord_messages') || '[]');
   usersData = JSON.parse(localStorage.getItem('discord_users') || '[]');
+  try { accountNotificationSettings = { ...accountNotificationSettings, ...(JSON.parse(localStorage.getItem('notification_settings') || '{}')) }; } catch(e) {}
+  const savedTheme = localStorage.getItem('theme_dark');
+  if (savedTheme !== null) { isDark = savedTheme !== 'false'; document.documentElement.classList.toggle('dark', isDark); document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀'; }
 
   if (serversData.length === 0) {
     createDefaultStarterServer();
@@ -1031,6 +1229,9 @@ async function createDefaultStarterServer() {
     inviteCode: 'MAIN123',
     ownerId: currentUser.uid,
     members: [currentUser.uid],
+    roles: [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true }],
+    memberRoles: { [currentUser.uid]: ['everyone'] },
+    description: '',
     createdAt: Date.now()
   };
 
@@ -1073,7 +1274,7 @@ function subscribeCloudData() {
 
   onSnapshot(COLLECTION_SERVERS, (snapshot) => {
     serversData = [];
-    snapshot.forEach(docSnap => serversData.push({ id: docSnap.id, ...docSnap.data() }));
+    snapshot.forEach(docSnap => { const srv = { id: docSnap.id, ...docSnap.data() }; ensureServerRoleSchema(srv); serversData.push(srv); });
     
     const myServers = serversData.filter(s => Array.isArray(s.members) && s.members.includes(currentUser.uid));
     if (myServers.length === 0) {
@@ -1087,6 +1288,7 @@ function subscribeCloudData() {
     if (pendingInviteCode) handlePendingInvite();
     renderServers();
     renderMembersSidebar();
+    if (!document.getElementById('modal-server-settings').classList.contains('hidden')) renderServerSettings();
   });
 
   onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
@@ -1096,14 +1298,17 @@ function subscribeCloudData() {
   });
 
   onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
-    const prevCount = messagesData.length;
-    messagesData = [];
-    snapshot.forEach(docSnap => messagesData.push({ id: docSnap.id, ...docSnap.data() }));
-    
-    if (messagesData.length > prevCount && prevCount > 0) {
-      audioFX.playReceive();
+    const nextMessages = [];
+    snapshot.forEach(docSnap => nextMessages.push({ id: docSnap.id, ...docSnap.data() }));
+    const nextIds = new Set(nextMessages.map(m => m.id));
+    if (messagesInitialized) {
+      for (const m of nextMessages) if (!previousMessageIds.has(m.id)) notifyIncomingMessage(m);
     }
+    messagesData = nextMessages;
+    previousMessageIds = nextIds;
+    messagesInitialized = true;
     renderMessages();
+    if (!document.getElementById('modal-pins').classList.contains('hidden')) renderPinnedMessages();
   });
 }
 
@@ -1169,6 +1374,7 @@ document.getElementById('btn-home').onclick = () => {
   document.getElementById('dm-channels-container').classList.remove('hidden');
   document.getElementById('sidebar-header-title').textContent = "Личные сообщения";
   document.getElementById('btn-server-invite').classList.add('hidden');
+  document.getElementById('btn-server-settings').classList.add('hidden');
   document.getElementById('server-invite-badge').classList.add('hidden');
   renderServers();
   renderDirectMessagesList();
@@ -1190,6 +1396,7 @@ function renderChannels() {
     headerTitle.textContent = "Нет серверов";
     inviteBtn.classList.add('hidden');
     addChanBtn.classList.add('hidden');
+    document.getElementById('btn-server-settings').classList.add('hidden');
     inviteBadge.classList.add('hidden');
     chanList.innerHTML = `<p class="text-xs text-discord-muted p-2">Создайте сервер (+), чтобы начать!</p>`;
     voiceList.innerHTML = '';
@@ -1197,9 +1404,11 @@ function renderChannels() {
     return;
   }
 
+  ensureServerRoleSchema(currentServer);
   headerTitle.textContent = currentServer.name;
-  inviteBtn.classList.remove('hidden');
-  addChanBtn.classList.remove('hidden');
+  inviteBtn.classList.toggle('hidden', !hasServerPermission(currentServer, 'create_invites'));
+  addChanBtn.classList.toggle('hidden', !hasServerPermission(currentServer, 'manage_channels'));
+  document.getElementById('btn-server-settings').classList.toggle('hidden', !hasServerPermission(currentServer, 'manage_server') && !hasServerPermission(currentServer, 'manage_roles') && !hasServerPermission(currentServer, 'manage_members'));
   inviteBadge.classList.remove('hidden');
   inviteCodeSpan.textContent = currentServer.inviteCode || '...';
 
@@ -1369,10 +1578,11 @@ function renderMembersSidebar() {
   const rows = members.map(m => {
     const isOwner = m.uid === srv.ownerId;
     const isAdmin = (srv.admins || []).includes(m.uid);
+    const memberRole = getMemberRole(srv, m.uid);
     const isSelf = m.uid === currentUser.uid;
     const initial = (m.nickname || 'U').charAt(0).toUpperCase();
-    const canBan = manager && !isOwner && !isSelf;
-    const canRole = owner && !isOwner && !isSelf;
+    const canBan = hasServerPermission(srv, 'manage_members') && !isOwner && !isSelf;
+    const canRole = hasServerPermission(srv, 'manage_roles') && !isOwner && !isSelf;
 
     return `
       <div class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 transition group">
@@ -1389,10 +1599,11 @@ function renderMembersSidebar() {
             <span class="text-xs font-semibold text-gray-200 group-hover:text-white truncate">${escapeHtml(m.nickname)}</span>
             ${isOwner ? '<span title="Владелец сервера">👑</span>' : ''}
             ${isAdmin ? '<span title="Админ сервера">🛡️</span>' : ''}
+            ${memberRole && memberRole.id !== 'everyone' ? `<span class="text-[10px] font-semibold" style="color:${escapeHtml(memberRole.color || '#99AAB5')}">${escapeHtml(memberRole.name)}</span>` : ''}
           </div>
           <div class="text-[10px] text-discord-muted truncate">${escapeHtml(m.customStatus || m.status || 'В сети')}</div>
         </div>
-        ${canRole ? `<button onclick="toggleAdmin('${m.uid}')" class="text-[10px] text-discord-muted hover:text-white">${isAdmin ? 'Снять' : 'Админ'}</button>` : ''}
+        ${canRole ? `<button onclick="openServerSettings('members')" class="text-[10px] text-discord-muted hover:text-white">Роль</button>` : ''}
         ${canBan ? `<button onclick="banMember('${m.uid}')" class="text-[10px] text-discord-red hover:underline">Бан</button>` : ''}
       </div>`;
   }).join('');
@@ -1472,6 +1683,9 @@ function renderMessages() {
     const timeStr = m.ts ? new Date(m.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
     const initial = (m.authorName || 'U').charAt(0).toUpperCase();
     const isOwnerOfMsg = m.authorId === currentUser.uid;
+    const serverForMsg = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+    const canManageMessage = isOwnerOfMsg || (serverForMsg && hasServerPermission(serverForMsg, 'manage_messages'));
+    const canPinMessage = serverForMsg && hasServerPermission(serverForMsg, 'pin_messages');
 
     // Reaction markup
     const reactions = m.reactions || {};
@@ -1490,7 +1704,7 @@ function renderMessages() {
     }).join('');
 
     return `
-      <div class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 py-1.5 rounded-lg transition group relative">
+      <div data-message-id="${m.id}" class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 py-1.5 rounded-lg transition group relative">
         <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-sm flex-shrink-0 mt-0.5 shadow">
           ${escapeHtml(initial)}
         </div>
@@ -1505,7 +1719,8 @@ function renderMessages() {
 
           <div class="flex items-baseline gap-2">
             <span class="font-semibold text-sm text-white hover:underline cursor-pointer">${escapeHtml(m.authorName || 'Аноним')}</span>
-            <span class="text-[11px] text-discord-muted">${timeStr}</span>
+            <span class="text-[11px] text-discord-muted">${timeStr}${m.editedAt ? ' · изменено' : ''}</span>
+            ${m.pinned ? '<span title="Закреплено" class="text-[11px]">📌</span>' : ''}
           </div>
 
           <div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>
@@ -1530,7 +1745,9 @@ function renderMessages() {
           <button onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text)}')" title="Ответить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">↩️</button>
           <button onclick="toggleQuickReaction('${m.id}', '❤️')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">❤️</button>
           <button onclick="toggleQuickReaction('${m.id}', '👍')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">👍</button>
-          ${isOwnerOfMsg ? `
+          ${canManageMessage ? `<button onclick="editMessage('${m.id}')" title="Изменить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">✏️</button>` : ''}
+          ${canPinMessage && currentView === 'server' ? `<button onclick="togglePinMessage('${m.id}')" title="${m.pinned ? 'Открепить' : 'Закрепить'}" class="p-1 hover:bg-discord-hover rounded ${m.pinned ? 'text-discord-accent' : 'text-discord-muted'}">📌</button>` : ''}
+          ${canManageMessage ? `
             <button onclick="deleteMessage('${m.id}')" title="Удалить" class="p-1 hover:bg-discord-hover rounded text-red-400">🗑️</button>
           ` : ''}
         </div>
@@ -1593,6 +1810,10 @@ window.toggleQuickReaction = function(msgId, emoji) {
 };
 
 window.deleteMessage = async function(msgId) {
+  const msg = messagesData.find(m => m.id === msgId);
+  const srv = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+  if (!msg) return;
+  if (msg.authorId !== currentUser.uid && !(srv && hasServerPermission(srv, 'manage_messages'))) return;
   if (isCloudEnabled) {
     try {
       await deleteDoc(doc(COLLECTION_MESSAGES, msgId));
@@ -1606,6 +1827,52 @@ window.deleteMessage = async function(msgId) {
     renderMessages();
     showToast("Сообщение удалено");
   }
+};
+
+window.editMessage = async function(msgId) {
+  const msg = messagesData.find(m => m.id === msgId);
+  if (!msg) return;
+  const srv = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+  if (msg.authorId !== currentUser.uid && !(srv && hasServerPermission(srv, 'manage_messages'))) return;
+  const next = prompt('Изменить сообщение:', msg.text || '');
+  if (next === null) return;
+  const text = next.trim();
+  if (!text && !msg.attachmentUrl) { showToast('Сообщение не может быть пустым', true); return; }
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_MESSAGES, msgId), { text, editedAt: Date.now() });
+    else { msg.text = text; msg.editedAt = Date.now(); saveLocalStore(); renderMessages(); }
+    showToast('Сообщение изменено');
+  } catch (e) { showToast('Не удалось изменить сообщение', true); }
+};
+
+window.togglePinMessage = async function(msgId) {
+  const msg = messagesData.find(m => m.id === msgId);
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!msg || !srv || !hasServerPermission(srv, 'pin_messages')) return;
+  const pinned = !msg.pinned;
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_MESSAGES, msgId), { pinned, pinnedAt: pinned ? Date.now() : null, pinnedBy: pinned ? currentUser.uid : null });
+    else { msg.pinned = pinned; msg.pinnedAt = pinned ? Date.now() : null; msg.pinnedBy = pinned ? currentUser.uid : null; saveLocalStore(); renderMessages(); }
+    showToast(pinned ? 'Сообщение закреплено' : 'Сообщение откреплено');
+  } catch(e) { showToast('Не удалось изменить закрепление', true); }
+};
+
+function renderPinnedMessages() {
+  const list = document.getElementById('pinned-messages-list');
+  const currentServer = serversData.find(s => s.id === currentServerId);
+  if (!currentServer || currentView !== 'server' || !currentChannelId) { list.innerHTML = '<p class="text-sm text-discord-muted">Закреплённые сообщения доступны внутри сервера.</p>'; return; }
+  const pinned = messagesData.filter(m => m.channelId === currentChannelId && m.pinned).sort((a,b) => (b.pinnedAt || b.ts || 0) - (a.pinnedAt || a.ts || 0));
+  list.innerHTML = pinned.length ? pinned.map(m => `
+    <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-3">
+      <div class="flex items-center justify-between gap-2"><div class="text-xs font-bold text-white">${escapeHtml(m.authorName || 'Аноним')}</div><div class="text-[10px] text-discord-muted">${m.ts ? new Date(m.ts).toLocaleString('ru-RU') : ''}</div></div>
+      <div class="text-sm text-gray-200 mt-1 whitespace-pre-wrap break-words">${formatMarkdown(m.text || '')}</div>
+      <button onclick="scrollToMessage('${m.id}')" class="mt-2 text-xs text-discord-accent hover:underline">Перейти к сообщению</button>
+    </div>`).join('') : '<div class="text-sm text-discord-muted text-center py-8">В этом канале пока нет закреплённых сообщений.</div>';
+}
+
+window.scrollToMessage = function(msgId) {
+  closeModals();
+  setTimeout(() => { const el = document.querySelector(`[data-message-id="${msgId}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
 };
 
 // Attachment modal logic
@@ -1732,6 +1999,9 @@ document.getElementById('form-create-server').onsubmit = async (e) => {
     inviteCode: inviteCode,
     ownerId: currentUser.uid,
     members: [currentUser.uid],
+    roles: [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true }],
+    memberRoles: { [currentUser.uid]: ['everyone'] },
+    description: '',
     createdAt: Date.now()
   };
 
@@ -1884,11 +2154,195 @@ document.getElementById('form-update-profile').onsubmit = async (e) => {
   showToast("Профиль обновлен!");
 };
 
+function setServerSettingsTab(tab) {
+  activeServerSettingsTab = tab;
+  document.querySelectorAll('.server-settings-tab').forEach(btn => {
+    const active = btn.dataset.serverSettingsTab === tab;
+    btn.classList.toggle('bg-discord-hover', active);
+    btn.classList.toggle('text-white', active);
+    btn.classList.toggle('text-discord-muted', !active);
+  });
+  document.querySelectorAll('.server-settings-panel').forEach(panel => panel.classList.add('hidden'));
+  document.getElementById(`server-settings-panel-${tab}`)?.classList.remove('hidden');
+  renderServerSettings();
+}
+
+function setAccountSettingsTab(tab) {
+  activeAccountSettingsTab = tab;
+  document.querySelectorAll('.account-settings-tab').forEach(btn => {
+    const active = btn.dataset.accountSettingsTab === tab;
+    btn.classList.toggle('bg-discord-hover', active);
+    btn.classList.toggle('text-white', active);
+    btn.classList.toggle('text-discord-muted', !active);
+  });
+  document.querySelectorAll('.account-settings-panel').forEach(panel => panel.classList.add('hidden'));
+  document.getElementById(`account-settings-panel-${tab}`)?.classList.remove('hidden');
+}
+
+function renderRolePermissions(role) {
+  const grid = document.getElementById('role-permissions-grid');
+  grid.innerHTML = ROLE_PERMISSIONS.map(([key, label]) => `
+    <label class="flex items-center gap-2 p-2 rounded-lg bg-discord-surface border border-gray-700/40 text-xs text-gray-200 ${role?.managed && key !== 'view_channels' && key !== 'send_messages' && key !== 'delete_messages' ? 'opacity-60' : ''}">
+      <input type="checkbox" data-role-permission="${key}" class="w-4 h-4 accent-discord-accent" ${role?.permissions?.[key] ? 'checked' : ''} ${role?.managed && !['view_channels','send_messages','delete_messages'].includes(key) ? 'disabled' : ''}>
+      <span>${escapeHtml(label)}</span>
+    </label>`).join('');
+}
+
+function openRoleEditor(roleId = null) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
+  ensureServerRoleSchema(srv);
+  const role = roleId ? srv.roles.find(r => r.id === roleId) : null;
+  document.getElementById('role-editor').classList.remove('hidden');
+  document.getElementById('role-editor-title').textContent = role ? `Роль: ${role.name}` : 'Новая роль';
+  document.getElementById('input-role-id').value = role?.id || '';
+  document.getElementById('input-role-name').value = role?.name || '';
+  document.getElementById('input-role-color').value = role?.color || '#5865F2';
+  renderRolePermissions(role || { permissions: defaultRolePermissions() });
+  document.getElementById('btn-delete-role').classList.toggle('hidden', !role || role.managed);
+}
+
+function renderRolesSettings() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const list = document.getElementById('roles-list');
+  if (!srv) { list.innerHTML = ''; return; }
+  ensureServerRoleSchema(srv);
+  const canManage = hasServerPermission(srv, 'manage_roles');
+  document.getElementById('btn-create-role').classList.toggle('hidden', !canManage);
+  list.innerHTML = srv.roles.map(role => {
+    const count = Object.values(srv.memberRoles || {}).filter(ids => (ids || []).includes(role.id)).length;
+    const perms = Object.entries(role.permissions || {}).filter(([,v]) => v).map(([k]) => getPermissionLabel(k)).slice(0,3);
+    return `<button type="button" ${canManage ? `onclick="openRoleEditor('${role.id}')"` : ''} class="w-full text-left bg-discord-rail border border-gray-700/50 rounded-xl p-3 hover:bg-discord-hover transition ${!canManage ? 'cursor-default' : ''}">
+      <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:${escapeHtml(role.color || '#99AAB5')}"></span><span class="font-semibold text-white flex-1">${escapeHtml(role.name)}</span><span class="text-[10px] text-discord-muted">${count} уч.</span>${role.managed ? '<span class="text-[10px] text-discord-muted">по умолчанию</span>' : ''}</div>
+      <div class="text-[10px] text-discord-muted mt-1 truncate">${escapeHtml(perms.join(' · ') || 'Без специальных разрешений')}</div>
+    </button>`;
+  }).join('');
+}
+
+function renderServerMembersSettings() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const list = document.getElementById('server-members-settings-list');
+  if (!srv) { list.innerHTML = ''; return; }
+  ensureServerRoleSchema(srv);
+  const members = usersData.filter(u => (srv.members || []).includes(u.uid));
+  if (!members.some(m => m.uid === currentUser.uid)) members.push({uid:currentUser.uid,nickname:currentUser.nickname,status:currentUser.status});
+  const canRoles = hasServerPermission(srv, 'manage_roles');
+  list.innerHTML = members.map(m => {
+    const roleIds = getMemberRoleIds(srv, m.uid);
+    const isOwner = m.uid === srv.ownerId;
+    const roleOptions = srv.roles.map(role => `<option value="${role.id}" ${roleIds.includes(role.id) ? 'selected' : ''}>${escapeHtml(role.name)}</option>`).join('');
+    return `<div class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
+      <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm">${escapeHtml((m.nickname || 'U').charAt(0).toUpperCase())}</div>
+      <div class="min-w-0 flex-1"><div class="font-semibold text-white text-sm truncate">${escapeHtml(m.nickname || 'Пользователь')} ${isOwner ? '👑' : ''}</div><div class="text-[10px] text-discord-muted">${escapeHtml(m.uid)}</div></div>
+      <select data-member-role="${m.uid}" multiple size="1" ${(!canRoles || isOwner) ? 'disabled' : ''} class="min-w-40 max-w-48 bg-discord-surface border border-gray-700/60 rounded-lg px-2 py-1.5 text-xs text-white">${roleOptions}</select>
+      ${canRoles && !isOwner ? `<button type="button" onclick="saveMemberRoles('${m.uid}')" class="text-xs bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg">Сохранить</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+window.saveMemberRoles = async function(uid) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
+  ensureServerRoleSchema(srv);
+  const sel = document.querySelector(`[data-member-role="${uid}"]`);
+  if (!sel) return;
+  const selected = Array.from(sel.selectedOptions).map(o => o.value);
+  const roles = selected.includes('everyone') ? selected : ['everyone', ...selected];
+  const memberRoles = { ...(srv.memberRoles || {}), [uid]: roles };
+  if (isCloudEnabled) {
+    try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), { memberRoles }); } catch(e) { showToast('Не удалось сохранить роли', true); return; }
+  } else { srv.memberRoles = memberRoles; saveLocalStore(); }
+  showToast('Роли участника обновлены');
+};
+
+function renderServerChannelsSettings() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const list = document.getElementById('server-channels-settings-list');
+  if (!srv) { list.innerHTML=''; return; }
+  const canManage = hasServerPermission(srv, 'manage_channels');
+  const chans = channelsData.filter(c => c.serverId === srv.id).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  list.innerHTML = chans.map(c => `<div class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3"><span>${c.type === 'voice' ? '🔊' : '#'}</span><span class="text-sm text-white flex-1">${escapeHtml(c.name)}</span><span class="text-[10px] text-discord-muted">${c.type === 'voice' ? 'голосовой' : 'текстовый'}</span>${canManage ? `<button type="button" onclick="renameChannelPrompt('${c.id}')" class="text-xs text-discord-muted hover:text-white">Переименовать</button><button type="button" onclick="deleteChannel('${c.id}')" class="text-xs text-discord-red hover:underline">Удалить</button>` : ''}</div>`).join('');
+}
+
+window.renameChannelPrompt = async function(chanId) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const chan = channelsData.find(c => c.id === chanId);
+  if (!srv || !chan || chan.serverId !== srv.id || !hasServerPermission(srv,'manage_channels')) return;
+  const name = prompt('Новое название канала:', chan.name);
+  if (name === null) return;
+  const clean = name.trim().toLowerCase().replace(/\s+/g,'-');
+  if (!clean) return;
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_CHANNELS, chan.id), { name: clean });
+    else { chan.name = clean; saveLocalStore(); renderChannels(); }
+    showToast('Канал переименован');
+    renderServerSettings();
+  } catch(e) { showToast('Ошибка переименования канала', true); }
+};
+
+window.deleteChannel = async function(chanId) {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const chan = channelsData.find(c => c.id === chanId);
+  if (!srv || !chan || chan.serverId !== srv.id || !hasServerPermission(srv,'manage_channels')) return;
+  if (channelsData.filter(c=>c.serverId===srv.id && c.type==='text').length <= 1 && chan.type === 'text') { showToast('Нельзя удалить последний текстовый канал', true); return; }
+  if (!confirm(`Удалить канал ${chan.name}?`)) return;
+  try {
+    if (isCloudEnabled) {
+      await deleteDoc(doc(COLLECTION_CHANNELS, chan.id));
+      for (const m of messagesData.filter(m => m.channelId === chan.id)) await deleteDoc(doc(COLLECTION_MESSAGES, m.id));
+    } else { channelsData = channelsData.filter(c=>c.id!==chanId); messagesData = messagesData.filter(m=>m.channelId!==chanId); saveLocalStore(); }
+    if (currentChannelId === chanId) currentChannelId = null;
+    renderChannels(); renderServerSettings();
+    showToast('Канал удалён');
+  } catch(e) { showToast('Ошибка удаления канала', true); }
+};
+
+function renderServerSettings() {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv) return;
+  ensureServerRoleSchema(srv);
+  document.getElementById('server-settings-subtitle').textContent = srv.name;
+  document.getElementById('input-settings-server-name').value = srv.name || '';
+  document.getElementById('input-settings-server-description').value = srv.description || '';
+  document.getElementById('settings-invite-code').textContent = srv.inviteCode || '—';
+  document.getElementById('btn-settings-delete-server').classList.toggle('hidden', !isServerOwner(srv));
+  renderRolesSettings();
+  renderServerMembersSettings();
+  renderServerChannelsSettings();
+}
+
+window.openServerSettings = function(tab='general') {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv) return;
+  if (!hasServerPermission(srv, 'manage_server') && !hasServerPermission(srv, 'manage_roles') && !hasServerPermission(srv, 'manage_members')) { showToast('Недостаточно прав', true); return; }
+  openModal('modal-server-settings');
+  setServerSettingsTab(tab);
+};
+
 window.openModal = function(id) {
   if (id === 'modal-profile') {
     document.getElementById('input-profile-nickname').value = currentUser.nickname;
     document.getElementById('select-profile-status').value = currentUser.status;
     document.getElementById('input-profile-custom-status').value = currentUser.customStatus || '';
+  }
+  if (id === 'modal-server-settings') renderServerSettings();
+  if (id === 'modal-account-settings') {
+    document.getElementById('account-settings-email').textContent = auth?.currentUser?.email || '—';
+    const providers = auth?.currentUser?.providerData?.map(p => p.providerId).join(', ') || '—';
+    document.getElementById('account-settings-provider').textContent = `Способы входа: ${providers}`;
+    const passwordForm = document.getElementById('form-change-password');
+    const isPasswordProvider = auth?.currentUser?.providerData?.some(p => p.providerId === 'password');
+    document.getElementById('input-new-password').disabled = !isPasswordProvider;
+    document.getElementById('input-new-password-confirm').disabled = !isPasswordProvider;
+    document.getElementById('btn-change-password').disabled = !isPasswordProvider;
+    document.getElementById('btn-reset-password-email').disabled = !isPasswordProvider;
+    document.getElementById('btn-reset-password-email').classList.toggle('opacity-50', !isPasswordProvider);
+    document.getElementById('password-change-note').textContent = isPasswordProvider ? 'Можно изменить пароль прямо здесь.' : 'Для аккаунтов Google пароль управляется через Google.';
+    document.getElementById('setting-notify-inapp').checked = accountNotificationSettings.inApp !== false;
+    document.getElementById('setting-notify-dm').checked = accountNotificationSettings.dm !== false;
+    document.getElementById('setting-notify-mentions').checked = accountNotificationSettings.mentions !== false;
+    document.getElementById('setting-dark-theme').checked = isDark;
+    document.getElementById('btn-browser-notifications').textContent = ('Notification' in window && Notification.permission === 'granted') ? 'Уведомления браузера разрешены' : 'Разрешить уведомления браузера';
   }
   document.getElementById(id).classList.remove('hidden');
 };
@@ -1919,12 +2373,136 @@ document.getElementById('btn-theme-toggle').onclick = () => {
   document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀';
 };
 
+document.getElementById('btn-server-settings').onclick = () => openServerSettings('general');
+document.getElementById('btn-open-account-settings').onclick = () => { closeModals(); openModal('modal-account-settings'); setAccountSettingsTab('account'); };
+document.getElementById('btn-open-pins').onclick = () => { renderPinnedMessages(); openModal('modal-pins'); };
+document.querySelectorAll('.server-settings-tab').forEach(btn => btn.onclick = () => setServerSettingsTab(btn.dataset.serverSettingsTab));
+document.querySelectorAll('.account-settings-tab').forEach(btn => btn.onclick = () => setAccountSettingsTab(btn.dataset.accountSettingsTab));
+document.getElementById('btn-create-role').onclick = () => openRoleEditor();
+document.getElementById('btn-close-role-editor').onclick = () => document.getElementById('role-editor').classList.add('hidden');
+document.getElementById('btn-settings-add-channel').onclick = () => { closeModals(); openModal('modal-channel'); };
+document.getElementById('btn-settings-copy-invite').onclick = () => copyTextToClipboard(document.getElementById('settings-invite-code').textContent);
+document.getElementById('btn-settings-delete-server').onclick = () => window.deleteCurrentServer();
+
+document.getElementById('form-server-general').onsubmit = async (e) => {
+  e.preventDefault();
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv,'manage_server')) return;
+  const name = document.getElementById('input-settings-server-name').value.trim();
+  const description = document.getElementById('input-settings-server-description').value.trim();
+  if (!name) return;
+  if (isCloudEnabled) { try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), { name, description }); } catch(e) { showToast('Не удалось сохранить настройки сервера', true); return; } }
+  else { srv.name = name; srv.description = description; saveLocalStore(); }
+  renderChannels(); renderServers(); showToast('Настройки сервера сохранены');
+};
+
+document.getElementById('form-role-editor').onsubmit = async (e) => {
+  e.preventDefault();
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv,'manage_roles')) return;
+  ensureServerRoleSchema(srv);
+  const roleId = document.getElementById('input-role-id').value.trim();
+  const roleName = document.getElementById('input-role-name').value.trim();
+  const roleColor = document.getElementById('input-role-color').value || '#5865F2';
+  if (!roleName) return;
+  const permissions = {};
+  document.querySelectorAll('[data-role-permission]').forEach(cb => permissions[cb.dataset.rolePermission] = cb.checked);
+  if (roleId) {
+    const role = srv.roles.find(r=>r.id===roleId);
+    if (!role) return;
+    if (role.managed) { showToast('Роль @everyone нельзя переименовать или изменить', true); return; }
+    role.name = roleName; role.color = roleColor; role.permissions = permissions;
+  } else {
+    const role = { id: 'r_' + Date.now().toString(36), name: roleName, color: roleColor, permissions };
+    srv.roles.push(role);
+  }
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_SERVERS, srv.id), { roles: srv.roles });
+    else saveLocalStore();
+    document.getElementById('role-editor').classList.add('hidden');
+    renderRolesSettings(); renderMembersSidebar();
+    showToast('Роль сохранена');
+  } catch(e) { showToast('Не удалось сохранить роль', true); }
+};
+
+document.getElementById('btn-delete-role').onclick = async () => {
+  const srv = serversData.find(s => s.id === currentServerId);
+  const roleId = document.getElementById('input-role-id').value;
+  if (!srv || !roleId || !hasServerPermission(srv,'manage_roles')) return;
+  ensureServerRoleSchema(srv);
+  const role = srv.roles.find(r=>r.id===roleId);
+  if (!role || role.managed) return;
+  if (!confirm(`Удалить роль «${role.name}»?`)) return;
+  srv.roles = srv.roles.filter(r=>r.id!==roleId);
+  const memberRoles = Object.fromEntries(Object.entries(srv.memberRoles || {}).map(([uid, ids]) => [uid, (ids||[]).filter(id=>id!==roleId)]));
+  srv.memberRoles = memberRoles;
+  try {
+    if (isCloudEnabled) await updateDoc(doc(COLLECTION_SERVERS, srv.id), { roles: srv.roles, memberRoles });
+    else saveLocalStore();
+    document.getElementById('role-editor').classList.add('hidden');
+    renderRolesSettings(); renderServerMembersSettings(); renderMembersSidebar();
+    showToast('Роль удалена');
+  } catch(e) { showToast('Не удалось удалить роль', true); }
+};
+
+document.getElementById('form-change-password').onsubmit = async (e) => {
+  e.preventDefault();
+  const user = auth?.currentUser;
+  const p1 = document.getElementById('input-new-password').value;
+  const p2 = document.getElementById('input-new-password-confirm').value;
+  if (!user) return;
+  if (!user.providerData?.some(p => p.providerId === 'password')) { showToast('Для Google-аккаунта пароль меняется через Google', true); return; }
+  if (p1.length < 6) { showToast('Пароль должен содержать минимум 6 символов', true); return; }
+  if (p1 !== p2) { showToast('Новые пароли не совпадают', true); return; }
+  try { await updatePassword(user, p1); document.getElementById('input-new-password').value=''; document.getElementById('input-new-password-confirm').value=''; showToast('Пароль изменён'); }
+  catch(e) { if (e?.code === 'auth/requires-recent-login') showToast('Firebase требует недавнего входа. Войдите в аккаунт заново и повторите.', true); else showToast('Не удалось изменить пароль', true); }
+};
+
+document.getElementById('btn-reset-password-email').onclick = async () => {
+  const email = auth?.currentUser?.email;
+  if (!email) return;
+  try { await sendPasswordResetEmail(auth, email); showToast('Письмо для сброса пароля отправлено на почту'); }
+  catch(e) { showToast('Не удалось отправить письмо для сброса', true); }
+};
+
+function saveNotificationSettings() {
+  accountNotificationSettings = {
+    ...accountNotificationSettings,
+    inApp: document.getElementById('setting-notify-inapp').checked,
+    dm: document.getElementById('setting-notify-dm').checked,
+    mentions: document.getElementById('setting-notify-mentions').checked
+  };
+  syncUserProfileCloud();
+  localStorage.setItem('notification_settings', JSON.stringify(accountNotificationSettings));
+}
+['setting-notify-inapp','setting-notify-dm','setting-notify-mentions'].forEach(id => document.getElementById(id).addEventListener('change', saveNotificationSettings));
+document.getElementById('setting-dark-theme').addEventListener('change', e => { isDark = e.target.checked; document.documentElement.classList.toggle('dark', isDark); localStorage.setItem('theme_dark', String(isDark)); document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀'; });
+document.getElementById('btn-browser-notifications').onclick = async () => {
+  if (!('Notification' in window)) { showToast('Браузер не поддерживает уведомления', true); return; }
+  const perm = await Notification.requestPermission();
+  accountNotificationSettings.browser = perm === 'granted';
+  saveNotificationSettings();
+  showToast(perm === 'granted' ? 'Уведомления браузера разрешены' : 'Разрешение не выдано', perm !== 'granted');
+};
+
+function notifyIncomingMessage(msg) {
+  if (!msg || msg.authorId === currentUser.uid) return;
+  const isDm = !!msg.targetDmId;
+  const activeContext = currentView === 'dm' && isDm && msg.targetDmId === currentUser.uid && msg.authorId === currentDmUserId;
+  const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase());
+  const allowed = accountNotificationSettings.inApp !== false && ((isDm && accountNotificationSettings.dm !== false) || (!isDm && mention && accountNotificationSettings.mentions !== false));
+  if (!allowed || activeContext) return;
+  showToast(`${isDm ? 'ЛС' : 'Упоминание'}: ${msg.authorName || 'Пользователь'} — ${(msg.text || '').slice(0,90)}`);
+  audioFX.playReceive();
+  if (accountNotificationSettings.browser && 'Notification' in window && Notification.permission === 'granted') { try { new Notification(`${isDm ? 'Личное сообщение' : 'Упоминание'} · ${msg.authorName || 'Пользователь'}`, { body: msg.text || '' }); } catch(e) {} }
+}
+
 /* ===== Модерация: баны, роли, удаление сервера ===== */
 function isServerOwner(srv) {
   return !!srv && srv.ownerId === currentUser.uid;
 }
 function isServerManager(srv) {
-  return !!srv && (srv.ownerId === currentUser.uid || (srv.admins || []).includes(currentUser.uid));
+  return !!srv && (hasServerPermission(srv, 'manage_server') || hasServerPermission(srv, 'manage_members') || hasServerPermission(srv, 'manage_roles'));
 }
 
 async function updateServerFields(srv, fields) {
@@ -1945,7 +2523,7 @@ async function updateServerFields(srv, fields) {
 
 window.banMember = async function(uid) {
   const srv = serversData.find(s => s.id === currentServerId);
-  if (!isServerManager(srv) || uid === srv.ownerId || uid === currentUser.uid) return;
+  if (!hasServerPermission(srv, 'manage_members') || uid === srv.ownerId || uid === currentUser.uid) return;
   if (!confirm('Забанить этого игрока на сервере?')) return;
 
   const bans = [...new Set([...(srv.bans || []), uid])];
