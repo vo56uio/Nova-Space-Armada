@@ -72,34 +72,71 @@
 </div>
 
 
-<!-- Auth Screen (Nickname Input) -->
-<section id="auth-screen" class="fixed inset-0 z-50 bg-discord-rail flex items-center justify-center p-4">
-  <div class="bg-discord-surface p-8 rounded-2xl shadow-2xl border border-gray-700/40 w-full max-w-md text-center space-y-6 transform transition-all">
-    <div class="w-16 h-16 bg-discord-accent rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-lg shadow-discord-accent/30">
-      💬
+<!-- Auth Screen -->
+<section id="auth-screen" class="auth-screen fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
+  <style>
+    .auth-screen{background:radial-gradient(circle at 12% 18%,rgba(88,101,242,.22),transparent 30%),radial-gradient(circle at 88% 82%,rgba(124,92,255,.18),transparent 32%),linear-gradient(135deg,#080a12 0%,#12152a 52%,#070810 100%)}
+    .auth-screen:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.22;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:44px 44px;transform:perspective(700px) rotateX(58deg) scale(1.6) translateY(20%);animation:authGrid 18s linear infinite}
+    .auth-screen:after{content:"";position:absolute;width:38rem;height:38rem;border-radius:50%;background:rgba(88,101,242,.11);filter:blur(80px);top:-18rem;right:-12rem;pointer-events:none;animation:authGlow 9s ease-in-out infinite alternate}
+    @keyframes authGrid{to{transform:perspective(700px) rotateX(58deg) scale(1.6) translateY(24%)}}
+    @keyframes authGlow{to{transform:translate(-60px,50px) scale(1.08)}}
+    @keyframes authIn{from{opacity:0;transform:translateY(22px) scale(.97)}to{opacity:1;transform:none}}
+    @keyframes authPulse{50%{box-shadow:0 0 0 9px rgba(88,101,242,.05),0 0 55px rgba(88,101,242,.35)}}
+    @keyframes authStar{50%{opacity:1;transform:scale(1.35)}}
+    @keyframes authSweep{0%{transform:translateX(-130%)}55%,100%{transform:translateX(130%)}}
+    .auth-star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.25;animation:authStar 3s ease-in-out infinite}
+    .auth-card{animation:authIn .65s cubic-bezier(.2,.8,.2,1);background:rgba(31,34,47,.82);border:1px solid rgba(255,255,255,.10);box-shadow:0 30px 90px rgba(0,0,0,.5),inset 0 1px rgba(255,255,255,.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+    .auth-logo{animation:authPulse 3.2s ease-in-out infinite}
+    .auth-input{background:rgba(10,12,20,.60);border:1px solid rgba(148,155,164,.20);transition:.2s ease}
+    .auth-input:focus{border-color:#5865F2;box-shadow:0 0 0 3px rgba(88,101,242,.15),0 0 24px rgba(88,101,242,.10);outline:0}
+    .auth-tab{transition:.2s ease}.auth-tab.active{color:#fff;background:rgba(88,101,242,.16);box-shadow:inset 0 -2px #5865F2}
+    .auth-submit{position:relative;overflow:hidden;background:linear-gradient(135deg,#5865F2,#7c5cff);box-shadow:0 10px 28px rgba(88,101,242,.25);transition:.2s ease}
+    .auth-submit:before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 25%,rgba(255,255,255,.18) 50%,transparent 75%);transform:translateX(-130%);animation:authSweep 4.5s ease-in-out infinite;pointer-events:none}
+    .auth-submit:hover{transform:translateY(-1px);box-shadow:0 14px 34px rgba(88,101,242,.36)}
+    .auth-google{transition:.2s ease;background:#fff;color:#111827}.auth-google:hover{background:#f3f4f6;transform:translateY(-1px)}
+    .auth-strength{height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}.auth-strength span{display:block;height:100%;width:0;background:#5865F2;transition:.25s}
+  </style>
+  <span class="auth-star" style="left:8%;top:18%;animation-delay:.2s"></span><span class="auth-star" style="left:15%;top:73%;animation-delay:1.4s"></span><span class="auth-star" style="left:25%;top:34%;animation-delay:2.2s"></span><span class="auth-star" style="left:38%;top:13%;animation-delay:.8s"></span><span class="auth-star" style="left:61%;top:17%;animation-delay:1.8s"></span><span class="auth-star" style="left:77%;top:38%;animation-delay:.5s"></span><span class="auth-star" style="left:90%;top:22%;animation-delay:2.5s"></span><span class="auth-star" style="left:91%;top:76%;animation-delay:1.1s"></span><span class="auth-star" style="left:67%;top:86%;animation-delay:2.1s"></span><span class="auth-star" style="left:31%;top:91%;animation-delay:.9s"></span>
+
+  <div class="auth-card relative z-10 w-full max-w-md rounded-3xl p-7 sm:p-8 text-center">
+    <div class="auth-logo mx-auto mb-5 w-16 h-16 rounded-2xl bg-gradient-to-br from-discord-accent to-violet-500 flex items-center justify-center text-3xl shadow-xl">✦</div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Nova Space Armada</h1>
+    <p id="auth-subtitle" class="text-discord-muted text-sm mt-2 leading-relaxed">Создайте новый аккаунт и присоединяйтесь к чату.</p>
+
+    <div class="mt-6 grid grid-cols-2 rounded-xl bg-black/20 p-1 border border-white/5">
+      <button id="auth-tab-register" type="button" class="auth-tab active rounded-lg py-2.5 text-sm font-semibold">Регистрация</button>
+      <button id="auth-tab-login" type="button" class="auth-tab rounded-lg py-2.5 text-sm font-semibold text-discord-muted">Вход</button>
     </div>
-    <div>
-      <h1 class="text-2xl font-bold text-white">Добро пожаловать в Чат!</h1>
-      <p class="text-discord-muted text-sm mt-1">Придумайте никнейм и выберите статус для общения в реальном времени.</p>
-    </div>
-    <button id="btn-google-login" type="button" class="w-full mb-4 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-3 rounded-xl shadow-md transition-all">Войти через Google</button>
-    <form id="auth-form" onsubmit="return handleLogin(event);" class="space-y-4 text-left">
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase tracking-wider mb-2">Ваш Никнейм</label>
-        <input id="auth-nickname" type="text" maxlength="24" placeholder="Например: CyberKnight" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-discord-accent transition">
+
+    <form id="auth-form" onsubmit="return handleLogin(event);" class="mt-6 space-y-4 text-left">
+      <div id="auth-nickname-wrap">
+        <label class="block text-[11px] font-bold text-discord-muted uppercase tracking-wider mb-2">Никнейм</label>
+        <input id="auth-nickname" type="text" maxlength="24" placeholder="Например: vo56" autocomplete="nickname" class="auth-input w-full rounded-xl px-4 py-3 text-white placeholder-gray-600">
       </div>
       <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase tracking-wider mb-2">Статус при входе</label>
-        <select id="auth-status" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-discord-accent transition">
-          <option value="online">🟢 В сети</option>
-          <option value="idle">🟡 Не активен</option>
-          <option value="dnd">🔴 Не беспокоить</option>
-        </select>
+        <label class="block text-[11px] font-bold text-discord-muted uppercase tracking-wider mb-2">Электронная почта</label>
+        <div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 text-discord-muted">@</span><input id="auth-email" type="email" required placeholder="you@example.com" autocomplete="email" class="auth-input w-full rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600"></div>
       </div>
-      <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-3 rounded-xl shadow-md transition-all active:scale-[0.98]">
-        Войти в чат
-      </button>
+      <div>
+        <div class="flex items-center justify-between mb-2"><label class="block text-[11px] font-bold text-discord-muted uppercase tracking-wider">Пароль</label><span id="auth-password-hint" class="text-[10px] text-discord-muted">минимум 6 символов</span></div>
+        <div class="relative"><input id="auth-password" type="password" minlength="6" required placeholder="Введите пароль" autocomplete="new-password" class="auth-input w-full rounded-xl px-4 py-3 pr-12 text-white placeholder-gray-600"><button id="auth-password-toggle" type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-discord-muted hover:text-white p-1" title="Показать пароль">◉</button></div>
+        <div id="auth-strength-wrap" class="auth-strength mt-2"><span id="auth-strength-bar"></span></div>
+      </div>
+      <div id="auth-confirm-wrap">
+        <label class="block text-[11px] font-bold text-discord-muted uppercase tracking-wider mb-2">Повторите пароль</label>
+        <input id="auth-password-confirm" type="password" minlength="6" placeholder="Повторите пароль" autocomplete="new-password" class="auth-input w-full rounded-xl px-4 py-3 text-white placeholder-gray-600">
+      </div>
+      <div id="auth-status-wrap">
+        <label class="block text-[11px] font-bold text-discord-muted uppercase tracking-wider mb-2">Статус при входе</label>
+        <select id="auth-status" class="auth-input w-full rounded-xl px-4 py-3 text-white"><option value="online">🟢 В сети</option><option value="idle">🟡 Не активен</option><option value="dnd">🔴 Не беспокоить</option></select>
+      </div>
+      <p id="auth-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2"></p>
+      <button id="auth-submit" type="submit" class="auth-submit w-full text-white font-bold py-3.5 rounded-xl"><span class="relative z-10">Создать аккаунт</span></button>
     </form>
+
+    <div class="mt-5 flex items-center gap-3 text-[10px] text-discord-muted"><span class="h-px flex-1 bg-white/10"></span><span>или быстрый вход</span><span class="h-px flex-1 bg-white/10"></span></div>
+    <button id="btn-google-login" type="button" class="auth-google mt-3 w-full font-semibold py-3 rounded-xl shadow-md flex items-center justify-center gap-3"><span class="text-lg font-bold">G</span><span>Продолжить с Google</span></button>
+    <p class="mt-3 text-[10px] text-discord-muted/80">Почта и пароль — для обычного входа. Никнейм — ваше имя в чате.</p>
   </div>
 </section>
 
@@ -210,7 +247,7 @@
         </div>
         <div class="flex items-center gap-1">
           <button id="btn-profile-settings" title="Настройки профиля" onclick="openModal('modal-profile')" class="text-discord-muted hover:text-white p-1 rounded hover:bg-discord-surface">⚙️</button>
-          <button id="btn-logout" title="Сменить никнейм" class="text-discord-muted hover:text-red-400 p-1 rounded hover:bg-discord-surface transition">🚪</button>
+          <button id="btn-logout" title="Выйти" class="text-discord-muted hover:text-red-400 p-1 rounded hover:bg-discord-surface transition">🚪</button>
         </div>
       </div>
     </aside>
@@ -252,282 +289,89 @@
           👥
         </button>
 
-        <span id="server-invite-badge" class="hidden text-xs bg-gray-800/80 text-discord-muted px-2.5 py-1 rounded-full border border-gray-700/50">
-          Код: <b id="invite-code-span" class="text-discord-accent font-mono">...</b>
-        </span>
+        <span id="current-user-uid" class="hidden"></span>
       </div>
     </header>
 
-    <!-- Message Feed -->
-    <div id="message-feed" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+    <div class="flex-1 min-h-0 flex">
+      <section class="flex-1 min-w-0 flex flex-col">
+        <!-- Channel Topic -->
+        <div id="channel-topic" class="px-4 py-2 border-b border-gray-800/40 text-xs text-discord-muted hidden sm:block">
+          Добро пожаловать в чат!
+        </div>
 
-    <!-- Active Reply Banner Preview -->
-    <div id="reply-preview-bar" class="hidden bg-discord-surface border-t border-discord-accent/40 px-4 py-2 flex items-center justify-between text-xs text-discord-muted">
-      <div class="flex items-center gap-2 truncate">
-        <span class="text-discord-accent font-semibold">Ответ для:</span>
-        <span id="reply-preview-author" class="font-bold text-white"></span>
-        <span id="reply-preview-text" class="truncate opacity-80"></span>
-      </div>
-      <button id="btn-cancel-reply" class="text-discord-muted hover:text-white font-bold ml-2">✕</button>
+        <!-- Messages -->
+        <div id="messages-container" class="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+          <!-- Messages injected here -->
+        </div>
+
+        <!-- Composer -->
+        <div class="px-4 pb-4 pt-2 flex-shrink-0">
+          <div id="reply-preview" class="hidden bg-discord-surface border border-gray-700/50 rounded-t-xl px-3 py-2 text-xs text-discord-muted">
+            <div class="flex items-center justify-between"><span>Ответ пользователю</span><button id="btn-cancel-reply" class="text-red-400">✕</button></div>
+            <div id="reply-text" class="truncate mt-1"></div>
+          </div>
+          <div class="bg-discord-surface rounded-xl px-3 py-2 flex items-end gap-2 border border-gray-800/60 focus-within:border-discord-accent/50 transition">
+            <button id="btn-attach" title="Вложение" class="text-discord-muted hover:text-white p-2">＋</button>
+            <textarea id="message-input" rows="1" placeholder="Написать сообщение..." class="flex-1 resize-none bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm max-h-32 py-2"></textarea>
+            <button id="btn-send" class="bg-discord-accent hover:bg-discord-accentHover text-white rounded-lg px-3 py-2 font-semibold transition">➤</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Members Sidebar -->
+      <aside id="members-sidebar" class="w-56 bg-discord-surface border-l border-gray-800/50 hidden lg:flex flex-col">
+        <div class="px-4 py-3 border-b border-gray-800/50"><div class="text-xs font-bold text-white">Участники</div><div id="members-count" class="text-[10px] text-discord-muted mt-0.5">0 участников</div></div>
+        <div id="members-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+      </aside>
     </div>
-
-    <!-- Active Attachment Preview Banner -->
-    <div id="attachment-preview-bar" class="hidden bg-discord-surface border-t border-gray-700/40 px-4 py-2 flex items-center justify-between text-xs">
-      <div class="flex items-center gap-2">
-        <span class="text-xs">📎 Прикрепленное изображение:</span>
-        <span id="attachment-url-text" class="text-discord-accent font-mono truncate max-w-xs"></span>
-      </div>
-      <button id="btn-cancel-attachment" class="text-discord-muted hover:text-white font-bold">✕</button>
-    </div>
-
-    <!-- Chat Input Form -->
-    <form id="chat-form" onsubmit="return handleSendMessage(event);" class="p-3 sm:p-4 bg-discord-bg border-t border-gray-800/40 flex items-center gap-2 flex-shrink-0 sticky bottom-0 z-20">
-      <button type="button" id="btn-attach-file" title="Прикрепить ссылку на картинку" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition">
-        📎
-      </button>
-
-      <div class="relative flex-1 flex items-center">
-        <input id="chat-input" type="text" maxlength="1000" placeholder="Написать сообщение..." class="w-full bg-discord-surface border border-gray-700/40 rounded-xl pl-4 pr-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-discord-accent transition text-sm">
-        <button type="button" id="btn-emoji" title="Добавить эмодзи" class="absolute right-3 text-discord-muted hover:text-white text-lg transition">
-          😊
-        </button>
-      </div>
-
-      <button type="button" onclick="handleSendMessage(event)" class="bg-discord-accent hover:bg-discord-accentHover text-white px-4 sm:px-5 py-3 rounded-xl font-semibold transition active:scale-95 flex items-center gap-1 flex-shrink-0 text-sm">
-        <span>Отправить</span>
-      </button>
-    </form>
   </main>
-
-
-  <!-- Right Sidebar (Server Members List) -->
-  <aside id="members-sidebar" class="w-60 bg-discord-surface border-l border-gray-800/40 flex flex-col flex-shrink-0 hidden lg:flex">
-    <div class="h-14 border-b border-gray-800/60 px-4 flex items-center shadow-sm">
-      <h4 class="font-bold text-discord-muted text-xs uppercase tracking-wider">Участники</h4>
-    </div>
-    <div id="members-list-content" class="flex-1 overflow-y-auto p-3 space-y-3">
-      <!-- Members will be rendered here dynamically -->
-    </div>
-  </aside>
-
-</div>
-
-<!-- Emoji Picker Popup -->
-<div id="emoji-picker" class="fixed bottom-16 right-4 z-50 bg-discord-surface border border-gray-700 rounded-xl p-2 hidden grid grid-cols-5 gap-2 shadow-2xl">
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👍</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">❤️</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🔥</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😂</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🎉</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🚀</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👀</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💯</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🎮</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">✨</button>
 </div>
 
 
-<!-- Modal: Create / Join Server -->
-<div id="modal-server" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl">
-    <div class="flex justify-between items-center border-b border-gray-700/50 pb-3">
-      <h3 class="text-xl font-bold text-white">Серверы</h3>
-      <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
-    </div>
-    
-    <div class="flex border-b border-gray-700/50 text-sm font-semibold">
-      <button id="tab-btn-create" type="button" class="flex-1 py-2 text-discord-accent border-b-2 border-discord-accent">Создать сервер</button>
-      <button id="tab-btn-join" type="button" class="flex-1 py-2 text-discord-muted hover:text-white">Войти по коду</button>
-    </div>
-
-    <form id="form-create-server" class="space-y-4">
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название сервера</label>
-        <input id="input-server-name" type="text" maxlength="32" placeholder="Например: Игровое сообщество" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
-      </div>
-      <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl transition">
-        Создать сервер
-      </button>
-    </form>
-
-    <form id="form-join-server" class="space-y-4 hidden">
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Код приглашения</label>
-        <input id="input-invite-code" type="text" placeholder="Например: A7B9X2" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white font-mono uppercase focus:outline-none focus:border-discord-accent">
-      </div>
-      <button type="submit" class="w-full bg-discord-green hover:bg-emerald-600 text-white font-semibold py-2.5 rounded-xl transition">
-        Присоединиться
-      </button>
-    </form>
-  </div>
-</div>
-
-<!-- Modal: Create Channel -->
-<div id="modal-channel" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-    <div class="flex justify-between items-center border-b border-gray-700/50 pb-3">
-      <h3 class="text-xl font-bold text-white">Создать канал</h3>
-      <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
-    </div>
-    <form id="form-create-channel" class="space-y-4">
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Тип канала</label>
-        <div class="grid grid-cols-2 gap-2 mb-3">
-          <label class="flex items-center gap-2 p-2.5 bg-discord-rail rounded-xl border border-gray-700/60 cursor-pointer">
-            <input type="radio" name="channel-type" value="text" checked class="text-discord-accent">
-            <span class="text-xs font-bold text-white">💬 Текстовый</span>
-          </label>
-          <label class="flex items-center gap-2 p-2.5 bg-discord-rail rounded-xl border border-gray-700/60 cursor-pointer">
-            <input type="radio" name="channel-type" value="voice" class="text-discord-accent">
-            <span class="text-xs font-bold text-white">🔊 Голосовой</span>
-          </label>
-        </div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название канала</label>
-        <input id="input-channel-name" type="text" maxlength="32" placeholder="новости" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
-      </div>
-      <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl transition">
-        Создать канал
-      </button>
-    </form>
-  </div>
-</div>
-
-<!-- Modal: Invite Friends -->
-<div id="modal-invite" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-    <div class="flex justify-between items-center border-b border-gray-700/50 pb-3">
-      <h3 class="text-xl font-bold text-white">Пригласить друзей</h3>
-      <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
-    </div>
-    <p class="text-sm text-discord-muted">Отправьте этот код или ссылку друзьям:</p>
-    <div class="space-y-3">
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Код приглашения</label>
-        <div class="flex gap-2">
-          <input id="invite-code-input" readonly class="flex-1 bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2 text-discord-accent font-mono font-bold">
-          <button id="btn-copy-code" type="button" class="bg-discord-accent hover:bg-discord-accentHover text-white px-4 py-2 rounded-xl text-sm font-semibold transition">Скопировать</button>
-        </div>
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Прямая ссылка</label>
-        <div class="flex gap-2">
-          <input id="invite-link-input" readonly class="flex-1 bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2 text-white font-mono text-xs">
-          <button id="btn-copy-link" type="button" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition">Ссылка</button>
-        </div>
-      </div>
+<!-- Modals -->
+<div id="modal-overlay" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
+  <div id="modal-server" class="hidden bg-discord-surface w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700/50">
+    <div class="flex items-center justify-between mb-4"><h3 class="text-lg font-bold text-white">Добавить сервер</h3><button onclick="closeModals()" class="text-discord-muted hover:text-white">✕</button></div>
+    <div class="space-y-4">
+      <div><label class="block text-xs font-semibold text-discord-muted mb-1">Название сервера</label><input id="input-server-name" class="w-full bg-discord-rail border border-gray-700/50 rounded-lg px-3 py-2 text-white"></div>
+      <div><label class="block text-xs font-semibold text-discord-muted mb-1">Описание</label><textarea id="input-server-desc" rows="3" class="w-full bg-discord-rail border border-gray-700/50 rounded-lg px-3 py-2 text-white"></textarea></div>
+      <div class="flex gap-2"><button id="btn-create-server" class="flex-1 bg-discord-accent text-white rounded-lg py-2 font-semibold">Создать</button><button onclick="closeModals()" class="flex-1 bg-discord-hover text-white rounded-lg py-2">Отмена</button></div>
     </div>
   </div>
-</div>
 
-<!-- Modal: Attach Image / Media -->
-<div id="modal-attach" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-    <div class="flex justify-between items-center border-b border-gray-700/50 pb-3">
-      <h3 class="text-xl font-bold text-white">Прикрепить картинку</h3>
-      <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
-    </div>
-    <div>
-      <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">URL Изображения</label>
-      <input id="input-attach-url" type="url" placeholder="https://images.unsplash.com/photo-..." class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent text-sm">
-    </div>
-    <div class="flex justify-end gap-2">
-      <button type="button" class="modal-close px-4 py-2 bg-discord-rail hover:bg-discord-hover text-white rounded-xl text-sm">Отмена</button>
-      <button id="btn-save-attachment" type="button" class="px-4 py-2 bg-discord-accent hover:bg-discord-accentHover text-white rounded-xl text-sm font-semibold">Прикрепить</button>
-    </div>
+  <div id="modal-invite" class="hidden bg-discord-surface w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700/50">
+    <div class="flex items-center justify-between mb-4"><h3 class="text-lg font-bold text-white">Пригласить друзей</h3><button onclick="closeModals()" class="text-discord-muted hover:text-white">✕</button></div>
+    <div class="space-y-4"><p class="text-sm text-discord-muted">Скопируйте код приглашения и отправьте его друзьям.</p><div class="bg-discord-rail p-3 rounded-lg text-center font-mono text-discord-accent" id="invite-code-display">NOVA-0000</div><button id="btn-copy-invite" class="w-full bg-discord-accent text-white rounded-lg py-2 font-semibold">Скопировать код</button></div>
   </div>
-</div>
 
-<!-- Modal: User Profile & Custom Status -->
-<div id="modal-profile" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-    <div class="flex justify-between items-center border-b border-gray-700/50 pb-3">
-      <h3 class="text-xl font-bold text-white">Профиль пользователя</h3>
-      <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
-    </div>
+  <div id="modal-channel" class="hidden bg-discord-surface w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700/50">
+    <div class="flex items-center justify-between mb-4"><h3 class="text-lg font-bold text-white">Создать канал</h3><button onclick="closeModals()" class="text-discord-muted hover:text-white">✕</button></div>
+    <div class="space-y-4"><div><label class="block text-xs font-semibold text-discord-muted mb-1">Название</label><input id="input-channel-name" class="w-full bg-discord-rail border border-gray-700/50 rounded-lg px-3 py-2 text-white"></div><div class="flex gap-2"><button id="btn-create-channel" class="flex-1 bg-discord-accent text-white rounded-lg py-2 font-semibold">Создать</button><button onclick="closeModals()" class="flex-1 bg-discord-hover text-white rounded-lg py-2">Отмена</button></div></div>
+  </div>
+
+  <div id="modal-profile" class="hidden bg-discord-surface w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700/50">
+    <div class="flex items-center justify-between mb-4"><h3 class="text-lg font-bold text-white">Профиль</h3><button onclick="closeModals()" class="text-discord-muted hover:text-white">✕</button></div>
     <form id="form-update-profile" class="space-y-4">
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Никнейм</label>
-        <input id="input-profile-nickname" type="text" maxlength="24" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Статус сети</label>
-        <select id="select-profile-status" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
-          <option value="online">🟢 В сети</option>
-          <option value="idle">🟡 Не активен</option>
-          <option value="dnd">🔴 Не беспокоить</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Пользовательский статус</label>
-        <input id="input-profile-custom-status" type="text" maxlength="50" placeholder="Например: Кодирую новый проект..." class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent text-sm">
-      </div>
-      <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl transition">
-        Сохранить изменения
-      </button>
+      <div><label class="block text-xs font-semibold text-discord-muted mb-1">Никнейм</label><input id="input-profile-nickname" type="text" maxlength="24" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent"></div>
+      <div><label class="block text-xs font-semibold text-discord-muted mb-1">Статус сети</label><select id="select-profile-status" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent"><option value="online">🟢 В сети</option><option value="idle">🟡 Не активен</option><option value="dnd">🔴 Не беспокоить</option></select></div>
+      <div><label class="block text-xs font-semibold text-discord-muted mb-1">Пользовательский статус</label><input id="input-profile-custom-status" type="text" maxlength="50" placeholder="Например: Кодирую новый проект..." class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent text-sm"></div>
+      <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl transition">Сохранить изменения</button>
     </form>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, collection, onSnapshot, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Web Audio API Synthesizer for notifications
 class AudioEngine {
-  constructor() {
-    this.ctx = null;
-  }
-  init() {
-    if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-  }
-  playSend() {
-    this.init();
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(440, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.08);
-    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.08);
-  }
-  playReceive() {
-    this.init();
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
-    osc.frequency.setValueAtTime(800, this.ctx.currentTime + 0.05);
-    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.12);
-  }
-  playVoiceJoin() {
-    this.init();
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.15);
-  }
+  constructor() { this.ctx = null; }
+  init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+  playSend() { this.init(); if (!this.ctx) return; const osc=this.ctx.createOscillator(),gain=this.ctx.createGain(); osc.type='sine';osc.frequency.setValueAtTime(440,this.ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(880,this.ctx.currentTime+.08);gain.gain.setValueAtTime(.1,this.ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.08);osc.connect(gain);gain.connect(this.ctx.destination);osc.start();osc.stop(this.ctx.currentTime+.08); }
+  playReceive() { this.init(); if (!this.ctx) return; const osc=this.ctx.createOscillator(),gain=this.ctx.createGain(); osc.type='triangle';osc.frequency.setValueAtTime(600,this.ctx.currentTime);osc.frequency.setValueAtTime(800,this.ctx.currentTime+.05);gain.gain.setValueAtTime(.12,this.ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.12);osc.connect(gain);gain.connect(this.ctx.destination);osc.start();osc.stop(this.ctx.currentTime+.12); }
+  playVoiceJoin() { this.init(); if (!this.ctx) return; const osc=this.ctx.createOscillator(),gain=this.ctx.createGain(); osc.type='sine';osc.frequency.setValueAtTime(300,this.ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(600,this.ctx.currentTime+.15);gain.gain.setValueAtTime(.15,this.ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.01,this.ctx.currentTime+.15);osc.connect(gain);gain.connect(this.ctx.destination);osc.start();osc.stop(this.ctx.currentTime+.15); }
 }
 const audioFX = new AudioEngine();
 
@@ -540,10 +384,8 @@ const defaultFirebaseConfig = {
 };
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'discord-chat-v2';
-
 let firebaseConfig = defaultFirebaseConfig;
 let isCloudEnabled = false;
-
 let db = null;
 let auth = null;
 let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS;
@@ -557,11 +399,8 @@ try {
   COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
   COLLECTION_USERS = collection(db, 'artifacts', appId, 'public', 'data', 'users');
   isCloudEnabled = true;
-} catch(e) {
-  console.warn("Режим переключен в локальный:", e);
-}
+} catch(e) { console.warn("Режим переключен в локальный:", e); }
 
-// App State
 let currentUser = {
   uid: localStorage.getItem('chat_uid') || ('u_' + Math.random().toString(36).substring(2, 8)),
   nickname: localStorage.getItem('chat_nickname') || '',
@@ -569,1230 +408,132 @@ let currentUser = {
   customStatus: localStorage.getItem('chat_custom_status') || ''
 };
 localStorage.setItem('chat_uid', currentUser.uid);
+let currentView='server',currentServerId=null,currentChannelId=null,currentDmUserId=null,activeVoiceChannelId=null;
+let isMuted=false,isDeafened=false,activeReplyMessage=null,pendingAttachmentUrl='',messageSearchQuery='';
+let serversData=[],channelsData=[],messagesData=[],usersData=[];
+let pendingInviteCode=null;
+const urlParams=new URLSearchParams(window.location.search);
+const inviteParam=urlParams.get('invite')||urlParams.get('code');
+if(inviteParam) pendingInviteCode=inviteParam.trim().toUpperCase();
 
-let currentView = 'server'; // 'server' or 'dm'
-let currentServerId = null;
-let currentChannelId = null;
-let currentDmUserId = null;
-let activeVoiceChannelId = null;
+const drawer=document.getElementById('navigation-drawer');
+const backdrop=document.getElementById('drawer-backdrop');
+function openDrawer(){drawer.classList.remove('-translate-x-full');backdrop.classList.remove('hidden')}
+function closeDrawer(){drawer.classList.add('-translate-x-full');backdrop.classList.add('hidden')}
+document.getElementById('btn-mobile-menu').onclick=openDrawer;
+backdrop.onclick=closeDrawer;
+document.getElementById('btn-toggle-members').onclick=()=>document.getElementById('members-sidebar').classList.toggle('hidden');
+function showToast(msg,isError=false){const toast=document.getElementById('toast'),toastMsg=document.getElementById('toast-msg');toastMsg.textContent=msg;toast.className=`fixed top-4 left-1/2 -translate-x-1/2 z-50 transform opacity-100 transition-all duration-300 pointer-events-none px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2 ${isError?'bg-discord-red text-white':'bg-discord-accent text-white'}`;setTimeout(()=>toast.classList.add('-translate-y-12','opacity-0'),3000)}
+function copyTextToClipboard(text){const textarea=document.createElement('textarea');textarea.value=text;textarea.style.position='fixed';textarea.style.opacity='0';document.body.appendChild(textarea);textarea.select();try{document.execCommand('copy');showToast('Скопировано!')}catch(err){showToast('Ошибка при копировании',true)}document.body.removeChild(textarea)}
+function generateUid(){return Math.random().toString(36).substring(2,8).toUpperCase()}
+function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function formatMarkdown(str){let text=escapeHtml(str);text=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');text=text.replace(/\*(.*?)\*/g,'<em>$1</em>');text=text.replace(/`(.*?)`/g,'<code class="bg-discord-rail px-1.5 py-0.5 rounded text-xs text-discord-accent font-mono">$1</code>');return text}
 
-let isMuted = false;
-let isDeafened = false;
-
-let activeReplyMessage = null;
-let pendingAttachmentUrl = '';
-let messageSearchQuery = '';
-
-let serversData = [];
-let channelsData = [];
-let messagesData = [];
-let usersData = [];
-
-let pendingInviteCode = null;
-const urlParams = new URLSearchParams(window.location.search);
-const inviteParam = urlParams.get('invite') || urlParams.get('code');
-if (inviteParam) pendingInviteCode = inviteParam.trim().toUpperCase();
-
-// Mobile Drawer handlers
-const drawer = document.getElementById('navigation-drawer');
-const backdrop = document.getElementById('drawer-backdrop');
-
-function openDrawer() {
-  drawer.classList.remove('-translate-x-full');
-  backdrop.classList.remove('hidden');
+let authMode='register';
+let googleProfilePending=false;
+function setAuthMode(mode){
+  authMode=mode==='login'?'login':'register';
+  const register=authMode==='register';
+  document.getElementById('auth-tab-register').classList.toggle('active',register);
+  document.getElementById('auth-tab-login').classList.toggle('active',!register);
+  document.getElementById('auth-nickname-wrap').classList.toggle('hidden',!register);
+  document.getElementById('auth-confirm-wrap').classList.toggle('hidden',!register);
+  document.getElementById('auth-status-wrap').classList.toggle('hidden',!register);
+  document.getElementById('auth-strength-wrap').classList.toggle('hidden',!register);
+  document.getElementById('auth-password').setAttribute('autocomplete',register?'new-password':'current-password');
+  document.getElementById('auth-password-confirm').required=register;
+  document.getElementById('auth-nickname').required=register;
+  document.getElementById('auth-submit').textContent=register?'Создать аккаунт':'Войти в аккаунт';
+  document.getElementById('auth-subtitle').textContent=register?'Создайте новый аккаунт и присоединяйтесь к чату.':'Введите данные уже созданного аккаунта.';
+  document.getElementById('auth-error').classList.add('hidden');
+  googleProfilePending=false;
+  document.getElementById('auth-email').readOnly=false;
+  document.getElementById('auth-password').required=true;
+  document.getElementById('auth-password').classList.remove('opacity-50');
+  document.getElementById('auth-password-confirm').required=register;
+  document.getElementById('auth-password-confirm').classList.remove('opacity-50');
+  updatePasswordStrength();
 }
+function showAuthError(message){const el=document.getElementById('auth-error');el.textContent=message;el.classList.remove('hidden')}
+function authErrorText(code){return ({'auth/email-already-in-use':'Эта почта уже зарегистрирована. Перейдите во вкладку «Вход».','auth/invalid-email':'Проверьте адрес электронной почты.','auth/weak-password':'Пароль слишком простой. Используйте минимум 6 символов.','auth/invalid-credential':'Почта или пароль указаны неверно.','auth/user-not-found':'Аккаунт с такой почтой не найден.','auth/wrong-password':'Неверный пароль.','auth/operation-not-allowed':'В Firebase не включён вход по электронной почте и паролю.','auth/network-request-failed':'Не удалось связаться с сервером авторизации.','auth/popup-blocked':'Браузер заблокировал окно Google. Разрешите всплывающие окна для сайта.','auth/popup-closed-by-user':'Окно Google было закрыто до завершения входа.','auth/unauthorized-domain':'Домен сайта не разрешён в Firebase Authentication.','auth/too-many-requests':'Слишком много попыток. Попробуйте немного позже.'}[code]||'Не удалось выполнить авторизацию. Попробуйте ещё раз.')}
+function updatePasswordStrength(){const bar=document.getElementById('auth-strength-bar'),value=document.getElementById('auth-password').value||'';if(authMode!=='register'||!value){bar.style.width='0%';return}let score=0;if(value.length>=6)score++;if(value.length>=10)score++;if(/[A-ZА-Я]/.test(value)&&/[a-zа-я]/.test(value))score++;if(/\d/.test(value))score++;if(/[^A-Za-zА-Яа-я0-9]/.test(value))score++;bar.style.width=Math.min(100,score*20)+'%'}
+async function loadCloudProfile(uid){if(!isCloudEnabled)return false;try{const snap=await getDoc(doc(COLLECTION_USERS,uid));if(!snap.exists())return false;const data=snap.data();if(!data.nickname)return false;currentUser.uid=uid;currentUser.nickname=data.nickname;currentUser.status=data.status||'online';currentUser.customStatus=data.customStatus||'';localStorage.setItem('chat_uid',uid);localStorage.setItem('chat_nickname',currentUser.nickname);localStorage.setItem('chat_status',currentUser.status);localStorage.setItem('chat_custom_status',currentUser.customStatus);return true}catch(e){console.error('Profile read error:',e);return false}}
+async function saveCloudProfile(){await setDoc(doc(COLLECTION_USERS,currentUser.uid),{uid:currentUser.uid,email:auth.currentUser?.email||'',nickname:currentUser.nickname,status:currentUser.status||'online',customStatus:currentUser.customStatus||'',lastSeen:Date.now()},{merge:true})}
 
-function closeDrawer() {
-  drawer.classList.add('-translate-x-full');
-  backdrop.classList.add('hidden');
-}
-
-document.getElementById('btn-mobile-menu').onclick = openDrawer;
-backdrop.onclick = closeDrawer;
-
-// Members sidebar toggle on mobile/desktop
-document.getElementById('btn-toggle-members').onclick = () => {
-  const side = document.getElementById('members-sidebar');
-  side.classList.toggle('hidden');
-};
-
-function showToast(msg, isError = false) {
-  const toast = document.getElementById('toast');
-  const toastMsg = document.getElementById('toast-msg');
-  toastMsg.textContent = msg;
-  toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 transform opacity-100 transition-all duration-300 pointer-events-none px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2 ${
-    isError ? 'bg-discord-red text-white' : 'bg-discord-accent text-white'
-  }`;
-  setTimeout(() => {
-    toast.classList.add('-translate-y-12', 'opacity-0');
-  }, 3000);
-}
-
-function copyTextToClipboard(text) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand('copy');
-    showToast('Скопировано!');
-  } catch (err) {
-    showToast('Ошибка при копировании', true);
+window.handleLogin=async function(e){
+  if(e)e.preventDefault();
+  document.getElementById('auth-error').classList.add('hidden');
+  if(!(isCloudEnabled&&auth)){showAuthError('Firebase сейчас недоступен.');return false}
+  const email=document.getElementById('auth-email').value.trim();
+  const password=document.getElementById('auth-password').value;
+  const nickname=document.getElementById('auth-nickname').value.trim();
+  const confirm=document.getElementById('auth-password-confirm').value;
+  const status=document.getElementById('auth-status').value;
+  if(googleProfilePending&&auth.currentUser&&!auth.currentUser.isAnonymous){
+    if(!nickname){showAuthError('Придумайте никнейм, чтобы завершить регистрацию.');return false}
+    currentUser.uid=auth.currentUser.uid;currentUser.nickname=nickname;currentUser.status=status;currentUser.customStatus='';await saveCloudProfile();
+    localStorage.setItem('chat_uid',currentUser.uid);localStorage.setItem('chat_nickname',nickname);localStorage.setItem('chat_status',status);googleProfilePending=false;startApp();return false;
   }
-  document.body.removeChild(textarea);
-}
-
-function generateUid() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
-
-function escapeHtml(str) {
-  return String(str || '').replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c]));
-}
-
-function formatMarkdown(str) {
-  let text = escapeHtml(str);
-  // **bold**
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  // *italic*
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  // `code`
-  text = text.replace(/`(.*?)`/g, '<code class="bg-discord-rail px-1.5 py-0.5 rounded text-xs text-discord-accent font-mono">$1</code>');
-  return text;
-}
-
-
-window.handleLogin = function(e) {
-  if (e) e.preventDefault();
-  const nickInput = document.getElementById('auth-nickname').value.trim();
-  const statusInput = document.getElementById('auth-status').value;
-  if (!nickInput) return false;
-  if (isCloudEnabled && (!auth.currentUser || auth.currentUser.isAnonymous)) {
-    currentUser.nickname = nickInput;
-    localStorage.setItem('chat_nickname', nickInput);
-    loginWithGoogle();
-    return false;
+  if(!email||!password)return false;
+  if(authMode==='register'){
+    if(!nickname){showAuthError('Придумайте никнейм.');return false}
+    if(password.length<6){showAuthError('Пароль должен содержать минимум 6 символов.');return false}
+    if(password!==confirm){showAuthError('Пароли не совпадают.');return false}
   }
-  
-  currentUser.nickname = nickInput;
-  currentUser.status = statusInput;
-
-  localStorage.setItem('chat_nickname', currentUser.nickname);
-  localStorage.setItem('chat_status', currentUser.status);
-
-  startApp();
+  const btn=document.getElementById('auth-submit');btn.disabled=true;btn.classList.add('opacity-70','cursor-wait');
+  try{
+    if(authMode==='register'){
+      const credential=await createUserWithEmailAndPassword(auth,email,password);currentUser.uid=credential.user.uid;currentUser.nickname=nickname;currentUser.status=status;currentUser.customStatus='';
+      localStorage.setItem('chat_uid',currentUser.uid);localStorage.setItem('chat_nickname',nickname);localStorage.setItem('chat_status',status);localStorage.setItem('chat_custom_status','');await saveCloudProfile();showToast('Аккаунт создан. Добро пожаловать!');startApp();
+    }else{
+      const credential=await signInWithEmailAndPassword(auth,email,password);const hasProfile=await loadCloudProfile(credential.user.uid);
+      if(!hasProfile){setAuthMode('register');document.getElementById('auth-email').value=email;showAuthError('Аккаунт найден, но профиль ещё не настроен. Выберите никнейм и завершите регистрацию.');return false}
+      showToast('С возвращением!');startApp();
+    }
+  }catch(err){console.error('Email auth error:',err);showAuthError(authErrorText(err?.code))}finally{btn.disabled=false;btn.classList.remove('opacity-70','cursor-wait')}
   return false;
 };
 
-document.getElementById('btn-logout').onclick = () => {
-  localStorage.removeItem('chat_nickname');
-  window.location.reload();
+window.loginWithGoogle=async function(){
+  if(!(isCloudEnabled&&auth)){showAuthError('Firebase сейчас недоступен.');return}
+  try{
+    const credential=await signInWithPopup(auth,new GoogleAuthProvider());const hasProfile=await loadCloudProfile(credential.user.uid);
+    if(hasProfile){showToast('Вход через Google выполнен!');startApp()}
+    else{
+      setAuthMode('register');googleProfilePending=true;document.getElementById('auth-email').value=credential.user.email||'';document.getElementById('auth-email').readOnly=true;document.getElementById('auth-password').required=false;document.getElementById('auth-password').classList.add('opacity-50');document.getElementById('auth-password-confirm').required=false;document.getElementById('auth-password-confirm').classList.add('opacity-50');document.getElementById('auth-subtitle').textContent='Google подключён. Осталось выбрать никнейм.';document.getElementById('auth-submit').textContent='Завершить регистрацию';document.getElementById('auth-nickname').focus();showToast('Google подключён — выберите никнейм.')
+    }
+  }catch(err){console.error('Google sign-in error:',err);showAuthError(authErrorText(err?.code))}
 };
 
-function initAuth() {
-  if (!(isCloudEnabled && auth)) {
-    checkLoginState();
-    return;
-  }
-  onAuthStateChanged(auth, (user) => {
-    if (user && !user.isAnonymous) {
-      currentUser.uid = user.uid;
-      localStorage.setItem('chat_uid', user.uid);
-      if (!currentUser.nickname) {
-        currentUser.nickname = user.displayName || 'Игрок';
-        localStorage.setItem('chat_nickname', currentUser.nickname);
+document.getElementById('auth-tab-register').onclick=()=>setAuthMode('register');
+document.getElementById('auth-tab-login').onclick=()=>setAuthMode('login');
+document.getElementById('btn-google-login').onclick=()=>window.loginWithGoogle();
+document.getElementById('auth-password').addEventListener('input',updatePasswordStrength);
+document.getElementById('auth-password-toggle').onclick=()=>{const input=document.getElementById('auth-password');input.type=input.type==='password'?'text':'password'};
+document.getElementById('btn-logout').onclick=async()=>{try{if(auth)await signOut(auth)}catch(e){}['chat_nickname','chat_status','chat_custom_status','chat_uid'].forEach(k=>localStorage.removeItem(k));window.location.reload()};
+
+function initAuth(){
+  if(!(isCloudEnabled&&auth)){document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register');return}
+  onAuthStateChanged(auth,async(user)=>{
+    if(user&&!user.isAnonymous){
+      const hasProfile=await loadCloudProfile(user.uid);
+      if(hasProfile){document.getElementById('auth-screen').classList.add('hidden');startApp()}
+      else{
+        document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register');document.getElementById('auth-email').value=user.email||'';
+        if(user.providerData?.some(p=>p.providerId==='google.com')){googleProfilePending=true;document.getElementById('auth-email').readOnly=true;document.getElementById('auth-password').required=false;document.getElementById('auth-password').classList.add('opacity-50');document.getElementById('auth-password-confirm').required=false;document.getElementById('auth-password-confirm').classList.add('opacity-50');document.getElementById('auth-submit').textContent='Завершить регистрацию';document.getElementById('auth-subtitle').textContent='Google подключён. Осталось выбрать никнейм.'}
       }
-      document.getElementById('auth-nickname').value = currentUser.nickname;
-      checkLoginState();
-    }
-    // Если не вошли через Google, остаётся экран входа
+    }else{document.getElementById('auth-screen').classList.remove('hidden');setAuthMode('register')}
   });
 }
+function checkLoginState(){document.getElementById('auth-screen').classList.remove('hidden')}
 
-window.loginWithGoogle = async function() {
-  try {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  } catch (err) {
-    console.error('Google sign-in error:', err);
-    const code = err?.code || 'unknown';
-    let message = err?.message || 'Неизвестная ошибка';
-
-    if (code === 'auth/unauthorized-domain') {
-      message = 'Домен vo56uio.github.io не разрешён в Firebase Authentication.';
-    } else if (code === 'auth/operation-not-allowed') {
-      message = 'Вход через Google отключён в Firebase Authentication.';
-    } else if (code === 'auth/popup-blocked') {
-      message = 'Браузер заблокировал окно Google. Разрешите всплывающие окна для сайта.';
-    } else if (code === 'auth/popup-closed-by-user') {
-      message = 'Окно Google было закрыто до завершения входа.';
-    }
-
-    showToast(`Google: ${message}`, true);
-  }
-};
-
-document.getElementById('btn-google-login').onclick = () => window.loginWithGoogle();
-
-function checkLoginState() {
-  if (currentUser.nickname) {
-    document.getElementById('auth-nickname').value = currentUser.nickname;
-    startApp();
-  } else {
-    document.getElementById('auth-screen').classList.remove('hidden');
-  }
+function startApp(){
+  document.getElementById('auth-screen').classList.add('hidden');document.getElementById('app-shell').classList.remove('hidden');updateUserProfileDisplay();
+  if(isCloudEnabled){document.getElementById('cloud-badge').classList.remove('hidden');syncUserProfileCloud();subscribeCloudData()}else{document.getElementById('status-text').textContent=getStatusLabel(currentUser.status);loadLocalStore()}
 }
+function getStatusLabel(status){switch(status){case'online':return'🟢 В сети';case'idle':return'🟡 Не активен';case'dnd':return'🔴 Не беспокоить';default:return'⚪ Не в сети'}}
+function updateUserProfileDisplay(){document.getElementById('user-display-name').textContent=currentUser.nickname;document.getElementById('user-avatar').textContent=(currentUser.nickname||'U').charAt(0).toUpperCase();document.getElementById('status-text').textContent=currentUser.customStatus||getStatusLabel(currentUser.status);const dot=document.getElementById('user-status-dot');if(currentUser.status==='online')dot.className='absolute bottom-0 right-0 w-3 h-3 bg-discord-green border-2 border-discord-rail rounded-full';else if(currentUser.status==='idle')dot.className='absolute bottom-0 right-0 w-3 h-3 bg-discord-yellow border-2 border-discord-rail rounded-full';else if(currentUser.status==='dnd')dot.className='absolute bottom-0 right-0 w-3 h-3 bg-discord-red border-2 border-discord-rail rounded-full'}
+async function syncUserProfileCloud(){if(!isCloudEnabled)return;try{await setDoc(doc(COLLECTION_USERS,currentUser.uid),{uid:currentUser.uid,nickname:currentUser.nickname,status:currentUser.status,customStatus:currentUser.customStatus,lastSeen:Date.now()},{merge:true})}catch(e){}}
+function loadLocalStore(){serversData=JSON.parse(localStorage.getItem('discord_servers')||'[]');channelsData=JSON.parse(localStorage.getItem('discord_channels')||'[]');messagesData=JSON.parse(localStorage.getItem('discord_messages')||'[]');usersData=JSON.parse(localStorage.getItem('discord_users')||'[]');if(serversData.length===0)createDefaultStarterServer();else renderServers();if(pendingInviteCode)handlePendingInvite()}
+function saveLocalStore(){localStorage.setItem('discord_servers',JSON.stringify(serversData))}
 
-function startApp() {
-  document.getElementById('auth-screen').classList.add('hidden');
-  document.getElementById('app-shell').classList.remove('hidden');
-  
-  updateUserProfileDisplay();
-
-  if (isCloudEnabled) {
-    document.getElementById('cloud-badge').classList.remove('hidden');
-    syncUserProfileCloud();
-    subscribeCloudData();
-  } else {
-    document.getElementById('status-text').textContent = getStatusLabel(currentUser.status);
-    loadLocalStore();
-  }
-}
-
-function getStatusLabel(status) {
-  switch(status) {
-    case 'online': return '🟢 В сети';
-    case 'idle': return '🟡 Не активен';
-    case 'dnd': return '🔴 Не беспокоить';
-    default: return '⚪ Не в сети';
-  }
-}
-
-function updateUserProfileDisplay() {
-  document.getElementById('user-display-name').textContent = currentUser.nickname;
-  document.getElementById('user-avatar').textContent = (currentUser.nickname || 'U').charAt(0).toUpperCase();
-  document.getElementById('status-text').textContent = currentUser.customStatus || getStatusLabel(currentUser.status);
-
-  const dot = document.getElementById('user-status-dot');
-  if (currentUser.status === 'online') dot.className = 'absolute bottom-0 right-0 w-3 h-3 bg-discord-green border-2 border-discord-rail rounded-full';
-  else if (currentUser.status === 'idle') dot.className = 'absolute bottom-0 right-0 w-3 h-3 bg-discord-yellow border-2 border-discord-rail rounded-full';
-  else if (currentUser.status === 'dnd') dot.className = 'absolute bottom-0 right-0 w-3 h-3 bg-discord-red border-2 border-discord-rail rounded-full';
-}
-
-async function syncUserProfileCloud() {
-  if (!isCloudEnabled) return;
-  try {
-    await setDoc(doc(COLLECTION_USERS, currentUser.uid), {
-      uid: currentUser.uid,
-      nickname: currentUser.nickname,
-      status: currentUser.status,
-      customStatus: currentUser.customStatus,
-      lastSeen: Date.now()
-    }, { merge: true });
-  } catch(e) {}
-}
-
-function loadLocalStore() {
-  serversData = JSON.parse(localStorage.getItem('discord_servers') || '[]');
-  channelsData = JSON.parse(localStorage.getItem('discord_channels') || '[]');
-  messagesData = JSON.parse(localStorage.getItem('discord_messages') || '[]');
-  usersData = JSON.parse(localStorage.getItem('discord_users') || '[]');
-
-  if (serversData.length === 0) {
-    createDefaultStarterServer();
-  } else {
-    renderServers();
-  }
-
-  if (pendingInviteCode) handlePendingInvite();
-}
-
-function saveLocalStore() {
-  localStorage.setItem('discord_servers', JSON.stringify(serversData));
-  localStorage.setItem('discord_channels', JSON.stringify(channelsData));
-  localStorage.setItem('discord_messages', JSON.stringify(messagesData));
-  localStorage.setItem('discord_users', JSON.stringify(usersData));
-  renderServers();
-}
-
-async function createDefaultStarterServer() {
-  const defaultServerId = 's_main';
-  const defaultChanId = 'c_gen';
-  const voiceChanId = 'v_gen';
-
-  const defaultServer = {
-    id: defaultServerId,
-    name: 'Общий Чат',
-    inviteCode: 'MAIN123',
-    ownerId: currentUser.uid,
-    members: [currentUser.uid],
-    createdAt: Date.now()
-  };
-
-  const defaultChannel = { id: defaultChanId, serverId: defaultServerId, name: 'general', type: 'text', createdAt: Date.now() };
-  const defaultVoice = { id: voiceChanId, serverId: defaultServerId, name: 'Лобби Голос', type: 'voice', createdAt: Date.now() + 1 };
-  
-  const defaultMessage = {
-    id: 'm_welcome',
-    serverId: defaultServerId,
-    channelId: defaultChanId,
-    authorId: 'system',
-    authorName: 'Система',
-    text: '👋 Добро пожаловать в Discord Web Chat! Напишите первое сообщение или создайте свой сервер.',
-    reactions: {},
-    ts: Date.now()
-  };
-
-  if (isCloudEnabled) {
-    try {
-      await setDoc(doc(COLLECTION_SERVERS, defaultServerId), defaultServer);
-      await setDoc(doc(COLLECTION_CHANNELS, defaultChanId), defaultChannel);
-      await setDoc(doc(COLLECTION_CHANNELS, voiceChanId), defaultVoice);
-      await setDoc(doc(COLLECTION_MESSAGES, defaultMessage.id), defaultMessage);
-    } catch(e) {}
-  } else {
-    serversData = [defaultServer];
-    channelsData = [defaultChannel, defaultVoice];
-    messagesData = [defaultMessage];
-    saveLocalStore();
-  }
-}
-
-function subscribeCloudData() {
-  onSnapshot(COLLECTION_USERS, (snapshot) => {
-    usersData = [];
-    snapshot.forEach(docSnap => usersData.push({ id: docSnap.id, ...docSnap.data() }));
-    renderMembersSidebar();
-    renderDirectMessagesList();
-  });
-
-  onSnapshot(COLLECTION_SERVERS, (snapshot) => {
-    serversData = [];
-    snapshot.forEach(docSnap => serversData.push({ id: docSnap.id, ...docSnap.data() }));
-    
-    const myServers = serversData.filter(s => Array.isArray(s.members) && s.members.includes(currentUser.uid));
-    if (myServers.length === 0) {
-      if (serversData.length === 0) {
-        createDefaultStarterServer();
-      } else {
-        joinServerByDoc(serversData[0]);
-      }
-    }
-    
-    if (pendingInviteCode) handlePendingInvite();
-    renderServers();
-    renderMembersSidebar();
-  });
-
-  onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
-    channelsData = [];
-    snapshot.forEach(docSnap => channelsData.push({ id: docSnap.id, ...docSnap.data() }));
-    renderChannels();
-  });
-
-  onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
-    const prevCount = messagesData.length;
-    messagesData = [];
-    snapshot.forEach(docSnap => messagesData.push({ id: docSnap.id, ...docSnap.data() }));
-    
-    if (messagesData.length > prevCount && prevCount > 0) {
-      audioFX.playReceive();
-    }
-    renderMessages();
-  });
-}
-
-async function handlePendingInvite() {
-  const code = pendingInviteCode;
-  pendingInviteCode = null;
-
-  const matchedServer = serversData.find(s => s.inviteCode && s.inviteCode.trim().toUpperCase() === code);
-  if (matchedServer) {
-    await joinServerByDoc(matchedServer);
-  } else {
-    showToast(`Сервер с кодом ${code} не найден`, true);
-  }
-}
-
-
-function renderServers() {
-  const rail = document.getElementById('server-rail-list');
-  const myServers = serversData.filter(s => Array.isArray(s.members) && s.members.includes(currentUser.uid));
-
-  if (currentView === 'server') {
-    if (myServers.length === 0) {
-      currentServerId = null;
-    } else if (!currentServerId || !myServers.some(s => s.id === currentServerId)) {
-      currentServerId = myServers[0].id;
-    }
-  }
-
-  rail.innerHTML = myServers.map(s => {
-    const isActive = currentView === 'server' && s.id === currentServerId;
-    const initial = (s.name || 'S').charAt(0).toUpperCase();
-    return `
-      <div class="relative group flex items-center">
-        <div class="absolute -left-2 w-1.5 bg-white rounded-r-full transition-all duration-200 ${isActive ? 'h-8' : 'h-0 group-hover:h-4'}"></div>
-        <button data-server-id="${s.id}" title="${escapeHtml(s.name)}" class="w-12 h-12 flex items-center justify-center font-bold text-lg transition-all duration-200 ${
-          isActive 
-            ? 'bg-discord-accent text-white shadow-lg shadow-discord-accent/30 rounded-2xl' 
-            : 'bg-discord-surface text-gray-200 hover:bg-discord-accent hover:text-white rounded-3xl hover:rounded-2xl'
-        }">
-          ${escapeHtml(initial)}
-        </button>
-      </div>
-    `;
-  }).join('');
-
-  rail.querySelectorAll('button[data-server-id]').forEach(btn => {
-    btn.onclick = () => {
-      currentView = 'server';
-      currentServerId = btn.getAttribute('data-server-id');
-      currentChannelId = null;
-      document.getElementById('server-channels-container').classList.remove('hidden');
-      document.getElementById('dm-channels-container').classList.add('hidden');
-      renderServers();
-    };
-  });
-
-  renderChannels();
-}
-
-document.getElementById('btn-home').onclick = () => {
-  currentView = 'dm';
-  document.getElementById('server-channels-container').classList.add('hidden');
-  document.getElementById('dm-channels-container').classList.remove('hidden');
-  document.getElementById('sidebar-header-title').textContent = "Личные сообщения";
-  document.getElementById('btn-server-invite').classList.add('hidden');
-  document.getElementById('server-invite-badge').classList.add('hidden');
-  renderServers();
-  renderDirectMessagesList();
-};
-
-function renderChannels() {
-  if (currentView === 'dm') return;
-
-  const currentServer = serversData.find(s => s.id === currentServerId);
-  const headerTitle = document.getElementById('sidebar-header-title');
-  const inviteBtn = document.getElementById('btn-server-invite');
-  const addChanBtn = document.getElementById('btn-add-channel');
-  const chanList = document.getElementById('channel-list');
-  const voiceList = document.getElementById('voice-channel-list');
-  const inviteBadge = document.getElementById('server-invite-badge');
-  const inviteCodeSpan = document.getElementById('invite-code-span');
-
-  if (!currentServer) {
-    headerTitle.textContent = "Нет серверов";
-    inviteBtn.classList.add('hidden');
-    addChanBtn.classList.add('hidden');
-    inviteBadge.classList.add('hidden');
-    chanList.innerHTML = `<p class="text-xs text-discord-muted p-2">Создайте сервер (+), чтобы начать!</p>`;
-    voiceList.innerHTML = '';
-    renderMessages();
-    return;
-  }
-
-  headerTitle.textContent = currentServer.name;
-  inviteBtn.classList.remove('hidden');
-  addChanBtn.classList.remove('hidden');
-  inviteBadge.classList.remove('hidden');
-  inviteCodeSpan.textContent = currentServer.inviteCode || '...';
-
-  const textChannels = channelsData
-    .filter(c => c.serverId === currentServerId && (c.type || 'text') === 'text')
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-
-  const voiceChannels = channelsData
-    .filter(c => c.serverId === currentServerId && c.type === 'voice')
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-
-  if (textChannels.length > 0 && (!currentChannelId || !textChannels.some(c => c.id === currentChannelId))) {
-    currentChannelId = textChannels[0].id;
-  }
-
-  chanList.innerHTML = textChannels.map(c => {
-    const isActive = c.id === currentChannelId;
-    return `
-      <button data-chan-id="${c.id}" class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium transition ${
-        isActive 
-          ? 'bg-discord-hover text-white font-semibold' 
-          : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
-      }">
-        <span class="text-lg text-discord-muted">#</span>
-        <span class="truncate">${escapeHtml(c.name)}</span>
-      </button>
-    `;
-  }).join('');
-
-  chanList.querySelectorAll('button[data-chan-id]').forEach(btn => {
-    btn.onclick = () => {
-      currentChannelId = btn.getAttribute('data-chan-id');
-      renderChannels();
-      if (window.innerWidth < 768) closeDrawer();
-    };
-  });
-
-  voiceList.innerHTML = voiceChannels.map(vc => {
-    const isVoiceActive = activeVoiceChannelId === vc.id;
-    return `
-      <button data-voice-id="${vc.id}" class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm font-medium transition ${
-        isVoiceActive 
-          ? 'bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30' 
-          : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
-      }">
-        <div class="flex items-center gap-2 truncate">
-          <span class="text-base">🔊</span>
-          <span class="truncate">${escapeHtml(vc.name)}</span>
-        </div>
-        ${isVoiceActive ? '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>' : ''}
-      </button>
-    `;
-  }).join('');
-
-  voiceList.querySelectorAll('button[data-voice-id]').forEach(btn => {
-    btn.onclick = () => {
-      const voiceId = btn.getAttribute('data-voice-id');
-      connectVoiceChannel(voiceId, vcNameById(voiceId));
-    };
-  });
-
-  renderMembersSidebar();
-  renderMessages();
-}
-
-function vcNameById(id) {
-  const c = channelsData.find(x => x.id === id);
-  return c ? c.name : 'Голосовой канал';
-}
-
-function connectVoiceChannel(voiceId, name) {
-  activeVoiceChannelId = voiceId;
-  document.getElementById('active-voice-bar').classList.remove('hidden');
-  document.getElementById('active-voice-name').textContent = `🔊 ${name}`;
-  audioFX.playVoiceJoin();
-  showToast(`Подключено к голосу: ${name}`);
-  renderChannels();
-}
-
-document.getElementById('btn-disconnect-voice').onclick = () => {
-  activeVoiceChannelId = null;
-  document.getElementById('active-voice-bar').classList.add('hidden');
-  showToast("Отключено от голосового канала");
-  renderChannels();
-};
-
-document.getElementById('btn-toggle-mic').onclick = () => {
-  isMuted = !isMuted;
-  document.getElementById('mic-icon').textContent = isMuted ? '🎙️❌' : '🎙️';
-  document.getElementById('mic-text').textContent = isMuted ? 'Заглушен' : 'Микрофон';
-};
-
-document.getElementById('btn-toggle-deaf').onclick = () => {
-  isDeafened = !isDeafened;
-  document.getElementById('deaf-icon').textContent = isDeafened ? '🎧❌' : '🎧';
-  document.getElementById('deaf-text').textContent = isDeafened ? 'Выключен' : 'Звук';
-};
-
-function renderDirectMessagesList() {
-  const dmContainer = document.getElementById('dm-user-list');
-  const otherUsers = usersData.filter(u => u.uid !== currentUser.uid);
-
-  if (otherUsers.length === 0) {
-    dmContainer.innerHTML = `<p class="text-xs text-discord-muted p-2">Нет других пользователей онлайн.</p>`;
-    return;
-  }
-
-  dmContainer.innerHTML = otherUsers.map(u => {
-    const isActive = currentView === 'dm' && currentDmUserId === u.uid;
-    const initial = (u.nickname || 'U').charAt(0).toUpperCase();
-    return `
-      <button data-dm-user-id="${u.uid}" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition ${
-        isActive 
-          ? 'bg-discord-hover text-white' 
-          : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
-      }">
-        <div class="relative">
-          <div class="w-8 h-8 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-xs">
-            ${escapeHtml(initial)}
-          </div>
-          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-discord-surface ${
-            u.status === 'online' ? 'bg-discord-green' : u.status === 'idle' ? 'bg-discord-yellow' : 'bg-discord-red'
-          }"></span>
-        </div>
-        <div class="truncate text-left">
-          <div class="font-semibold text-white text-xs truncate">${escapeHtml(u.nickname)}</div>
-          <div class="text-[10px] text-discord-muted truncate">${escapeHtml(u.customStatus || u.status || 'В сети')}</div>
-        </div>
-      </button>
-    `;
-  }).join('');
-
-  dmContainer.querySelectorAll('button[data-dm-user-id]').forEach(btn => {
-    btn.onclick = () => {
-      currentView = 'dm';
-      currentDmUserId = btn.getAttribute('data-dm-user-id');
-      renderDirectMessagesList();
-      renderMessages();
-      if (window.innerWidth < 768) closeDrawer();
-    };
-  });
-}
-
-function renderMembersSidebar() {
-  const container = document.getElementById('members-list-content');
-  const srv = serversData.find(s => s.id === currentServerId);
-  if (!srv || currentView === 'dm') {
-    container.innerHTML = `<p class="text-xs text-discord-muted">Выберите сервер для просмотра списка участников.</p>`;
-    return;
-  }
-
-  const memberIds = srv.members || [];
-  const members = usersData.filter(u => memberIds.includes(u.uid));
-
-  if (!members.some(m => m.uid === currentUser.uid)) {
-    members.push({
-      uid: currentUser.uid,
-      nickname: currentUser.nickname,
-      status: currentUser.status,
-      customStatus: currentUser.customStatus
-    });
-  }
-
-  const manager = isServerManager(srv);
-  const owner = isServerOwner(srv);
-
-  const rows = members.map(m => {
-    const isOwner = m.uid === srv.ownerId;
-    const isAdmin = (srv.admins || []).includes(m.uid);
-    const isSelf = m.uid === currentUser.uid;
-    const initial = (m.nickname || 'U').charAt(0).toUpperCase();
-    const canBan = manager && !isOwner && !isSelf;
-    const canRole = owner && !isOwner && !isSelf;
-
-    return `
-      <div class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 transition group">
-        <div class="relative">
-          <div class="w-8 h-8 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-xs">
-            ${escapeHtml(initial)}
-          </div>
-          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-discord-surface ${
-            m.status === 'online' ? 'bg-discord-green' : m.status === 'idle' ? 'bg-discord-yellow' : 'bg-discord-red'
-          }"></span>
-        </div>
-        <div class="truncate min-w-0 flex-1">
-          <div class="flex items-center gap-1">
-            <span class="text-xs font-semibold text-gray-200 group-hover:text-white truncate">${escapeHtml(m.nickname)}</span>
-            ${isOwner ? '<span title="Владелец сервера">👑</span>' : ''}
-            ${isAdmin ? '<span title="Админ сервера">🛡️</span>' : ''}
-          </div>
-          <div class="text-[10px] text-discord-muted truncate">${escapeHtml(m.customStatus || m.status || 'В сети')}</div>
-        </div>
-        ${canRole ? `<button onclick="toggleAdmin('${m.uid}')" class="text-[10px] text-discord-muted hover:text-white">${isAdmin ? 'Снять' : 'Админ'}</button>` : ''}
-        ${canBan ? `<button onclick="banMember('${m.uid}')" class="text-[10px] text-discord-red hover:underline">Бан</button>` : ''}
-      </div>`;
-  }).join('');
-
-  const deleteBtn = owner
-    ? `<button onclick="deleteCurrentServer()" class="mt-4 w-full text-xs py-2 rounded-lg bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white transition">Удалить сервер</button>`
-    : '';
-
-  container.innerHTML = rows + deleteBtn;
-}
-
-
-function renderMessages() {
-  const feed = document.getElementById('message-feed');
-  const chanNameElem = document.getElementById('current-channel-name');
-  const chanIconElem = document.getElementById('current-channel-icon');
-  const chatInput = document.getElementById('chat-input');
-
-  let activeMessages = [];
-
-  if (currentView === 'dm') {
-    const targetUser = usersData.find(u => u.uid === currentDmUserId);
-    chanIconElem.textContent = "@";
-    chanNameElem.textContent = targetUser ? targetUser.nickname : "Выберите собеседника";
-    chatInput.placeholder = targetUser ? `Написать @${targetUser.nickname}...` : "Выберите диалог...";
-    chatInput.disabled = !targetUser;
-
-    if (!targetUser) {
-      feed.innerHTML = `<div class="h-full flex items-center justify-center text-discord-muted text-sm">Выберите пользователя из списка слева, чтобы начать личную переписку.</div>`;
-      return;
-    }
-
-    activeMessages = messagesData.filter(m => 
-      (m.authorId === currentUser.uid && m.targetDmId === targetUser.uid) ||
-      (m.authorId === targetUser.uid && m.targetDmId === currentUser.uid)
-    );
-  } else {
-    chanIconElem.textContent = "#";
-    const currentChan = channelsData.find(c => c.id === currentChannelId);
-    if (!currentChan) {
-      chanNameElem.textContent = "выберите-канал";
-      chatInput.placeholder = "Выберите канал...";
-      chatInput.disabled = true;
-      feed.innerHTML = `<div class="h-full flex items-center justify-center text-discord-muted text-sm">Выберите или создайте канал для общения.</div>`;
-      return;
-    }
-
-    chanNameElem.textContent = currentChan.name;
-    chatInput.placeholder = `Написать в #${currentChan.name}...`;
-    chatInput.disabled = false;
-
-    activeMessages = messagesData.filter(m => m.channelId === currentChannelId);
-  }
-
-  // Search filter query
-  if (messageSearchQuery) {
-    const q = messageSearchQuery.toLowerCase();
-    activeMessages = activeMessages.filter(m => (m.text || '').toLowerCase().includes(q) || (m.authorName || '').toLowerCase().includes(q));
-  }
-
-  activeMessages.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-
-  if (activeMessages.length === 0) {
-    feed.innerHTML = `
-      <div class="my-auto text-center space-y-2 py-8">
-        <div class="w-12 h-12 bg-discord-surface rounded-full flex items-center justify-center mx-auto text-2xl text-discord-muted">
-          ${currentView === 'dm' ? '@' : '#'}
-        </div>
-        <h3 class="font-bold text-lg text-white">Здесь пока пусто!</h3>
-        <p class="text-xs text-discord-muted">Напишите первое сообщение, чтобы начать диалог.</p>
-      </div>
-    `;
-    return;
-  }
-
-  feed.innerHTML = activeMessages.map(m => {
-    const timeStr = m.ts ? new Date(m.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
-    const initial = (m.authorName || 'U').charAt(0).toUpperCase();
-    const isOwnerOfMsg = m.authorId === currentUser.uid;
-
-    // Reaction markup
-    const reactions = m.reactions || {};
-    const reactionKeys = Object.keys(reactions);
-    const reactionsHtml = reactionKeys.map(emoji => {
-      const count = reactions[emoji].length;
-      const hasReacted = reactions[emoji].includes(currentUser.uid);
-      return `
-        <button onclick="toggleReaction('${m.id}', '${emoji}')" class="px-2 py-0.5 rounded-lg text-xs flex items-center gap-1 border transition ${
-          hasReacted ? 'bg-discord-accent/20 border-discord-accent text-discord-accent font-bold' : 'bg-discord-rail border-gray-700/60 text-discord-muted hover:text-white'
-        }">
-          <span>${emoji}</span>
-          <span>${count}</span>
-        </button>
-      `;
-    }).join('');
-
-    return `
-      <div class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 py-1.5 rounded-lg transition group relative">
-        <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-sm flex-shrink-0 mt-0.5 shadow">
-          ${escapeHtml(initial)}
-        </div>
-        <div class="flex-1 min-w-0">
-          <!-- Replied message context block -->
-          ${m.replyTo ? `
-            <div class="text-[11px] text-discord-muted flex items-center gap-1 mb-1 border-l-2 border-discord-accent pl-2">
-              <span>💬 В ответ на <b>${escapeHtml(m.replyTo.authorName)}</b>:</span>
-              <span class="truncate opacity-75">${escapeHtml(m.replyTo.text)}</span>
-            </div>
-          ` : ''}
-
-          <div class="flex items-baseline gap-2">
-            <span class="font-semibold text-sm text-white hover:underline cursor-pointer">${escapeHtml(m.authorName || 'Аноним')}</span>
-            <span class="text-[11px] text-discord-muted">${timeStr}</span>
-          </div>
-
-          <div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>
-
-          <!-- Attachment image if present -->
-          ${m.attachmentUrl ? `
-            <div class="mt-2 max-w-sm rounded-xl overflow-hidden border border-gray-700/50 shadow-md">
-              <img src="${escapeHtml(m.attachmentUrl)}" alt="Вложение" class="max-h-60 w-auto object-cover" onerror="this.style.display='none'">
-            </div>
-          ` : ''}
-
-          <!-- Message Reactions list -->
-          ${reactionKeys.length > 0 ? `
-            <div class="flex flex-wrap items-center gap-1.5 mt-2">
-              ${reactionsHtml}
-            </div>
-          ` : ''}
-        </div>
-
-        <!-- Quick Action Toolbar on Hover -->
-        <div class="absolute right-2 top-1 hidden group-hover:flex items-center gap-1 bg-discord-surface border border-gray-700/60 rounded-lg p-1 shadow-md text-xs">
-          <button onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text)}')" title="Ответить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">↩️</button>
-          <button onclick="toggleQuickReaction('${m.id}', '❤️')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">❤️</button>
-          <button onclick="toggleQuickReaction('${m.id}', '👍')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">👍</button>
-          ${isOwnerOfMsg ? `
-            <button onclick="deleteMessage('${m.id}')" title="Удалить" class="p-1 hover:bg-discord-hover rounded text-red-400">🗑️</button>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  feed.scrollTop = feed.scrollHeight;
-}
-
-// Search input listener
-document.getElementById('input-search-messages').oninput = (e) => {
-  messageSearchQuery = e.target.value.trim();
-  renderMessages();
-};
-
-// Reply system handlers
-window.setReplyMessage = function(msgId, authorName, text) {
-  activeReplyMessage = { id: msgId, authorName: authorName, text: text };
-  document.getElementById('reply-preview-author').textContent = `@${authorName}`;
-  document.getElementById('reply-preview-text').textContent = text;
-  document.getElementById('reply-preview-bar').classList.remove('hidden');
-  document.getElementById('chat-input').focus();
-};
-
-document.getElementById('btn-cancel-reply').onclick = () => {
-  activeReplyMessage = null;
-  document.getElementById('reply-preview-bar').classList.add('hidden');
-};
-
-
-window.toggleReaction = async function(msgId, emoji) {
-  const msg = messagesData.find(m => m.id === msgId);
-  if (!msg) return;
-
-  const reactions = msg.reactions || {};
-  if (!reactions[emoji]) reactions[emoji] = [];
-
-  const userIdx = reactions[emoji].indexOf(currentUser.uid);
-  if (userIdx >= 0) {
-    reactions[emoji].splice(userIdx, 1);
-    if (reactions[emoji].length === 0) delete reactions[emoji];
-  } else {
-    reactions[emoji].push(currentUser.uid);
-  }
-
-  if (isCloudEnabled) {
-    try {
-      await updateDoc(doc(COLLECTION_MESSAGES, msgId), { reactions: reactions });
-    } catch(e) {}
-  } else {
-    msg.reactions = reactions;
-    saveLocalStore();
-    renderMessages();
-  }
-};
-
-window.toggleQuickReaction = function(msgId, emoji) {
-  window.toggleReaction(msgId, emoji);
-};
-
-window.deleteMessage = async function(msgId) {
-  if (isCloudEnabled) {
-    try {
-      await deleteDoc(doc(COLLECTION_MESSAGES, msgId));
-      showToast("Сообщение удалено");
-    } catch(e) {
-      showToast("Ошибка удаления сообщения", true);
-    }
-  } else {
-    messagesData = messagesData.filter(m => m.id !== msgId);
-    saveLocalStore();
-    renderMessages();
-    showToast("Сообщение удалено");
-  }
-};
-
-// Attachment modal logic
-document.getElementById('btn-attach-file').onclick = () => openModal('modal-attach');
-document.getElementById('btn-save-attachment').onclick = () => {
-  const url = document.getElementById('input-attach-url').value.trim();
-  if (url) {
-    pendingAttachmentUrl = url;
-    document.getElementById('attachment-url-text').textContent = url;
-    document.getElementById('attachment-preview-bar').classList.remove('hidden');
-  }
-  closeModals();
-};
-
-document.getElementById('btn-cancel-attachment').onclick = () => {
-  pendingAttachmentUrl = '';
-  document.getElementById('attachment-preview-bar').classList.add('hidden');
-};
-
-
-window.handleSendMessage = async function(e) {
-  if (e) e.preventDefault();
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  
-  if ((!text && !pendingAttachmentUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
-    return false;
-  }
-
-  input.value = '';
-
-  const newMsg = {
-    id: 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-    serverId: currentView === 'server' ? currentServerId : null,
-    channelId: currentView === 'server' ? currentChannelId : null,
-    targetDmId: currentView === 'dm' ? currentDmUserId : null,
-    authorId: currentUser.uid,
-    authorName: currentUser.nickname,
-    text: text,
-    attachmentUrl: pendingAttachmentUrl || null,
-    replyTo: activeReplyMessage ? { authorName: activeReplyMessage.authorName, text: activeReplyMessage.text } : null,
-    reactions: {},
-    ts: Date.now()
-  };
-
-  // Reset previews
-  activeReplyMessage = null;
-  pendingAttachmentUrl = '';
-  document.getElementById('reply-preview-bar').classList.add('hidden');
-  document.getElementById('attachment-preview-bar').classList.add('hidden');
-
-  audioFX.playSend();
-
-  if (isCloudEnabled) {
-    try {
-      await setDoc(doc(COLLECTION_MESSAGES, newMsg.id), newMsg);
-    } catch(err) {
-      showToast("Ошибка отправки сообщения", true);
-    }
-  } else {
-    messagesData.push(newMsg);
-    saveLocalStore();
-    renderMessages();
-  }
-  return false;
-};
-
-
-// Emoji picker interaction
-const btnEmoji = document.getElementById('btn-emoji');
-const emojiPicker = document.getElementById('emoji-picker');
-btnEmoji.onclick = (e) => {
-  e.stopPropagation();
-  emojiPicker.classList.toggle('hidden');
-};
-document.querySelectorAll('.emoji-btn').forEach(b => {
-  b.onclick = () => {
-    const input = document.getElementById('chat-input');
-    input.value += b.textContent;
-    emojiPicker.classList.add('hidden');
-    input.focus();
-  };
-});
-document.addEventListener('click', () => emojiPicker.classList.add('hidden'));
-
-// Copy Links
-document.getElementById('btn-copy-channel-link').onclick = () => {
-  const link = `${window.location.origin}${window.location.pathname}?server=${currentServerId}&channel=${currentChannelId}`;
-  copyTextToClipboard(link);
-};
-
-document.getElementById('btn-server-invite').onclick = () => {
-  const currentServer = serversData.find(s => s.id === currentServerId);
-  if (!currentServer) return;
-
-  const inviteCode = currentServer.inviteCode || 'INVITE';
-  const fullLink = `${window.location.origin}${window.location.pathname}?invite=${inviteCode}`;
-
-  document.getElementById('invite-code-input').value = inviteCode;
-  document.getElementById('invite-link-input').value = fullLink;
-
-  openModal('modal-invite');
-};
-
-document.getElementById('btn-copy-code').onclick = () => copyTextToClipboard(document.getElementById('invite-code-input').value);
-document.getElementById('btn-copy-link').onclick = () => copyTextToClipboard(document.getElementById('invite-link-input').value);
-
-// Modals Trigger Handlers
-document.getElementById('btn-add-server').onclick = () => openModal('modal-server');
-document.getElementById('btn-add-channel').onclick = () => currentServerId && openModal('modal-channel');
-
-document.getElementById('form-create-server').onsubmit = async (e) => {
-  e.preventDefault();
-  const nameInput = document.getElementById('input-server-name');
-  const name = nameInput.value.trim();
-  if (!name) return;
-
-  const serverId = 's_' + Date.now();
-  const inviteCode = generateUid();
-
-  const newServer = {
-    id: serverId,
-    name: name,
-    inviteCode: inviteCode,
-    ownerId: currentUser.uid,
-    members: [currentUser.uid],
-    createdAt: Date.now()
-  };
-
-  const genChan = {
-    id: 'c_' + Date.now() + '_gen',
-    serverId: serverId,
-    name: 'general',
-    type: 'text',
-    createdAt: Date.now()
-  };
-
-  const voiceChan = {
-    id: 'v_' + Date.now() + '_voice',
-    serverId: serverId,
-    name: 'Общий Голос',
-    type: 'voice',
-    createdAt: Date.now() + 1
-  };
-
-  const welcomeMsg = {
-    id: 'm_' + Date.now(),
-    serverId: serverId,
-    channelId: genChan.id,
-    authorId: 'system',
-    authorName: 'Система',
-    text: `🎉 Сервер "${name}" успешно создан! Скопируйте код (${inviteCode}), чтобы пригласить друзей.`,
-    reactions: {},
-    ts: Date.now()
-  };
-
-  if (isCloudEnabled) {
-    try {
-      await setDoc(doc(COLLECTION_SERVERS, serverId), newServer);
-      await setDoc(doc(COLLECTION_CHANNELS, genChan.id), genChan);
-      await setDoc(doc(COLLECTION_CHANNELS, voiceChan.id), voiceChan);
-      await setDoc(doc(COLLECTION_MESSAGES, welcomeMsg.id), welcomeMsg);
-    } catch(err) {
-      showToast("Ошибка создания сервера в облаке", true);
-      return;
-    }
-  } else {
-    serversData.push(newServer);
-    channelsData.push(genChan, voiceChan);
-    messagesData.push(welcomeMsg);
-    saveLocalStore();
-  }
-
-  currentServerId = serverId;
-  currentChannelId = genChan.id;
-
-  nameInput.value = '';
-  closeModals();
-  showToast(`Сервер "${name}" создан!`);
-};
-
-document.getElementById('form-join-server').onsubmit = async (e) => {
-  e.preventDefault();
-  const code = document.getElementById('input-invite-code').value.trim().toUpperCase();
-  if (!code) return;
-
-  const targetServer = serversData.find(s => s.inviteCode && s.inviteCode.toUpperCase() === code);
-  if (!targetServer) {
-    showToast("Сервер с таким кодом не найден", true);
-    return;
-  }
-
-  await joinServerByDoc(targetServer);
-  closeModals();
-};
-
-async function joinServerByDoc(serverDocObj) {
-  if ((serverDocObj.bans || []).includes(currentUser.uid)) {
-    showToast(`Вы забанены на сервере "${serverDocObj.name}"`, true);
-    return;
-  }
-  const existingMembers = Array.isArray(serverDocObj.members) ? serverDocObj.members : [];
-
-  if (!existingMembers.includes(currentUser.uid)) {
-    existingMembers.push(currentUser.uid);
-
-    if (isCloudEnabled) {
-      try {
-        await updateDoc(doc(COLLECTION_SERVERS, serverDocObj.id), { members: existingMembers });
-      } catch(e) {}
-    } else {
-      saveLocalStore();
-    }
-  }
-
-  currentServerId = serverDocObj.id;
-  currentChannelId = null;
-  showToast(`Вы вошли на сервер "${serverDocObj.name}"!`);
-  renderServers();
-}
-
-document.getElementById('form-create-channel').onsubmit = async (e) => {
-  e.preventDefault();
-  const input = document.getElementById('input-channel-name');
-  const type = document.querySelector('input[name="channel-type"]:checked').value;
-  const name = input.value.trim().toLowerCase().replace(/\s+/g, '-');
-  if (!name || !currentServerId) return;
-
-  const chanId = (type === 'voice' ? 'v_' : 'c_') + Date.now();
-  const newChan = {
-    id: chanId,
-    serverId: currentServerId,
-    name: name,
-    type: type,
-    createdAt: Date.now()
-  };
-
-  if (isCloudEnabled) {
-    try {
-      await setDoc(doc(COLLECTION_CHANNELS, chanId), newChan);
-    } catch(e) {
-      showToast("Ошибка создания канала", true);
-      return;
-    }
-  } else {
-    channelsData.push(newChan);
-    saveLocalStore();
-  }
-
-  if (type === 'text') currentChannelId = chanId;
-  input.value = '';
-  closeModals();
-  showToast(`Канал #${name} создан!`);
-};
-
-// Profile updates modal handler
-document.getElementById('form-update-profile').onsubmit = async (e) => {
-  e.preventDefault();
-  const newNick = document.getElementById('input-profile-nickname').value.trim();
-  const newStatus = document.getElementById('select-profile-status').value;
-  const newCustomStatus = document.getElementById('input-profile-custom-status').value.trim();
-
-  if (!newNick) return;
-
-  currentUser.nickname = newNick;
-  currentUser.status = newStatus;
-  currentUser.customStatus = newCustomStatus;
-
-  localStorage.setItem('chat_nickname', currentUser.nickname);
-  localStorage.setItem('chat_status', currentUser.status);
-  localStorage.setItem('chat_custom_status', currentUser.customStatus);
-
-  updateUserProfileDisplay();
-  await syncUserProfileCloud();
-  closeModals();
-  showToast("Профиль обновлен!");
-};
-
-window.openModal = function(id) {
-  if (id === 'modal-profile') {
-    document.getElementById('input-profile-nickname').value = currentUser.nickname;
-    document.getElementById('select-profile-status').value = currentUser.status;
-    document.getElementById('input-profile-custom-status').value = currentUser.customStatus || '';
-  }
-  document.getElementById(id).classList.remove('hidden');
-};
-
-function closeModals() {
-  document.querySelectorAll('[id^="modal-"]').forEach(m => m.classList.add('hidden'));
-}
-document.querySelectorAll('.modal-close').forEach(btn => btn.onclick = closeModals);
-
-document.getElementById('tab-btn-create').onclick = () => {
-  document.getElementById('form-create-server').classList.remove('hidden');
-  document.getElementById('form-join-server').classList.add('hidden');
-  document.getElementById('tab-btn-create').className = 'flex-1 py-2 text-discord-accent border-b-2 border-discord-accent';
-  document.getElementById('tab-btn-join').className = 'flex-1 py-2 text-discord-muted hover:text-white';
-};
-
-document.getElementById('tab-btn-join').onclick = () => {
-  document.getElementById('form-create-server').classList.add('hidden');
-  document.getElementById('form-join-server').classList.remove('hidden');
-  document.getElementById('tab-btn-join').className = 'flex-1 py-2 text-discord-accent border-b-2 border-discord-accent';
-  document.getElementById('tab-btn-create').className = 'flex-1 py-2 text-discord-muted hover:text-white';
-};
-
-let isDark = true;
-document.getElementById('btn-theme-toggle').onclick = () => {
-  isDark = !isDark;
-  document.documentElement.classList.toggle('dark', isDark);
-  document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀';
-};
-
-/* ===== Модерация: баны, роли, удаление сервера ===== */
-function isServerOwner(srv) {
-  return !!srv && srv.ownerId === currentUser.uid;
-}
-function isServerManager(srv) {
-  return !!srv && (srv.ownerId === currentUser.uid || (srv.admins || []).includes(currentUser.uid));
-}
-
-async function updateServerFields(srv, fields) {
-  Object.assign(srv, fields);
-  if (isCloudEnabled) {
-    try {
-      await updateDoc(doc(COLLECTION_SERVERS, srv.id), fields);
-    } catch (e) {
-      showToast('Нет прав или ошибка сети', true);
-      return false;
-    }
-  } else {
-    saveLocalStore();
-  }
-  renderMembersSidebar();
-  return true;
-}
-
-window.banMember = async function(uid) {
-  const srv = serversData.find(s => s.id === currentServerId);
-  if (!isServerManager(srv) || uid === srv.ownerId || uid === currentUser.uid) return;
-  if (!confirm('Забанить этого игрока на сервере?')) return;
-
-  const bans = [...new Set([...(srv.bans || []), uid])];
-  const members = (srv.members || []).filter(m => m !== uid);
-  const admins = (srv.admins || []).filter(a => a !== uid);
-  if (await updateServerFields(srv, { bans, members, admins })) showToast('Игрок забанен');
-};
-
-window.toggleAdmin = async function(uid) {
-  const srv = serversData.find(s => s.id === currentServerId);
-  if (!isServerOwner(srv) || uid === srv.ownerId) return;
-
-  const current = srv.admins || [];
-  const admins = current.includes(uid) ? current.filter(a => a !== uid) : [...current, uid];
-  if (await updateServerFields(srv, { admins })) showToast('Роли обновлены');
-};
-
-window.deleteCurrentServer = async function() {
-  const srv = serversData.find(s => s.id === currentServerId);
-  if (!isServerOwner(srv)) return;
-  if (!confirm(`Удалить сервер "${srv.name}" вместе со всеми сообщениями? Это нельзя отменить.`)) return;
-
-  const chans = channelsData.filter(c => c.serverId === srv.id);
-  const msgs = messagesData.filter(m => m.serverId === srv.id);
-
-  try {
-    if (isCloudEnabled) {
-      for (const m of msgs) await deleteDoc(doc(COLLECTION_MESSAGES, m.id));
-      for (const c of chans) await deleteDoc(doc(COLLECTION_CHANNELS, c.id));
-      await deleteDoc(doc(COLLECTION_SERVERS, srv.id));
-    } else {
-      serversData = serversData.filter(s => s.id !== srv.id);
-      channelsData = channelsData.filter(c => c.serverId !== srv.id);
-      messagesData = messagesData.filter(m => m.serverId !== srv.id);
-      saveLocalStore();
-    }
-  } catch (e) {
-    showToast('Ошибка удаления сервера', true);
-    return;
-  }
-
-  currentServerId = null;
-  currentChannelId = null;
-  showToast('Сервер удалён');
-  renderServers();
-};
-
-initAuth();
-</script>
-</body>
-</html>
