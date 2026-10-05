@@ -61,10 +61,20 @@
   html:not(.dark) .bg-discord-rail { background-color: #e3e5e8; }
   html:not(.dark) .text-white { color: #060607; }
   html:not(.dark) .text-gray-100, html:not(.dark) .text-gray-200 { color: #2e3035; }
+  .context-menu { animation: contextMenuIn .12s ease-out; transform-origin: top left; }
+  @keyframes contextMenuIn { from { opacity: 0; transform: scale(.96) translateY(-3px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .context-menu-item { display:flex; align-items:center; gap:.65rem; width:100%; padding:.62rem .78rem; color:#e5e7eb; font-size:.82rem; text-align:left; transition:background .12s ease,color .12s ease; }
+  .context-menu-item:hover { background:rgba(88,101,242,.22); color:#fff; }
+  .context-menu-item.danger { color:#ff6b71; }
+  .context-menu-item.danger:hover { background:rgba(242,63,67,.16); color:#fff; }
+  .context-menu-sep { height:1px; margin:.28rem .45rem; background:rgba(148,155,164,.16); }
 </style>
 </head>
 <body class="bg-discord-bg text-gray-100 dark:bg-discord-bg dark:text-gray-100 antialiased h-[100dvh] overflow-hidden flex flex-col">
 
+
+<!-- Custom Context Menu -->
+<div id="context-menu" class="context-menu fixed hidden z-[100] min-w-56 max-w-72 rounded-xl border border-gray-700/70 bg-discord-rail/95 backdrop-blur-xl shadow-2xl overflow-hidden py-1"></div>
 
 <!-- Toast Notification -->
 <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 transform -translate-y-12 opacity-0 transition-all duration-300 pointer-events-none bg-discord-accent text-white px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2">
@@ -644,7 +654,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, linkWithCredential, reauthenticateWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Web Audio API Synthesizer for notifications
@@ -806,6 +816,52 @@ function showToast(msg, isError = false) {
     toast.classList.add('-translate-y-12', 'opacity-0');
   }, 3000);
 }
+
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  if (menu) menu.classList.add('hidden');
+}
+
+function showContextMenu(x, y, items) {
+  const menu = document.getElementById('context-menu');
+  if (!menu) return;
+  menu.innerHTML = items.map(item => item === 'separator' ? '<div class="context-menu-sep"></div>' : `<button type="button" class="context-menu-item ${item.danger ? 'danger' : ''}"><span class="text-base w-5 text-center">${item.icon || '•'}</span><span class="truncate">${escapeHtml(item.label)}</span></button>`).join('');
+  const actionItems = items.filter(item => item !== 'separator');
+  menu.querySelectorAll('button.context-menu-item').forEach((btn, index) => {
+    btn.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); hideContextMenu(); actionItems[index]?.action?.(); };
+  });
+  menu.classList.remove('hidden');
+  menu.style.left='0px'; menu.style.top='0px';
+  const rect=menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(Math.max(6,x), Math.max(6,window.innerWidth-rect.width-6))}px`;
+  menu.style.top = `${Math.min(Math.max(6,y), Math.max(6,window.innerHeight-rect.height-6))}px`;
+}
+
+function openDirectMessage(uid) {
+  if (!uid || uid === currentUser.uid) return;
+  currentView='dm'; currentDmUserId=uid;
+  document.getElementById('server-channels-container').classList.add('hidden');
+  document.getElementById('dm-channels-container').classList.remove('hidden');
+  document.getElementById('sidebar-header-title').textContent='Личные сообщения';
+  document.getElementById('btn-server-invite').classList.add('hidden');
+  document.getElementById('btn-server-settings').classList.add('hidden');
+  document.getElementById('server-invite-badge').classList.add('hidden');
+  renderDirectMessagesList(); renderMessages();
+  if (window.innerWidth < 768) closeDrawer();
+}
+
+function copyTextSilently(text) {
+  if (!text) return Promise.reject(new Error('empty'));
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+  const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } finally { ta.remove(); }
+  return Promise.resolve();
+}
+
+document.addEventListener('click', hideContextMenu);
+document.addEventListener('scroll', hideContextMenu, true);
+document.addEventListener('keydown', e => { if (e.key==='Escape') hideContextMenu(); });
+window.addEventListener('resize', hideContextMenu);
 
 function copyTextToClipboard(text) {
   const textarea = document.createElement('textarea');
@@ -1363,6 +1419,20 @@ function renderServers() {
       document.getElementById('dm-channels-container').classList.add('hidden');
       renderServers();
     };
+    btn.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const sid=btn.getAttribute('data-server-id');
+      const srv=serversData.find(x=>x.id===sid);
+      if (!srv) return;
+      const items=[
+        {icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},
+        {icon:'📋',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode).then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}
+      ];
+      if (hasServerPermission(srv,'create_invites')) items.push({icon:'👥',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite').click();}});
+      if (isServerManager(srv)) items.push({icon:'⚙️',label:'Настройки сервера',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('general');}});
+      if (isServerOwner(srv)) { items.push('separator'); items.push({icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()}); }
+      showContextMenu(e.clientX,e.clientY,items);
+    };
   });
 
   renderChannels();
@@ -1542,12 +1612,16 @@ function renderDirectMessagesList() {
   }).join('');
 
   dmContainer.querySelectorAll('button[data-dm-user-id]').forEach(btn => {
-    btn.onclick = () => {
-      currentView = 'dm';
-      currentDmUserId = btn.getAttribute('data-dm-user-id');
-      renderDirectMessagesList();
-      renderMessages();
-      if (window.innerWidth < 768) closeDrawer();
+    btn.onclick = () => openDirectMessage(btn.getAttribute('data-dm-user-id'));
+    btn.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const uid=btn.getAttribute('data-dm-user-id');
+      const u=usersData.find(x=>x.uid===uid);
+      if (!u) return;
+      showContextMenu(e.clientX,e.clientY,[
+        {icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(uid)},
+        {icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(uid).then(()=>showToast('ID скопирован'))}
+      ]);
     };
   });
 }
@@ -1585,7 +1659,7 @@ function renderMembersSidebar() {
     const canRole = hasServerPermission(srv, 'manage_roles') && !isOwner && !isSelf;
 
     return `
-      <div class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 transition group">
+      <div data-member-uid="${escapeHtml(m.uid)}" class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 transition group">
         <div class="relative">
           <div class="w-8 h-8 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-xs">
             ${escapeHtml(initial)}
@@ -2231,7 +2305,7 @@ function renderServerMembersSettings() {
     const roleIds = getMemberRoleIds(srv, m.uid);
     const isOwner = m.uid === srv.ownerId;
     const roleOptions = srv.roles.map(role => `<option value="${role.id}" ${roleIds.includes(role.id) ? 'selected' : ''}>${escapeHtml(role.name)}</option>`).join('');
-    return `<div class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
+    return `<div data-member-uid="${escapeHtml(m.uid)}" class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
       <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm">${escapeHtml((m.nickname || 'U').charAt(0).toUpperCase())}</div>
       <div class="min-w-0 flex-1"><div class="font-semibold text-white text-sm truncate">${escapeHtml(m.nickname || 'Пользователь')} ${isOwner ? '👑' : ''}</div><div class="text-[10px] text-discord-muted">${escapeHtml(m.uid)}</div></div>
       <select data-member-role="${m.uid}" multiple size="1" ${(!canRoles || isOwner) ? 'disabled' : ''} class="min-w-40 max-w-48 bg-discord-surface border border-gray-700/60 rounded-lg px-2 py-1.5 text-xs text-white">${roleOptions}</select>
@@ -2239,7 +2313,22 @@ function renderServerMembersSettings() {
     </div>`;
   }).join('');
 }
-
+  list.querySelectorAll('[data-member-uid]').forEach(row => {
+    row.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const uid=row.getAttribute('data-member-uid');
+      const member=usersData.find(u=>u.uid===uid) || (uid===currentUser.uid ? currentUser : null);
+      if (!member) return;
+      const isSelf=uid===currentUser.uid;
+      const isOwner=uid===srv.ownerId;
+      const canRoles=hasServerPermission(srv,'manage_roles') && !isOwner && !isSelf;
+      const canBan=hasServerPermission(srv,'manage_members') && !isOwner && !isSelf;
+      const items=[{icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(uid)},{icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(uid).then(()=>showToast('ID скопирован'))}];
+      if (canRoles) items.push({icon:'🛡️',label:'Перейти к ролям участника',action:()=>{ const sel=document.querySelector(`[data-member-role="${CSS.escape(uid)}"]`); sel?.focus(); }});
+      if (canBan) { items.push('separator'); items.push({icon:'🚫',label:'Забанить участника',danger:true,action:()=>window.banMember(uid)}); }
+      showContextMenu(e.clientX,e.clientY,items);
+    };
+  });
 window.saveMemberRoles = async function(uid) {
   const srv = serversData.find(s => s.id === currentServerId);
   if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
@@ -2330,14 +2419,15 @@ window.openModal = function(id) {
     document.getElementById('account-settings-email').textContent = auth?.currentUser?.email || '—';
     const providers = auth?.currentUser?.providerData?.map(p => p.providerId).join(', ') || '—';
     document.getElementById('account-settings-provider').textContent = `Способы входа: ${providers}`;
-    const passwordForm = document.getElementById('form-change-password');
     const isPasswordProvider = auth?.currentUser?.providerData?.some(p => p.providerId === 'password');
-    document.getElementById('input-new-password').disabled = !isPasswordProvider;
-    document.getElementById('input-new-password-confirm').disabled = !isPasswordProvider;
-    document.getElementById('btn-change-password').disabled = !isPasswordProvider;
+    const canManagePassword = !!auth?.currentUser?.email;
+    document.getElementById('input-new-password').disabled = !canManagePassword;
+    document.getElementById('input-new-password-confirm').disabled = !canManagePassword;
+    document.getElementById('btn-change-password').disabled = !canManagePassword;
+    document.getElementById('btn-change-password').textContent = isPasswordProvider ? 'Сохранить новый пароль' : 'Установить пароль';
     document.getElementById('btn-reset-password-email').disabled = !isPasswordProvider;
     document.getElementById('btn-reset-password-email').classList.toggle('opacity-50', !isPasswordProvider);
-    document.getElementById('password-change-note').textContent = isPasswordProvider ? 'Можно изменить пароль прямо здесь.' : 'Для аккаунтов Google пароль управляется через Google.';
+    document.getElementById('password-change-note').textContent = isPasswordProvider ? 'Можно изменить пароль прямо здесь.' : 'У этого аккаунта вход через Google. Здесь можно добавить пароль и затем входить также по email.';
     document.getElementById('setting-notify-inapp').checked = accountNotificationSettings.inApp !== false;
     document.getElementById('setting-notify-dm').checked = accountNotificationSettings.dm !== false;
     document.getElementById('setting-notify-mentions').checked = accountNotificationSettings.mentions !== false;
@@ -2447,15 +2537,39 @@ document.getElementById('btn-delete-role').onclick = async () => {
 
 document.getElementById('form-change-password').onsubmit = async (e) => {
   e.preventDefault();
-  const user = auth?.currentUser;
-  const p1 = document.getElementById('input-new-password').value;
-  const p2 = document.getElementById('input-new-password-confirm').value;
-  if (!user) return;
-  if (!user.providerData?.some(p => p.providerId === 'password')) { showToast('Для Google-аккаунта пароль меняется через Google', true); return; }
-  if (p1.length < 6) { showToast('Пароль должен содержать минимум 6 символов', true); return; }
-  if (p1 !== p2) { showToast('Новые пароли не совпадают', true); return; }
-  try { await updatePassword(user, p1); document.getElementById('input-new-password').value=''; document.getElementById('input-new-password-confirm').value=''; showToast('Пароль изменён'); }
-  catch(e) { if (e?.code === 'auth/requires-recent-login') showToast('Firebase требует недавнего входа. Войдите в аккаунт заново и повторите.', true); else showToast('Не удалось изменить пароль', true); }
+  const user=auth?.currentUser;
+  const p1=document.getElementById('input-new-password').value;
+  const p2=document.getElementById('input-new-password-confirm').value;
+  if (!user || !user.email) { showToast('У аккаунта нет email',true); return; }
+  if (p1.length<6) { showToast('Пароль должен содержать минимум 6 символов',true); return; }
+  if (p1!==p2) { showToast('Новые пароли не совпадают',true); return; }
+  const hasPasswordProvider=user.providerData?.some(p=>p.providerId==='password');
+  try {
+    if (hasPasswordProvider) {
+      await updatePassword(user,p1);
+      showToast('Пароль изменён');
+    } else {
+      const credential=EmailAuthProvider.credential(user.email,p1);
+      try {
+        await linkWithCredential(user,credential);
+      } catch(linkError) {
+        if (linkError?.code==='auth/requires-recent-login' && user.providerData?.some(p=>p.providerId==='google.com')) {
+          await reauthenticateWithPopup(user,new GoogleAuthProvider());
+          await linkWithCredential(user,credential);
+        } else throw linkError;
+      }
+      showToast('Пароль добавлен. Теперь можно входить через email и пароль.');
+    }
+    document.getElementById('input-new-password').value='';
+    document.getElementById('input-new-password-confirm').value='';
+    document.getElementById('account-settings-provider').textContent = `Способы входа: ${user.providerData?.map(p=>p.providerId).join(', ') || '—'}`;
+    openModal('modal-account-settings');
+  } catch(err) {
+    if (err?.code==='auth/requires-recent-login') showToast('Нужен недавний вход. Выйди и войди снова, затем повтори.',true);
+    else if (err?.code==='auth/credential-already-in-use' || err?.code==='auth/email-already-in-use') showToast('Этот email уже связан с другим аккаунтом.',true);
+    else if (err?.code==='auth/weak-password') showToast('Пароль слишком слабый.',true);
+    else showToast('Не удалось сохранить пароль.',true);
+  }
 };
 
 document.getElementById('btn-reset-password-email').onclick = async () => {
