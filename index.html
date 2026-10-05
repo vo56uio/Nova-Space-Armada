@@ -878,8 +878,8 @@ window.loginWithGoogle = async function() {
       showToast('Вход через Google выполнен!');
       startApp();
     } else {
-      googleProfilePending = true;
       setAuthMode('register');
+      googleProfilePending = true;
       document.getElementById('auth-email').value = credential.user.email || '';
       document.getElementById('auth-email').readOnly = true;
       document.getElementById('auth-password').required = false;
