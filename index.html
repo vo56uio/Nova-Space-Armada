@@ -1426,7 +1426,8 @@ function renderServers() {
       if (!srv) return;
       const items=[
         {icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},
-        {icon:'📋',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode).then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}
+        {icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode || '').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))},
+        {icon:'👥',label:'Участники',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}}
       ];
       if (hasServerPermission(srv,'create_invites')) items.push({icon:'👥',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite').click();}});
       if (isServerManager(srv)) items.push({icon:'⚙️',label:'Настройки сервера',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('general');}});
@@ -1514,6 +1515,19 @@ function renderChannels() {
       renderChannels();
       if (window.innerWidth < 768) closeDrawer();
     };
+    btn.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const id = btn.getAttribute('data-chan-id');
+      const chan = channelsData.find(c => c.id === id);
+      if (!chan) return;
+      const srv = serversData.find(s => s.id === chan.serverId);
+      const items = [{icon:'➜', label:'Открыть канал', action:()=>{currentView='server'; currentServerId=chan.serverId; currentChannelId=id; renderServers();}}];
+      if (srv && hasServerPermission(srv,'manage_channels')) {
+        items.push({icon:'✏️', label:'Переименовать', action:()=>window.renameChannelPrompt(id)});
+        items.push({icon:'🗑️', label:'Удалить канал', danger:true, action:()=>window.deleteChannel(id)});
+      }
+      showContextMenu(e.clientX, e.clientY, items);
+    };
   });
 
   voiceList.innerHTML = voiceChannels.map(vc => {
@@ -1537,6 +1551,19 @@ function renderChannels() {
     btn.onclick = () => {
       const voiceId = btn.getAttribute('data-voice-id');
       connectVoiceChannel(voiceId, vcNameById(voiceId));
+    };
+    btn.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const id = btn.getAttribute('data-voice-id');
+      const chan = channelsData.find(c => c.id === id);
+      if (!chan) return;
+      const srv = serversData.find(s => s.id === chan.serverId);
+      const items = [{icon:'🔊', label:'Подключиться', action:()=>connectVoiceChannel(id, chan.name)}];
+      if (srv && hasServerPermission(srv,'manage_channels')) {
+        items.push({icon:'✏️', label:'Переименовать', action:()=>window.renameChannelPrompt(id)});
+        items.push({icon:'🗑️', label:'Удалить канал', danger:true, action:()=>window.deleteChannel(id)});
+      }
+      showContextMenu(e.clientX, e.clientY, items);
     };
   });
 
@@ -1687,6 +1714,29 @@ function renderMembersSidebar() {
     : '';
 
   container.innerHTML = rows + deleteBtn;
+
+  container.querySelectorAll('[data-member-uid]').forEach(row => {
+    row.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const uid = row.getAttribute('data-member-uid');
+      const member = usersData.find(u => u.uid === uid) || (uid === currentUser.uid ? currentUser : null);
+      if (!member) return;
+      const isSelf = uid === currentUser.uid;
+      const isOwner = uid === srv.ownerId;
+      const canRoles = hasServerPermission(srv, 'manage_roles') && !isOwner && !isSelf;
+      const canBan = hasServerPermission(srv, 'manage_members') && !isOwner && !isSelf;
+      const items = [
+        {icon:'✉️', label:'Написать сообщение', action:()=>openDirectMessage(uid)},
+        {icon:'💬', label:'Открыть личный чат', action:()=>openDirectMessage(uid)}
+      ];
+      if (canRoles) items.push({icon:'🛡️', label:'Управлять ролями', action:()=>openServerSettings('members')});
+      if (canBan) {
+        items.push('separator');
+        items.push({icon:'🚫', label:'Заблокировать участника', danger:true, action:()=>window.banMember(uid)});
+      }
+      showContextMenu(e.clientX, e.clientY, items);
+    };
+  });
 }
 
 
@@ -1828,6 +1878,28 @@ function renderMessages() {
       </div>
     `;
   }).join('');
+
+  feed.querySelectorAll('[data-message-id]').forEach(row => {
+    row.oncontextmenu = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const id = row.getAttribute('data-message-id');
+      const msg = messagesData.find(m => m.id === id);
+      if (!msg) return;
+      const serverForMsg = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+      const canManage = msg.authorId === currentUser.uid || (serverForMsg && hasServerPermission(serverForMsg,'manage_messages'));
+      const canPin = !!(serverForMsg && hasServerPermission(serverForMsg,'pin_messages'));
+      const items = [
+        {icon:'↩️', label:'Ответить', action:()=>window.setReplyMessage(msg.id, msg.authorName || 'Аноним', msg.text || '')},
+        {icon:'📋', label:'Копировать текст', action:()=>copyTextSilently(msg.text || '').then(()=>showToast('Текст сообщения скопирован')).catch(()=>showToast('Не удалось скопировать', true))}
+      ];
+      if (canPin && currentView === 'server') items.push({icon:'📌', label:msg.pinned ? 'Открепить сообщение' : 'Закрепить сообщение', action:()=>window.togglePinMessage(msg.id)});
+      if (canManage) {
+        items.push({icon:'✏️', label:'Изменить сообщение', action:()=>window.editMessage(msg.id)});
+        items.push({icon:'🗑️', label:'Удалить сообщение', danger:true, action:()=>window.deleteMessage(msg.id)});
+      }
+      showContextMenu(e.clientX, e.clientY, items);
+    };
+  });
 
   feed.scrollTop = feed.scrollHeight;
 }
@@ -2262,7 +2334,7 @@ function renderRolePermissions(role) {
     </label>`).join('');
 }
 
-function openRoleEditor(roleId = null) {
+window.openRoleEditor = function(roleId = null) {
   const srv = serversData.find(s => s.id === currentServerId);
   if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
   ensureServerRoleSchema(srv);
@@ -2313,22 +2385,7 @@ function renderServerMembersSettings() {
     </div>`;
   }).join('');
 }
-  list.querySelectorAll('[data-member-uid]').forEach(row => {
-    row.oncontextmenu = (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const uid=row.getAttribute('data-member-uid');
-      const member=usersData.find(u=>u.uid===uid) || (uid===currentUser.uid ? currentUser : null);
-      if (!member) return;
-      const isSelf=uid===currentUser.uid;
-      const isOwner=uid===srv.ownerId;
-      const canRoles=hasServerPermission(srv,'manage_roles') && !isOwner && !isSelf;
-      const canBan=hasServerPermission(srv,'manage_members') && !isOwner && !isSelf;
-      const items=[{icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(uid)},{icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(uid).then(()=>showToast('ID скопирован'))}];
-      if (canRoles) items.push({icon:'🛡️',label:'Перейти к ролям участника',action:()=>{ const sel=document.querySelector(`[data-member-role="${CSS.escape(uid)}"]`); sel?.focus(); }});
-      if (canBan) { items.push('separator'); items.push({icon:'🚫',label:'Забанить участника',danger:true,action:()=>window.banMember(uid)}); }
-      showContextMenu(e.clientX,e.clientY,items);
-    };
-  });
+
 window.saveMemberRoles = async function(uid) {
   const srv = serversData.find(s => s.id === currentServerId);
   if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
