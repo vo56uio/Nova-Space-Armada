@@ -337,9 +337,14 @@
     <!-- Chat Input Form -->
     <form id="chat-form" onsubmit="return handleSendMessage(event);" class="p-3 sm:p-4 bg-discord-bg border-t border-gray-800/40 flex items-center gap-2 flex-shrink-0 sticky bottom-0 z-20">
       <div id="voice-recording-bar" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-40 bg-discord-surface border border-gray-700/60 rounded-2xl shadow-2xl px-4 py-3 items-center gap-3">
-        <span class="inline-flex w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
-        <span class="text-sm text-white font-semibold">Запись голосового</span>
-        <span id="voice-recording-time" class="font-mono text-sm text-discord-muted">0:00</span>
+        <span class="inline-flex w-3 h-3 rounded-full bg-red-500 animate-pulse flex-shrink-0"></span>
+        <div class="min-w-[170px]">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-white font-semibold">Запись голосового</span>
+            <span id="voice-recording-time" class="font-mono text-sm text-discord-muted">0:00</span>
+          </div>
+          <div id="voice-recording-waveform" class="nova-recording-waveform" aria-label="Громкость микрофона"></div>
+        </div>
         <button type="button" id="btn-voice-cancel" class="text-xs px-3 py-1.5 rounded-lg bg-discord-rail hover:bg-discord-hover text-white">Отмена</button>
         <button type="button" id="btn-voice-stop" class="text-xs px-3 py-1.5 rounded-lg bg-discord-accent hover:bg-discord-accentHover text-white font-semibold">Отправить</button>
       </div>
@@ -347,8 +352,8 @@
         📎
       </button>
 
-      <button type="button" id="btn-voice-record" title="Записать голосовое сообщение" aria-label="Записать голосовое сообщение" class="nova-voice-btn p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition flex-shrink-0" data-voice-button="true">
-        <span aria-hidden="true">🎙️</span>
+      <button type="button" id="btn-voice-record" title="Записать голосовое сообщение" aria-label="Записать голосовое сообщение" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition flex-shrink-0">
+        🎙️
       </button>
 
       <div class="relative flex-1 flex items-center">
@@ -667,7 +672,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, linkWithCredential, reauthenticateWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 // Web Audio API Synthesizer for notifications
 class AudioEngine {
@@ -740,16 +745,17 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'discord-chat-v2';
 let firebaseConfig = defaultFirebaseConfig;
 let isCloudEnabled = false;
 
+let firebaseApp = null;
 let db = null;
 let auth = null;
 let storage = null;
 let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS;
 
 try {
-  const app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
+  firebaseApp = initializeApp(firebaseConfig);
+  auth = getAuth(firebaseApp);
+  db = getFirestore(firebaseApp);
+  storage = getStorage(firebaseApp);
   COLLECTION_SERVERS = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
   COLLECTION_CHANNELS = collection(db, 'artifacts', appId, 'public', 'data', 'channels');
   COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
@@ -2136,7 +2142,93 @@ let novaVoiceChunks = [];
 let novaVoiceStartedAt = 0;
 let novaVoiceTimer = null;
 let novaVoiceStream = null;
+let novaVoiceAudioContext = null;
+let novaVoiceAnalyser = null;
+let novaVoiceWaveSource = null;
+let novaVoiceWaveRaf = null;
 const NOVA_MAX_VOICE_SECONDS = 120;
+
+function formatVoiceDuration(seconds) {
+  const s = Math.max(0, Math.round(Number(seconds) || 0));
+  const mins = Math.floor(s / 60);
+  const secs = String(s % 60).padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+function novaBuildWaveformBars() {
+  const wrap = document.getElementById('voice-recording-waveform');
+  if (!wrap) return;
+  wrap.innerHTML = Array.from({ length: 28 }, (_, i) =>
+    `<span class="nova-wave-bar" data-wave-index="${i}"></span>`
+  ).join('');
+}
+
+function novaStopVoiceVisualizer() {
+  if (novaVoiceWaveRaf) {
+    cancelAnimationFrame(novaVoiceWaveRaf);
+    novaVoiceWaveRaf = null;
+  }
+  try { novaVoiceWaveSource?.disconnect(); } catch (e) {}
+  novaVoiceWaveSource = null;
+  novaVoiceAnalyser = null;
+  if (novaVoiceAudioContext) {
+    try { novaVoiceAudioContext.close(); } catch (e) {}
+    novaVoiceAudioContext = null;
+  }
+}
+
+function novaAnimateVoiceVisualizer() {
+  if (!novaVoiceAnalyser) return;
+  const wrap = document.getElementById('voice-recording-waveform');
+  const bars = wrap ? [...wrap.querySelectorAll('.nova-wave-bar')] : [];
+  if (!bars.length) return;
+
+  const data = new Uint8Array(novaVoiceAnalyser.frequencyBinCount);
+  const draw = () => {
+    if (!novaVoiceAnalyser) return;
+    novaVoiceAnalyser.getByteFrequencyData(data);
+
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += data[i];
+    const average = data.length ? sum / data.length / 255 : 0;
+    const low = data.slice(0, Math.max(4, Math.floor(data.length * 0.18)));
+    let lowSum = 0;
+    for (let i = 0; i < low.length; i++) lowSum += low[i];
+    const volume = Math.min(1, (low.length ? lowSum / low.length / 255 : 0) * 1.9 + average * 0.7);
+
+    bars.forEach((bar, index) => {
+      const offset = Math.abs(index - (bars.length - 1) / 2) / ((bars.length - 1) / 2 || 1);
+      const ripple = 0.68 + Math.sin((index + performance.now() / 120) * 0.75) * 0.16;
+      const height = 4 + volume * (31 - offset * 13) * ripple;
+      bar.style.height = `${Math.max(4, Math.round(height))}px`;
+      bar.style.opacity = `${0.42 + Math.min(0.58, volume * 0.95)}`;
+    });
+
+    novaVoiceWaveRaf = requestAnimationFrame(draw);
+  };
+  draw();
+}
+
+async function novaStartVoiceVisualizer(stream) {
+  novaStopVoiceVisualizer();
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    novaVoiceAudioContext = new AudioCtx();
+    if (novaVoiceAudioContext.state === 'suspended') {
+      await novaVoiceAudioContext.resume().catch(() => {});
+    }
+    novaVoiceAnalyser = novaVoiceAudioContext.createAnalyser();
+    novaVoiceAnalyser.fftSize = 256;
+    novaVoiceAnalyser.smoothingTimeConstant = 0.72;
+    novaVoiceWaveSource = novaVoiceAudioContext.createMediaStreamSource(stream);
+    novaVoiceWaveSource.connect(novaVoiceAnalyser);
+    novaAnimateVoiceVisualizer();
+  } catch (err) {
+    console.warn('Voice visualizer unavailable:', err);
+    novaStopVoiceVisualizer();
+  }
+}
 
 function novaVoiceUi(recording) {
   const btn = document.getElementById('btn-voice-record');
@@ -2145,10 +2237,15 @@ function novaVoiceUi(recording) {
   btn.classList.toggle('is-recording', recording);
   bar.classList.toggle('hidden', !recording);
   bar.classList.toggle('flex', recording);
+  if (recording) novaBuildWaveformBars();
+  else novaStopVoiceVisualizer();
 }
 
 function novaStopVoiceTimer() {
-  if (novaVoiceTimer) { clearInterval(novaVoiceTimer); novaVoiceTimer = null; }
+  if (novaVoiceTimer) {
+    clearInterval(novaVoiceTimer);
+    novaVoiceTimer = null;
+  }
 }
 
 function novaReleaseVoiceStream() {
@@ -2178,35 +2275,108 @@ function novaBestAudioMimeType() {
   return candidates.find(type => window.MediaRecorder?.isTypeSupported?.(type)) || '';
 }
 
+function novaGetVoiceStorageCandidates() {
+  const candidates = [];
+  if (storage) candidates.push(storage);
+  if (firebaseApp) {
+    try { candidates.push(getStorage(firebaseApp, `gs://${firebaseConfig.projectId}.firebasestorage.app`)); } catch (e) {}
+    try { candidates.push(getStorage(firebaseApp, `gs://${firebaseConfig.projectId}.appspot.com`)); } catch (e) {}
+  }
+  return [...new Set(candidates)];
+}
+
+function novaUploadVoiceBlob(blob, path, blobType) {
+  const storages = novaGetVoiceStorageCandidates();
+  if (!storages.length) return Promise.reject(Object.assign(new Error('Firebase Storage is not initialized'), { code: 'storage/not-initialized' }));
+
+  let lastError = null;
+
+  const tryOne = (index) => {
+    if (index >= storages.length) {
+      return Promise.reject(lastError || Object.assign(new Error('No storage bucket available'), { code: 'storage/no-bucket' }));
+    }
+
+    const fileRef = ref(storages[index], path);
+    return new Promise((resolve, reject) => {
+      const task = uploadBytesResumable(fileRef, blob, { contentType: blobType });
+      const progressToastState = { last: -1 };
+
+      task.on('state_changed',
+        snapshot => {
+          const percent = snapshot.totalBytes
+            ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+            : 0;
+          if (percent !== progressToastState.last) {
+            progressToastState.last = percent;
+            showToast(`Загружаю голосовое… ${percent}%`);
+          }
+        },
+        err => {
+          lastError = err;
+          console.error('Voice upload attempt failed:', err);
+          tryOne(index + 1).then(resolve).catch(reject);
+        },
+        async () => {
+          try {
+            const url = await getDownloadURL(task.snapshot.ref);
+            resolve(url);
+          } catch (err) {
+            lastError = err;
+            tryOne(index + 1).then(resolve).catch(reject);
+          }
+        }
+      );
+    });
+  };
+
+  return tryOne(0);
+}
+
 async function novaStartVoiceRecording() {
   if (novaMediaRecorder && novaMediaRecorder.state === 'recording') return;
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
     showToast('Ваш браузер не поддерживает запись с микрофона', true);
     return;
   }
-  if (!currentUser?.uid) { showToast('Сначала войдите в аккаунт', true); return; }
-  if ((currentView === 'server' && (!currentServerId || !currentChannelId)) || (currentView === 'dm' && !currentDmUserId)) {
+  if (!currentUser?.uid) {
+    showToast('Сначала войдите в аккаунт', true);
+    return;
+  }
+  if ((currentView === 'server' && (!currentServerId || !currentChannelId)) ||
+      (currentView === 'dm' && !currentDmUserId)) {
     showToast('Сначала выберите канал или личный чат', true);
     return;
   }
-  if (!isCloudEnabled || !storage) {
-    showToast('Голосовые требуют Firebase Storage', true);
+  if (!isCloudEnabled || !firebaseApp) {
+    showToast('Firebase Storage не инициализирован', true);
     return;
   }
 
   try {
-    novaVoiceStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    novaVoiceStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+
     const mimeType = novaBestAudioMimeType();
     novaVoiceChunks = [];
     novaVoiceStartedAt = Date.now();
-    novaMediaRecorder = new MediaRecorder(novaVoiceStream, mimeType ? { mimeType } : undefined);
+    novaMediaRecorder = new MediaRecorder(
+      novaVoiceStream,
+      mimeType ? { mimeType } : undefined
+    );
 
     novaMediaRecorder.ondataavailable = event => {
-      if (event.data && event.data.size) novaVoiceChunks.push(event.data);
+      if (event.data && event.data.size > 0) novaVoiceChunks.push(event.data);
     };
 
-    novaMediaRecorder.onerror = () => {
+    novaMediaRecorder.onerror = event => {
+      console.error('MediaRecorder error:', event);
       novaStopVoiceTimer();
+      novaStopVoiceVisualizer();
       novaReleaseVoiceStream();
       novaMediaRecorder = null;
       novaVoiceChunks = [];
@@ -2215,60 +2385,108 @@ async function novaStartVoiceRecording() {
     };
 
     novaMediaRecorder.onstop = async () => {
-      const duration = Math.max(1, Math.round((Date.now() - novaVoiceStartedAt) / 1000));
+      const duration = Math.max(
+        1,
+        Math.round((Date.now() - novaVoiceStartedAt) / 1000)
+      );
+
       novaStopVoiceTimer();
+      novaStopVoiceVisualizer();
       novaReleaseVoiceStream();
+
       const recorder = novaMediaRecorder;
       novaMediaRecorder = null;
       novaVoiceUi(false);
-      if (!recorder || !novaVoiceChunks.length) { novaVoiceChunks = []; return; }
+
+      if (!recorder || !novaVoiceChunks.length) {
+        novaVoiceChunks = [];
+        showToast('Не удалось получить аудиоданные записи', true);
+        return;
+      }
 
       const blobType = recorder.mimeType || mimeType || 'audio/webm';
       const blob = new Blob(novaVoiceChunks, { type: blobType });
       novaVoiceChunks = [];
-      if (duration > NOVA_MAX_VOICE_SECONDS + 1) return;
-      if (blob.size < 100) { showToast('Запись получилась пустой', true); return; }
+
+      if (duration > NOVA_MAX_VOICE_SECONDS + 1) {
+        showToast('Запись превышает допустимую длину', true);
+        return;
+      }
+      if (blob.size < 100) {
+        showToast('Запись получилась пустой', true);
+        return;
+      }
 
       try {
-        const ext = blobType.includes('ogg') ? 'ogg' : blobType.includes('mp4') ? 'm4a' : 'webm';
-        const path = `voice-messages/${currentUser.uid}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
-        showToast('Загружаю голосовое...');
-        const fileRef = ref(storage, path);
-        await uploadBytes(fileRef, blob, { contentType: blobType });
-        const url = await getDownloadURL(fileRef);
-        const sent = await novaSendMessagePayload({ voiceUrl: url, voiceDuration: duration, voiceMimeType: blobType });
-        if (sent) showToast('Голосовое сообщение отправлено');
+        const ext = blobType.includes('ogg')
+          ? 'ogg'
+          : blobType.includes('mp4')
+            ? 'm4a'
+            : 'webm';
+
+        const path = `voice-messages/${currentUser.uid}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const url = await novaUploadVoiceBlob(blob, path, blobType);
+
+        const sent = await novaSendMessagePayload({
+          voiceUrl: url,
+          voiceDuration: duration,
+          voiceMimeType: blobType
+        });
+
+        if (sent) {
+          showToast('Голосовое сообщение отправлено');
+        } else {
+          showToast('Файл загрузился, но сообщение не создалось', true);
+        }
       } catch (err) {
         console.error('Voice upload error:', err);
         const code = err?.code || '';
-        if (code === 'storage/unauthorized') showToast('Firebase Storage не разрешает загрузку. Проверьте правила Storage.', true);
-        else if (code === 'storage/quota-exceeded') showToast('Firebase Storage сообщил об исчерпанной квоте.', true);
-        else showToast('Не удалось загрузить голосовое сообщение', true);
+
+        if (code === 'storage/unauthorized') {
+          showToast('Storage запретил загрузку. Откройте Firebase → Storage → Rules и разрешите запись для вошедших пользователей.', true);
+        } else if (code === 'storage/bucket-not-found' || code === 'storage/object-not-found') {
+          showToast('Firebase Storage bucket не найден. Проверьте, создан ли Storage в проекте.', true);
+        } else if (code === 'storage/quota-exceeded') {
+          showToast('У Firebase Storage закончилась доступная квота.', true);
+        } else if (code === 'storage/retry-limit-exceeded' || code === 'storage/network-request-failed') {
+          showToast('Сеть оборвала загрузку. Попробуйте отправить ещё раз.', true);
+        } else {
+          showToast(`Не удалось загрузить голосовое (${code || 'неизвестная ошибка'})`, true);
+        }
       }
     };
 
     novaMediaRecorder.start(250);
     novaVoiceUi(true);
+    await novaStartVoiceVisualizer(novaVoiceStream);
     novaUpdateVoiceTimer();
     novaVoiceTimer = setInterval(novaUpdateVoiceTimer, 500);
   } catch (err) {
     novaStopVoiceTimer();
+    novaStopVoiceVisualizer();
     novaReleaseVoiceStream();
     novaMediaRecorder = null;
     novaVoiceChunks = [];
     novaVoiceUi(false);
-    if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') showToast('Доступ к микрофону запрещён. Разрешите микрофон для сайта.', true);
-    else showToast('Не удалось получить доступ к микрофону', true);
+
+    if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
+      showToast('Доступ к микрофону запрещён. Разрешите микрофон для сайта.', true);
+    } else {
+      showToast(`Не удалось начать запись: ${err?.message || 'неизвестная ошибка'}`, true);
+    }
   }
 }
 
 function novaCancelVoiceRecording() {
   if (!novaMediaRecorder) return;
   novaStopVoiceTimer();
-  try { novaMediaRecorder.onstop = null; } catch(e) {}
-  if (novaMediaRecorder.state !== 'inactive') { try { novaMediaRecorder.stop(); } catch(e) {} }
+  try { novaMediaRecorder.onstop = null; } catch (e) {}
+  if (novaMediaRecorder.state !== 'inactive') {
+    try { novaMediaRecorder.stop(); } catch (e) {}
+  }
   novaMediaRecorder = null;
   novaVoiceChunks = [];
+  novaStopVoiceVisualizer();
   novaReleaseVoiceStream();
   novaVoiceUi(false);
   showToast('Запись отменена');
@@ -2279,15 +2497,13 @@ document.getElementById('btn-voice-record')?.addEventListener('click', () => {
   else novaStartVoiceRecording();
 });
 
-document.getElementById('btn-voice-stop')?.addEventListener('click', () => novaStopVoiceAndSend());
+document.getElementById('btn-voice-stop')?.addEventListener('click', novaStopVoiceAndSend);
 document.getElementById('btn-voice-cancel')?.addEventListener('click', novaCancelVoiceRecording);
 
 function novaStopVoiceAndSend() {
   if (!novaMediaRecorder || novaMediaRecorder.state !== 'recording') return;
   novaMediaRecorder.stop();
 }
-
-
 
 // Emoji picker interaction
 const btnEmoji = document.getElementById('btn-emoji');
@@ -2958,27 +3174,9 @@ const banMember = window.banMember;
 const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
-// Final voice-button wiring check. This intentionally runs after all function declarations.
-const novaVoiceButton = document.getElementById('btn-voice-record');
-if (novaVoiceButton && !novaVoiceButton.dataset.voiceBound) {
-  novaVoiceButton.dataset.voiceBound = 'true';
-  novaVoiceButton.addEventListener('click', (event) => {
-    event.preventDefault();
-    if (typeof novaStartVoiceRecording === 'function' && (!novaMediaRecorder || novaMediaRecorder.state !== 'recording')) {
-      novaStartVoiceRecording();
-    }
-  });
-}
-
 initAuth();
 </script>
 
-<style id="NOVA_VOICE_BUTTON_CSS">
-  #btn-voice-record.nova-voice-btn { min-width: 42px; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; }
-  #btn-voice-record.nova-voice-btn:hover { transform: translateY(-1px); }
-  #btn-voice-record.is-recording { animation: novaVoicePulse 1.2s ease-in-out infinite; }
-  @keyframes novaVoicePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(242,63,67,.15); } 50% { box-shadow: 0 0 0 7px rgba(242,63,67,0); } }
-</style>
 <style id="NOVA_VOICE_MESSAGES_PATCH_CSS">
   #btn-voice-record.is-recording {
     color: #fff;
@@ -2996,9 +3194,11 @@ initAuth();
   }
   .nova-voice-message audio { width: min(310px, 100%); height: 38px; }
   .nova-voice-duration { min-width: 36px; text-align: right; font-size: 11px; color: #949ba4; }
+  .nova-recording-waveform{height:36px;display:flex;align-items:center;gap:2px;width:100%;margin-top:5px;overflow:hidden}
+  .nova-wave-bar{display:block;flex:1;min-width:2px;height:4px;border-radius:999px;background:linear-gradient(to top,#5865f2,#8ea0ff);opacity:.6;transition:height .08s linear,opacity .08s linear}
+
 </style>
 <!-- NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
-<!-- NOVA_VOICE_FIXED_2026-10-05 -->
 <style>
   .nova-user-card{width:min(390px,calc(100vw - 28px));background:rgba(43,45,49,.98);border:1px solid rgba(148,155,164,.22);box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(18px)}
   .nova-user-banner{height:92px;background:linear-gradient(135deg,#5865F2,#7c5cff 55%,#242b5f);position:relative;overflow:hidden}
