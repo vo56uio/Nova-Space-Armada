@@ -342,7 +342,7 @@
       <div class="nova-call-card relative w-[min(420px,calc(100vw-24px))] rounded-3xl border p-6 shadow-2xl text-center">
         <div id="nova-call-active-avatar" class="nova-call-avatar w-20 h-20 mx-auto rounded-full bg-discord-accent flex items-center justify-center text-white text-3xl font-bold shadow-xl">V</div>
         <div id="nova-call-active-name" class="mt-4 text-xl font-bold">Пользователь</div>
-        <div id="nova-call-active-status" class="mt-1 text-sm opacity-70">Вызов...</div>
+        <div id="nova-call-active-status" class="mt-1 text-sm opacity-70">Вызов...</div><div id="nova-call-mode" class="mt-2 text-[11px] opacity-60"></div>
         <div class="mt-6 flex items-center justify-center gap-3">
           <button id="nova-call-toggle-mic" type="button" class="nova-call-control w-12 h-12 rounded-full flex items-center justify-center text-lg" title="Выключить микрофон">🎙️</button>
           <button id="nova-call-end" type="button" class="nova-call-end w-14 h-14 rounded-full flex items-center justify-center text-xl" title="Завершить звонок">✕</button>
@@ -786,7 +786,7 @@ let firebaseApp = null;
 let db = null;
 let auth = null;
 let storage = null;
-let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS, COLLECTION_CALLS, COLLECTION_CALL_SIGNALS;
+let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS, COLLECTION_CALLS, COLLECTION_CALL_SIGNALS, COLLECTION_VOICE_PRESENCE;
 
 try {
   firebaseApp = initializeApp(firebaseConfig);
@@ -799,6 +799,7 @@ try {
   COLLECTION_USERS = collection(db, 'artifacts', appId, 'public', 'data', 'users');
   COLLECTION_CALLS = collection(db, 'artifacts', appId, 'public', 'data', 'calls');
   COLLECTION_CALL_SIGNALS = collection(db, 'artifacts', appId, 'public', 'data', 'call_signals');
+  COLLECTION_VOICE_PRESENCE = collection(db, 'artifacts', appId, 'public', 'data', 'voice_presence');
   isCloudEnabled = true;
 } catch(e) {
   console.warn("Режим переключен в локальный:", e);
@@ -1595,18 +1596,38 @@ function renderChannels() {
 
   voiceList.innerHTML = voiceChannels.map(vc => {
     const isVoiceActive = activeVoiceChannelId === vc.id;
+    const participants = novaGetVoiceParticipants(vc.id);
+    const participantCount = participants.length;
+    const shown = participants.slice(0, 3);
+    const extra = Math.max(0, participantCount - shown.length);
     return `
-      <button data-voice-id="${vc.id}" class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm font-medium transition ${
-        isVoiceActive 
-          ? 'bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30' 
-          : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
-      }">
-        <div class="flex items-center gap-2 truncate">
-          <span class="text-base">🔊</span>
-          <span class="truncate">${escapeHtml(vc.name)}</span>
-        </div>
-        ${isVoiceActive ? '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>' : ''}
-      </button>
+      <div class="nova-voice-channel-entry">
+        <button data-voice-id="${vc.id}" class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm font-medium transition ${
+          isVoiceActive 
+            ? 'bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30' 
+            : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
+        }">
+          <div class="flex items-center gap-2 truncate">
+            <span class="text-base">🔊</span>
+            <span class="truncate">${escapeHtml(vc.name)}</span>
+          </div>
+          <div class="flex items-center gap-1.5 ml-2 flex-shrink-0">
+            ${participantCount > 0 ? `<span class="text-[10px] opacity-75">${participantCount}</span>` : ''}
+            ${isVoiceActive ? '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>' : ''}
+          </div>
+        </button>
+        ${participantCount > 0 ? `
+          <div class="nova-voice-participants ml-7 mr-2 pb-1.5 pt-0.5">
+            ${shown.map(p => `<div class="nova-voice-participant flex items-center gap-1.5 py-0.5 text-[10px] text-discord-muted">
+              <span class="nova-voice-dot w-1.5 h-1.5 rounded-full ${p.muted ? 'bg-yellow-400' : 'bg-emerald-400'}"></span>
+              <span class="truncate">${escapeHtml(p.nickname || 'Пользователь')}</span>
+              ${p.uid === currentUser.uid ? '<span class="opacity-60">(вы)</span>' : ''}
+              ${p.muted ? '<span class="opacity-65">🔇</span>' : ''}
+            </div>`).join('')}
+            ${extra > 0 ? `<div class="text-[10px] text-discord-muted/70 pl-3">+ ещё ${extra}</div>` : ''}
+          </div>
+        ` : ''}
+      </div>
     `;
   }).join('');
 
@@ -1639,26 +1660,114 @@ function vcNameById(id) {
   return c ? c.name : 'Голосовой канал';
 }
 
-function connectVoiceChannel(voiceId, name) {
+function novaVoicePresenceKey(serverId, channelId, uid) {
+  return `${serverId || 'server'}_${channelId || 'channel'}_${uid || 'user'}`;
+}
+
+let novaVoicePresence = new Map();
+let novaVoicePresenceUnsub = null;
+let novaVoicePresenceHeartbeat = null;
+
+function novaGetVoiceParticipants(channelId) {
+  const now = Date.now();
+  return Array.from(novaVoicePresence.values())
+    .filter(p => p.channelId === channelId && now - Number(p.lastSeen || 0) < 30000)
+    .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
+}
+
+async function novaPublishVoicePresence(channelId, muted = isMuted) {
+  if (!isCloudEnabled || !COLLECTION_VOICE_PRESENCE || !currentServerId || !currentUser) return;
+  const id = novaVoicePresenceKey(currentServerId, channelId, currentUser.uid);
+  const data = {
+    id, serverId: currentServerId, channelId, uid: currentUser.uid,
+    nickname: currentUser.nickname || 'Пользователь',
+    status: currentUser.status || 'online',
+    muted: !!muted,
+    joinedAt: novaVoicePresence.get(id)?.joinedAt || Date.now(),
+    lastSeen: Date.now()
+  };
+  novaVoicePresence.set(id, data);
+  try {
+    await setDoc(doc(COLLECTION_VOICE_PRESENCE, id), data, { merge: true });
+  } catch (e) {
+    console.warn('Voice presence publish failed:', e);
+  }
+  renderChannels();
+}
+
+async function novaLeaveVoicePresence() {
+  if (!currentUser) return;
+  const entries = Array.from(novaVoicePresence.values()).filter(p => p.uid === currentUser.uid);
+  novaVoicePresence.forEach((p,id) => { if (p.uid === currentUser.uid) novaVoicePresence.delete(id); });
+  if (novaVoicePresenceHeartbeat) {
+    clearInterval(novaVoicePresenceHeartbeat);
+    novaVoicePresenceHeartbeat = null;
+  }
+  if (isCloudEnabled && COLLECTION_VOICE_PRESENCE) {
+    for (const p of entries) {
+      try { await deleteDoc(doc(COLLECTION_VOICE_PRESENCE, p.id)); } catch (e) { console.warn('Voice presence leave failed:', e); }
+    }
+  }
+  renderChannels();
+}
+
+function novaInitVoicePresenceSystem() {
+  if (novaVoicePresenceUnsub || !isCloudEnabled || !COLLECTION_VOICE_PRESENCE) return;
+  novaVoicePresenceUnsub = onSnapshot(COLLECTION_VOICE_PRESENCE, snapshot => {
+    const next = new Map();
+    snapshot.forEach(ds => {
+      const p = { id: ds.id, ...ds.data() };
+      if (p.channelId && p.uid && Date.now() - Number(p.lastSeen || 0) < 30000) next.set(ds.id, p);
+    });
+    novaVoicePresence = next;
+    renderChannels();
+  }, err => console.warn('Voice presence listener failed:', err));
+
+  window.addEventListener('beforeunload', () => {
+    if (!activeVoiceChannelId || !COLLECTION_VOICE_PRESENCE) return;
+    const id = novaVoicePresenceKey(currentServerId, activeVoiceChannelId, currentUser.uid);
+    deleteDoc(doc(COLLECTION_VOICE_PRESENCE, id)).catch(() => {});
+  });
+}
+
+function novaEnsureVoicePresenceHeartbeat() {
+  clearInterval(novaVoicePresenceHeartbeat);
+  novaVoicePresenceHeartbeat = null;
+  if (!activeVoiceChannelId || !isCloudEnabled || !COLLECTION_VOICE_PRESENCE) return;
+  novaVoicePresenceHeartbeat = setInterval(() => {
+    novaPublishVoicePresence(activeVoiceChannelId, isMuted);
+  }, 10000);
+}
+
+async function connectVoiceChannel(voiceId, name) {
+  if (activeVoiceChannelId === voiceId) {
+    await novaPublishVoicePresence(voiceId, isMuted);
+    return;
+  }
+  await novaLeaveVoicePresence();
   activeVoiceChannelId = voiceId;
   document.getElementById('active-voice-bar').classList.remove('hidden');
   document.getElementById('active-voice-name').textContent = `🔊 ${name}`;
   audioFX.playVoiceJoin();
   showToast(`Подключено к голосу: ${name}`);
+  await novaPublishVoicePresence(voiceId, isMuted);
+  novaEnsureVoicePresenceHeartbeat();
   renderChannels();
 }
 
-document.getElementById('btn-disconnect-voice').onclick = () => {
+document.getElementById('btn-disconnect-voice').onclick = async () => {
+  await novaLeaveVoicePresence();
   activeVoiceChannelId = null;
   document.getElementById('active-voice-bar').classList.add('hidden');
   showToast("Отключено от голосового канала");
   renderChannels();
 };
 
-document.getElementById('btn-toggle-mic').onclick = () => {
+document.getElementById('btn-toggle-mic').onclick = async () => {
   isMuted = !isMuted;
   document.getElementById('mic-icon').textContent = isMuted ? '🎙️❌' : '🎙️';
   document.getElementById('mic-text').textContent = isMuted ? 'Заглушен' : 'Микрофон';
+  if (activeVoiceChannelId) await novaPublishVoicePresence(activeVoiceChannelId, isMuted);
 };
 
 document.getElementById('btn-toggle-deaf').onclick = () => {
@@ -3510,6 +3619,8 @@ function novaCallShowActive(name, status = 'Вызов...') {
   document.getElementById('nova-call-active-avatar').textContent = novaCallInitial(name);
   document.getElementById('nova-call-active-name').textContent = name || 'Пользователь';
   document.getElementById('nova-call-active-status').textContent = status;
+  const mode = document.getElementById('nova-call-mode');
+  if (mode) mode.textContent = `📞 Личный звонок · ${name || 'собеседник'}`;
   panel.classList.remove('hidden');
   panel.classList.add('flex');
   novaUpdateCallButton();
@@ -3784,8 +3895,16 @@ const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
 novaInitCallSystem();
+novaInitVoicePresenceSystem();
 initAuth();
 </script>
+
+<style id="NOVA_VOICE_PRESENCE_CSS">
+  .nova-voice-channel-entry{width:100%}
+  .nova-voice-participants{border-left:1px solid rgba(148,155,164,.15)}
+  .nova-voice-participant{line-height:1.15}
+  html:not(.dark) .nova-voice-participants{border-left-color:#dbe1ea}
+</style>
 
 <style id="NOVA_VOICE_MESSAGES_PATCH_CSS">
   #btn-voice-record.is-recording {
