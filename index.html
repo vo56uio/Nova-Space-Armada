@@ -3617,5 +3617,64 @@ initAuth();
 </script>
 <!-- /NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
 
+
+
+<!-- NOVA_LIGHT_THEME_POLISH_V5 -->
+<style id="NOVA_LIGHT_THEME_POLISH_V5">
+  /* The main remaining dark block in light theme is the active channel / hover token.
+     Use attribute selectors so Tailwind's slash/colon class names need no escaping. */
+  html:not(.dark) [class~="bg-discord-hover"] {
+    background-color:#e7ebf2 !important;
+    color:#1f2937 !important;
+  }
+  html:not(.dark) [class~="hover:bg-discord-hover"]:hover {
+    background-color:#dfe5ee !important;
+  }
+  html:not(.dark) [class~="hover:bg-discord-surface"]:hover {
+    background-color:#edf1f6 !important;
+  }
+
+  /* Opacity variants used by the profile footer and settings navigation. */
+  html:not(.dark) [class~="bg-discord-rail/90"] {
+    background-color:rgba(231,234,240,.96) !important;
+  }
+  html:not(.dark) [class~="bg-discord-rail/50"] {
+    background-color:rgba(246,248,251,.92) !important;
+  }
+  html:not(.dark) [class~="bg-discord-surface/60"] {
+    background-color:rgba(244,246,249,.92) !important;
+  }
+
+  /* Plain Tailwind gray controls should also stay light. */
+  html:not(.dark) [class~="bg-gray-700"] {
+    background-color:#e5e7eb !important;
+    color:#1f2937 !important;
+  }
+  html:not(.dark) [class~="hover:bg-gray-600"]:hover {
+    background-color:#d9e0e8 !important;
+    color:#111827 !important;
+  }
+  html:not(.dark) [class~="border-gray-700"] {
+    border-color:#d7dde7 !important;
+  }
+  html:not(.dark) [class~="text-gray-500"] { color:#64748b !important; }
+  html:not(.dark) [class~="text-gray-600"] { color:#475569 !important; }
+
+  /* Specific active channel surface: never a near-black rectangle in light mode. */
+  html:not(.dark) button[data-chan-id][class~="bg-discord-hover"] {
+    background:#e7ebf2 !important;
+    color:#1f2937 !important;
+    border:1px solid #d7dde7;
+  }
+
+  html:not(.dark) #server-invite-badge { background:#eef2f7 !important; }
+  html:not(.dark) #active-voice-bar {
+    background:rgba(220,252,231,.78) !important;
+    border-color:#bbf7d0 !important;
+  }
+  html:not(.dark) .nova-profile-avatar { border-color:#ffffff !important; }
+</style>
+<!-- /NOVA_LIGHT_THEME_POLISH_V5 -->
+
 </body>
 </html>
