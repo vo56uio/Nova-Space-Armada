@@ -1697,6 +1697,7 @@ async function novaPublishVoicePresence(channelId, muted = isMuted) {
 }
 
 async function novaLeaveVoicePresence() {
+  novaVoiceMeshStop();
   if (!currentUser) return;
   const entries = Array.from(novaVoicePresence.values()).filter(p => p.uid === currentUser.uid);
   novaVoicePresence.forEach((p,id) => { if (p.uid === currentUser.uid) novaVoicePresence.delete(id); });
@@ -1722,9 +1723,11 @@ function novaInitVoicePresenceSystem() {
     });
     novaVoicePresence = next;
     renderChannels();
+    if (novaVoiceMesh) novaVoiceMeshSyncParticipants();
   }, err => console.warn('Voice presence listener failed:', err));
 
   window.addEventListener('beforeunload', () => {
+    novaVoiceMeshStop();
     if (!activeVoiceChannelId || !COLLECTION_VOICE_PRESENCE) return;
     const id = novaVoicePresenceKey(currentServerId, activeVoiceChannelId, currentUser.uid);
     deleteDoc(doc(COLLECTION_VOICE_PRESENCE, id)).catch(() => {});
@@ -1743,15 +1746,29 @@ function novaEnsureVoicePresenceHeartbeat() {
 async function connectVoiceChannel(voiceId, name) {
   if (activeVoiceChannelId === voiceId) {
     await novaPublishVoicePresence(voiceId, isMuted);
+    novaVoiceMeshSyncParticipants();
     return;
   }
+
   await novaLeaveVoicePresence();
+
+  let stream;
+  try {
+    stream = await novaCallCreateLocalStream();
+  } catch (err) {
+    showToast(err?.name === 'NotAllowedError' ? 'Доступ к микрофону запрещён.' : (err?.message || 'Не удалось получить доступ к микрофону.'), true);
+    return;
+  }
+
   activeVoiceChannelId = voiceId;
   document.getElementById('active-voice-bar').classList.remove('hidden');
   document.getElementById('active-voice-name').textContent = `🔊 ${name}`;
   audioFX.playVoiceJoin();
   showToast(`Подключено к голосу: ${name}`);
+
+  novaVoiceMeshStart(currentServerId, voiceId, stream);
   await novaPublishVoicePresence(voiceId, isMuted);
+  novaVoiceMeshSyncParticipants();
   novaEnsureVoicePresenceHeartbeat();
   renderChannels();
 }
@@ -1768,6 +1785,8 @@ document.getElementById('btn-toggle-mic').onclick = async () => {
   isMuted = !isMuted;
   document.getElementById('mic-icon').textContent = isMuted ? '🎙️❌' : '🎙️';
   document.getElementById('mic-text').textContent = isMuted ? 'Заглушен' : 'Микрофон';
+  const track = novaVoiceMesh?.localStream?.getAudioTracks?.()[0];
+  if (track) track.enabled = !isMuted;
   if (activeVoiceChannelId) await novaPublishVoicePresence(activeVoiceChannelId, isMuted);
 };
 
@@ -1775,6 +1794,15 @@ document.getElementById('btn-toggle-deaf').onclick = () => {
   isDeafened = !isDeafened;
   document.getElementById('deaf-icon').textContent = isDeafened ? '🎧❌' : '🎧';
   document.getElementById('deaf-text').textContent = isDeafened ? 'Выключен' : 'Звук';
+  novaVoiceMesh?.peers?.forEach(peer => {
+    if (peer.audio) {
+      peer.audio.muted = isDeafened;
+      peer.audio.volume = isDeafened ? 0 : 1;
+      if (!isDeafened) {
+        try { peer.audio.play?.().catch?.(() => {}); } catch (e) {}
+      }
+    }
+  });
 };
 
 function renderDirectMessagesList() {
@@ -3588,6 +3616,254 @@ let novaCallPendingCandidates = [];
 let novaCallRingtoneTimer = null;
 let novaCallStatsTimer = null;
 let novaCallLastStats = null;
+
+// ===== Nova server voice mesh (multi-user audio) =====
+let novaVoiceMesh = null;
+
+function novaVoiceMeshIceServers() {
+  return [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
+  ];
+}
+
+function novaVoiceMeshRoomId(serverId, channelId) {
+  return `voice_${serverId}_${channelId}`;
+}
+
+function novaVoiceMeshGetAudio(uid) {
+  if (!uid) return null;
+  return Array.from(document.querySelectorAll('audio[data-nova-voice-audio]')).find(a => a.dataset.novaVoiceAudio === uid) || null;
+}
+
+function novaVoiceMeshCreateAudio(uid, stream) {
+  let audio = novaVoiceMeshGetAudio(uid);
+  if (!audio) {
+    audio = document.createElement('audio');
+    audio.dataset.novaVoiceAudio = uid;
+    audio.autoplay = true;
+    audio.playsInline = true;
+    audio.style.display = 'none';
+    document.body.appendChild(audio);
+  }
+  audio.autoplay = true;
+  audio.playsInline = true;
+  audio.muted = !!isDeafened;
+  audio.volume = isDeafened ? 0 : 1;
+  audio.srcObject = stream;
+  try {
+    const p = audio.play?.();
+    if (p?.catch) p.catch(() => {});
+  } catch (e) {}
+  return audio;
+}
+
+async function novaVoiceMeshSendSignal(peerUid, payload) {
+  if (!novaVoiceMesh || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !peerUid) return;
+  try {
+    const id = `vmesh_${novaVoiceMesh.roomId}_${currentUser.uid}_${peerUid}_${payload.kind}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    await setDoc(doc(COLLECTION_CALL_SIGNALS, id), {
+      id,
+      roomId: novaVoiceMesh.roomId,
+      channelId: novaVoiceMesh.channelId,
+      serverId: novaVoiceMesh.serverId,
+      fromUid: currentUser.uid,
+      targetUid: peerUid,
+      kind: payload.kind,
+      offer: payload.offer || null,
+      answer: payload.answer || null,
+      candidate: payload.candidate || null,
+      ts: Date.now()
+    });
+  } catch (e) {
+    console.warn('Voice mesh signal failed:', e);
+  }
+}
+
+async function novaVoiceMeshFlushCandidates(peer) {
+  if (!peer?.pc?.remoteDescription || !peer.pendingCandidates?.length) return;
+  const pending = peer.pendingCandidates.splice(0);
+  for (const candidate of pending) {
+    try { await peer.pc.addIceCandidate(candidate); }
+    catch (e) { console.warn('Voice mesh pending ICE rejected:', e); }
+  }
+}
+
+async function novaVoiceMeshCreateOffer(peer) {
+  if (!novaVoiceMesh || !peer?.pc || !peer.initiator || peer.offerStarted) return;
+  peer.offerStarted = true;
+  try {
+    const offer = await peer.pc.createOffer({ offerToReceiveAudio: true });
+    await peer.pc.setLocalDescription(offer);
+    await novaVoiceMeshSendSignal(peer.uid, {
+      kind: 'offer',
+      offer: { type: peer.pc.localDescription.type, sdp: peer.pc.localDescription.sdp }
+    });
+  } catch (e) {
+    peer.offerStarted = false;
+    console.warn('Voice mesh offer failed:', e);
+  }
+}
+
+function novaVoiceMeshRemovePeer(uid) {
+  if (!novaVoiceMesh?.peers) return;
+  const peer = novaVoiceMesh.peers.get(uid);
+  if (!peer) return;
+  try { peer.pc?.close?.(); } catch (e) {}
+  try { peer.audio?.remove?.(); } catch (e) {}
+  novaVoiceMesh.peers.delete(uid);
+}
+
+function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
+  if (!novaVoiceMesh || !uid || uid === currentUser.uid) return null;
+  const existing = novaVoiceMesh.peers.get(uid);
+  if (existing) return existing;
+  if (!novaVoiceMesh.localStream) return null;
+
+  const pc = new RTCPeerConnection({ iceServers: novaVoiceMeshIceServers() });
+  const peer = {
+    uid,
+    name,
+    pc,
+    audio: null,
+    pendingCandidates: [],
+    initiator: String(currentUser.uid) < String(uid),
+    offerStarted: false,
+    answerApplied: false
+  };
+  novaVoiceMesh.peers.set(uid, peer);
+
+  pc.onicecandidate = async event => {
+    if (!event.candidate || !novaVoiceMesh || !novaVoiceMesh.peers.has(uid)) return;
+    await novaVoiceMeshSendSignal(uid, {
+      kind: 'ice',
+      candidate: {
+        candidate: event.candidate.candidate,
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex,
+        usernameFragment: event.candidate.usernameFragment || null
+      }
+    });
+  };
+
+  pc.ontrack = event => {
+    if (!novaVoiceMesh?.peers.has(uid)) return;
+    const stream = event.streams?.[0] || new MediaStream();
+    if (!event.streams?.[0] && event.track && !stream.getTracks().some(t => t.id === event.track.id)) {
+      stream.addTrack(event.track);
+    }
+    peer.audio = novaVoiceMeshCreateAudio(uid, stream);
+  };
+
+  pc.onconnectionstatechange = () => {
+    const state = pc.connectionState;
+    if (state === 'failed' || state === 'closed') novaVoiceMeshRemovePeer(uid);
+    else if (state === 'disconnected') {
+      setTimeout(() => {
+        if (novaVoiceMesh?.peers.get(uid)?.pc === pc && pc.connectionState === 'disconnected') {
+          novaVoiceMeshRemovePeer(uid);
+        }
+      }, 3000);
+    }
+  };
+
+  novaVoiceMesh.localStream.getTracks().forEach(track => pc.addTrack(track, novaVoiceMesh.localStream));
+  if (peer.initiator) novaVoiceMeshCreateOffer(peer);
+  return peer;
+}
+
+async function novaVoiceMeshHandleSignal(d) {
+  if (!novaVoiceMesh || d.roomId !== novaVoiceMesh.roomId || d.targetUid !== currentUser.uid || d.fromUid === currentUser.uid) return;
+  const peer = novaVoiceMeshEnsurePeer(d.fromUid, d.fromUid);
+  if (!peer) return;
+  const pc = peer.pc;
+
+  try {
+    if (d.kind === 'offer' && d.offer && !peer.initiator) {
+      await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
+      await novaVoiceMeshFlushCandidates(peer);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await novaVoiceMeshSendSignal(peer.uid, {
+        kind: 'answer',
+        answer: { type: pc.localDescription.type, sdp: pc.localDescription.sdp }
+      });
+      return;
+    }
+
+    if (d.kind === 'answer' && d.answer && peer.initiator && !peer.answerApplied) {
+      await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
+      peer.answerApplied = true;
+      await novaVoiceMeshFlushCandidates(peer);
+      return;
+    }
+
+    if (d.kind === 'ice' && d.candidate) {
+      const candidate = new RTCIceCandidate(d.candidate);
+      if (pc.remoteDescription) await pc.addIceCandidate(candidate);
+      else peer.pendingCandidates.push(candidate);
+    }
+  } catch (e) {
+    console.warn('Voice mesh signal handling failed:', e);
+  }
+}
+
+function novaVoiceMeshListenSignals() {
+  if (!novaVoiceMesh || novaVoiceMesh.signalUnsub || !isCloudEnabled || !COLLECTION_CALL_SIGNALS) return;
+  novaVoiceMesh.signalUnsub = onSnapshot(COLLECTION_CALL_SIGNALS, snapshot => {
+    if (!novaVoiceMesh) return;
+    for (const change of snapshot.docChanges()) {
+      if (change.type === 'removed') continue;
+      const d = change.doc.data();
+      if (!novaVoiceMesh.processedSignals.has(change.doc.id)) {
+        novaVoiceMesh.processedSignals.add(change.doc.id);
+        novaVoiceMeshHandleSignal(d);
+      }
+    }
+  }, err => console.warn('Voice mesh signal listener failed:', err));
+}
+
+async function novaVoiceMeshSyncParticipants() {
+  if (!novaVoiceMesh) return;
+  const participants = novaGetVoiceParticipants(novaVoiceMesh.channelId)
+    .filter(p => p.uid !== currentUser.uid);
+  const wanted = new Set(participants.map(p => p.uid));
+
+  for (const p of participants) novaVoiceMeshEnsurePeer(p.uid, p.nickname || 'Пользователь');
+  for (const uid of Array.from(novaVoiceMesh.peers.keys())) {
+    if (!wanted.has(uid)) novaVoiceMeshRemovePeer(uid);
+  }
+}
+
+function novaVoiceMeshStart(serverId, channelId, localStream) {
+  novaVoiceMesh = {
+    roomId: novaVoiceMeshRoomId(serverId, channelId),
+    serverId,
+    channelId,
+    localStream,
+    peers: new Map(),
+    processedSignals: new Set(),
+    signalUnsub: null
+  };
+  novaVoiceMeshListenSignals();
+  novaVoiceMeshSyncParticipants();
+}
+
+function novaVoiceMeshStop() {
+  const mesh = novaVoiceMesh;
+  if (!mesh) return;
+  if (mesh.signalUnsub) {
+    try { mesh.signalUnsub(); } catch (e) {}
+    mesh.signalUnsub = null;
+  }
+  for (const uid of Array.from(mesh.peers.keys())) {
+    const peer = mesh.peers.get(uid);
+    try { peer?.pc?.close?.(); } catch (e) {}
+    try { peer?.audio?.remove?.(); } catch (e) {}
+  }
+  try { mesh.localStream?.getTracks?.().forEach(track => track.stop()); } catch (e) {}
+  novaVoiceMesh = null;
+}
 
 function novaCallPeer(uid) {
   if (uid === currentUser?.uid) return null;
