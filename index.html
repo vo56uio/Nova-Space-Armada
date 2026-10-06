@@ -1898,9 +1898,9 @@ function renderMessages() {
                 <img src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" alt="Изображение" class="max-h-96 w-auto max-w-full object-contain bg-black/10" onerror="this.closest('.nova-image-attachment').style.display='none'">
                 <span class="nova-image-overlay">Открыть</span>
               </button>
-              <div class="nova-image-actions">
-                <button type="button" data-open-attachment title="Открыть" aria-label="Открыть">↗</button>
-                <button type="button" data-download-attachment title="Скачать" aria-label="Скачать">↓</button>
+              <div class="nova-image-actions nova-image-actions-visible">
+                <button type="button" data-open-attachment title="Открыть изображение" aria-label="Открыть изображение">↗ Открыть</button>
+                <button type="button" data-download-attachment title="Скачать изображение" aria-label="Скачать изображение">↓ Скачать</button>
               </div>
             </div>
           ` : ''}
@@ -3744,18 +3744,19 @@ initAuth();
 </style>
 <!-- /NOVA_UI_POLISH_V6 -->
 
-<!-- NOVA_ATTACHMENT_VIEWER_V7 -->
-<style id="NOVA_ATTACHMENT_VIEWER_V7">
+<!-- NOVA_ATTACHMENT_VIEWER_V8 -->
+<style id="NOVA_ATTACHMENT_VIEWER_V8">
   .nova-image-attachment{position:relative;overflow:hidden}
   .nova-image-open{display:block;position:relative;width:100%;padding:0;margin:0;border:0;background:transparent;text-align:left;cursor:zoom-in}
   .nova-image-open img{display:block}
   .nova-image-overlay{position:absolute;inset:auto 10px 10px auto;padding:6px 9px;border-radius:9px;background:rgba(15,23,42,.78);color:#fff;font-size:11px;font-weight:700;opacity:0;transform:translateY(4px);transition:.16s ease;pointer-events:none}
   .nova-image-attachment:hover .nova-image-overlay{opacity:1;transform:none}
-  .nova-image-actions{position:absolute;right:8px;top:8px;display:flex;gap:6px;opacity:0;transform:translateY(-3px);transition:.16s ease}
-  .nova-image-attachment:hover .nova-image-actions{opacity:1;transform:none}
-  .nova-image-actions button{width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.80);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 5px 14px rgba(0,0,0,.20)}
+  .nova-image-actions{display:flex;justify-content:flex-end;gap:7px;padding:8px 8px 9px;background:rgba(15,23,42,.035);border-top:1px solid rgba(148,155,164,.14)}
+  .nova-image-actions-visible{position:static;opacity:1;transform:none}
+  .nova-image-actions button{min-height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.80);color:#fff;display:flex;align-items:center;justify-content:center;padding:0 10px;font-size:12px;font-weight:700;box-shadow:0 5px 14px rgba(0,0,0,.16);cursor:pointer}
   .nova-image-actions button:hover{background:#5865F2}
-  html:not(.dark) .nova-image-actions button{background:rgba(255,255,255,.94);color:#1f2937;border-color:#d7dde7}
+  html:not(.dark) .nova-image-actions{background:#f8fafc;border-color:#dfe4ec}
+  html:not(.dark) .nova-image-actions button{background:#fff;color:#1f2937;border-color:#d7dde7;box-shadow:0 4px 10px rgba(15,23,42,.06)}
   html:not(.dark) .nova-image-actions button:hover{background:#5865F2;color:#fff;border-color:#5865F2}
   #nova-attachment-viewer{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(2,6,23,.80);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
   #nova-attachment-viewer.is-open{display:flex}
@@ -3775,6 +3776,8 @@ initAuth();
     #nova-attachment-viewer{padding:12px}
     .nova-attachment-title{max-width:44vw}
     .nova-attachment-stage img{max-width:94vw;max-height:74vh}
+    .nova-image-actions{justify-content:stretch}
+    .nova-image-actions button{flex:1}
   }
 </style>
 
@@ -3786,7 +3789,7 @@ initAuth();
     <div class="nova-attachment-toolbar">
       <div id="nova-attachment-viewer-title" class="nova-attachment-title">Изображение</div>
       <div class="flex items-center gap-2">
-        <button type="button" id="nova-attachment-download" class="nova-attachment-btn">↓ Скачать</button>
+        <button type="button" id="nova-attachment-download" class="nova-attachment-btn">↓ Скачать файл</button>
         <button type="button" id="nova-attachment-close" class="nova-attachment-btn">✕ Закрыть</button>
       </div>
     </div>
@@ -3858,7 +3861,7 @@ initAuth();
       if(!card)return;
       e.preventDefault();
       e.stopPropagation();
-      openViewer(card.dataset.attachmentSrc,card.dataset.attachmentName);
+      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'));
       return;
     }
     const dl=e.target.closest?.('[data-download-attachment]');
@@ -3867,10 +3870,10 @@ initAuth();
       if(!card)return;
       e.preventDefault();
       e.stopPropagation();
-      openViewer(card.dataset.attachmentSrc,card.dataset.attachmentName);
-      setTimeout(downloadCurrent,0);
+      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'));
+      setTimeout(downloadCurrent,50);
     }
-  });
+  }, true);
   document.getElementById('nova-attachment-close')?.addEventListener('click',closeViewer);
   viewer.addEventListener('click',e=>{if(e.target===viewer)closeViewer();});
   document.addEventListener('keydown',e=>{
@@ -3879,7 +3882,7 @@ initAuth();
   downloadBtn.addEventListener('click',downloadCurrent);
 })();
 </script>
-<!-- /NOVA_ATTACHMENT_VIEWER_V7 -->
+<!-- /NOVA_ATTACHMENT_VIEWER_V8 -->
 
 </body>
 </html>
