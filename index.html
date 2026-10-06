@@ -342,10 +342,11 @@
       <div class="nova-call-card relative w-[min(420px,calc(100vw-24px))] rounded-3xl border p-6 shadow-2xl text-center">
         <div id="nova-call-active-avatar" class="nova-call-avatar w-20 h-20 mx-auto rounded-full bg-discord-accent flex items-center justify-center text-white text-3xl font-bold shadow-xl">V</div>
         <div id="nova-call-active-name" class="mt-4 text-xl font-bold">Пользователь</div>
-        <div id="nova-call-active-status" class="mt-1 text-sm opacity-70">Вызов...</div><div id="nova-call-mode" class="mt-2 text-[11px] opacity-60"></div>
+        <div id="nova-call-active-status" class="mt-1 text-sm opacity-70">Вызов...</div><div id="nova-call-mode" class="mt-2 text-[11px] opacity-60"></div><div id="nova-call-audio-status" class="mt-2 text-[11px] opacity-70">Микрофон: проверка · Собеседник: ожидание аудио</div>
         <div class="mt-6 flex items-center justify-center gap-3">
           <button id="nova-call-toggle-mic" type="button" class="nova-call-control w-12 h-12 rounded-full flex items-center justify-center text-lg" title="Выключить микрофон">🎙️</button>
           <button id="nova-call-end" type="button" class="nova-call-end w-14 h-14 rounded-full flex items-center justify-center text-xl" title="Завершить звонок">✕</button>
+          <button id="nova-call-speaker" type="button" class="nova-call-control w-12 h-12 rounded-full flex items-center justify-center text-lg" title="Включить звук">🔊</button>
         </div>
         <audio id="nova-call-remote-audio" autoplay playsinline></audio>
       </div>
@@ -3630,7 +3631,10 @@ function novaCallSetStatus(status) {
   if (el) el.textContent = status;
 }
 function novaCallCreatePeerConnection(callId, role) {
-  const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  const pc = new RTCPeerConnection({ iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
+  ] });
   pc.onicecandidate = async event => {
     if (!event.candidate || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !novaCallState) return;
     try {
@@ -3651,13 +3655,31 @@ function novaCallCreatePeerConnection(callId, role) {
   pc.ontrack = event => {
     const audio = document.getElementById('nova-call-remote-audio');
     if (!audio) return;
-    if (event.streams?.[0]) audio.srcObject = event.streams[0];
-    else {
+    audio.autoplay = true;
+    audio.muted = false;
+    audio.volume = 1;
+    if (event.streams?.[0]) {
+      audio.srcObject = event.streams[0];
+    } else {
       const stream = audio.srcObject instanceof MediaStream ? audio.srcObject : new MediaStream();
-      stream.addTrack(event.track);
+      if (event.track && !stream.getTracks().some(t => t.id === event.track.id)) stream.addTrack(event.track);
       audio.srcObject = stream;
     }
-    audio.play?.().catch(() => {});
+    const status = document.getElementById('nova-call-audio-status');
+    if (status) status.textContent = 'Микрофон: готов · Собеседник: аудио получено';
+    const playPromise = audio.play?.();
+    if (playPromise?.catch) {
+      playPromise.catch(() => {
+        if (status) status.textContent = 'Микрофон: готов · Аудио получено — нажмите 🔊';
+      });
+    }
+  };
+  pc.oniceconnectionstatechange = () => {
+    const ice = pc.iceConnectionState;
+    const status = document.getElementById('nova-call-audio-status');
+    if (status && ice === 'failed') status.textContent = 'Соединение: ICE не удалось установить';
+    else if (status && ice === 'checking') status.textContent = 'Микрофон: готов · Сеть: проверка соединения';
+    else if (status && ice === 'connected') status.textContent = 'Микрофон: готов · Сеть: соединено';
   };
   pc.onconnectionstatechange = () => {
     const state = pc.connectionState;
@@ -3712,6 +3734,7 @@ async function novaCallStart(peerUid) {
   if (!peer) { showToast('Пользователь не найден.', true); return; }
   try {
     const stream = await novaCallCreateLocalStream();
+    const audioStatus = document.getElementById('nova-call-audio-status'); if (audioStatus) audioStatus.textContent = 'Микрофон: готов · Собеседник: ожидание аудио';
     const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const pc = novaCallCreatePeerConnection(callId, 'caller');
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
@@ -3748,6 +3771,7 @@ async function novaCallAccept() {
     document.getElementById('server-invite-badge')?.classList.add('hidden');
     renderDirectMessagesList();
     const stream = await novaCallCreateLocalStream();
+    const audioStatus = document.getElementById('nova-call-audio-status'); if (audioStatus) audioStatus.textContent = 'Микрофон: готов · Собеседник: ожидание аудио';
     const pc = novaCallCreatePeerConnection(incoming.id, 'callee');
     novaCallState = {
       callId:incoming.id, role:'callee', peerUid:incoming.callerUid,
@@ -3834,6 +3858,19 @@ function novaInitCallSystem() {
   document.getElementById('nova-call-accept')?.addEventListener('click', novaCallAccept);
   document.getElementById('nova-call-decline')?.addEventListener('click', novaCallDecline);
   document.getElementById('nova-call-end')?.addEventListener('click', () => novaCallEnd(false));
+  document.getElementById('nova-call-speaker')?.addEventListener('click', async () => {
+    const audio = document.getElementById('nova-call-remote-audio');
+    if (!audio) return;
+    audio.muted = false;
+    audio.volume = 1;
+    try {
+      await audio.play();
+      const status = document.getElementById('nova-call-audio-status');
+      if (status) status.textContent = 'Микрофон: готов · Собеседник: аудио воспроизводится';
+    } catch (e) {
+      showToast('Браузер не разрешил воспроизведение звука.', true);
+    }
+  });
   document.getElementById('nova-call-toggle-mic')?.addEventListener('click', () => {
     const track = novaCallState?.localStream?.getAudioTracks?.()[0];
     if (!track) return;
@@ -3898,6 +3935,21 @@ novaInitCallSystem();
 novaInitVoicePresenceSystem();
 initAuth();
 </script>
+
+<style id="NOVA_AUDIO_CALL_CSS">
+  .nova-call-control{background:rgba(88,101,242,.16);border:1px solid rgba(88,101,242,.35);color:#fff;transition:.15s ease}
+  .nova-call-control:hover{background:rgba(88,101,242,.28);transform:translateY(-1px)}
+  .nova-call-card{background:rgba(30,31,34,.97);color:#fff;border-color:rgba(148,155,164,.20)}
+  .nova-call-end{background:#f23f43;color:#fff;transition:.15s ease}
+  .nova-call-end:hover{background:#d9363e;transform:scale(1.04)}
+  .nova-call-danger{background:#3a2024;color:#ff8b90;border:1px solid rgba(242,63,67,.26)}
+  .nova-call-accept{background:#1f6b4a;color:#c9ffe4;border:1px solid rgba(34,197,94,.28)}
+  .nova-call-ring{box-shadow:0 0 0 5px rgba(88,101,242,.14),0 18px 55px rgba(0,0,0,.32)}
+  html:not(.dark) .nova-call-card{background:#fff;color:#1f2937;border-color:#d7dde7;box-shadow:0 24px 70px rgba(15,23,42,.18)}
+  html:not(.dark) .nova-call-control{background:#eef2ff;color:#5865f2;border-color:#d9defe}
+  html:not(.dark) .nova-call-danger{background:#fff1f2;color:#b91c1c;border-color:#fecdd3}
+  html:not(.dark) .nova-call-accept{background:#ecfdf5;color:#166534;border-color:#bbf7d0}
+</style>
 
 <style id="NOVA_VOICE_PRESENCE_CSS">
   .nova-voice-channel-entry{width:100%}
