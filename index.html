@@ -3451,16 +3451,7 @@ initAuth();
     if(srv){items.push({icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(chan.id).then(()=>showToast('ID канала скопирован'))});if(hasServerPermission(srv,'manage_channels'))items.push('separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(chan.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(chan.id)});}return items;
   }
   function novaItemsForDM(u){return[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(u.uid)},{icon:'✉️',label:'Открыть личный чат',action:()=>openDirectMessage(u.uid)},{icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(u.uid).then(()=>showToast('ID скопирован'))}];}
-  document.addEventListener('contextmenu',e=>{
-    const target=e.target.closest?.('[data-server-id],[data-chan-id],[data-voice-id],[data-dm-user-id],[data-member-uid],[data-message-id],#user-avatar,#user-status-dot');if(!target)return;e.preventDefault();e.stopPropagation();
-    if(target.matches('#user-avatar,#user-status-dot')){showContextMenu(e.clientX,e.clientY,novaItemsForMember(currentUser,novaCurrentServer()));return;}
-    if(target.dataset.serverId){const s=serversData.find(x=>x.id===target.dataset.serverId);if(s)showContextMenu(e.clientX,e.clientY,novaItemsForServer(s));return;}
-    if(target.dataset.chanId){const c=channelsData.find(x=>x.id===target.dataset.chanId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,novaItemsForChannel(c,s));return;}
-    if(target.dataset.voiceId){const c=channelsData.find(x=>x.id===target.dataset.voiceId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,[{icon:'🔊',label:'Подключиться',action:()=>connectVoiceChannel(c.id,vcNameById(c.id))},{icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(c.id).then(()=>showToast('ID канала скопирован'))},...(s&&hasServerPermission(s,'manage_channels')?['separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(c.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(c.id)}]:[])]);return;}
-    if(target.dataset.dmUserId){const u=novaUser(target.dataset.dmUserId);if(u)showContextMenu(e.clientX,e.clientY,novaItemsForDM(u));return;}
-    if(target.dataset.memberUid){const u=novaUser(target.dataset.memberUid);if(u)showContextMenu(e.clientX,e.clientY,novaItemsForMember(u,novaCurrentServer()));return;}
-    if(target.dataset.messageId){const m=(messagesData||[]).find(x=>x.id===target.dataset.messageId);if(m)showContextMenu(e.clientX,e.clientY,novaItemsForMessage(m));return;}
-  },true);
+  // Context menus are handled by the main module's per-element handlers.
   document.addEventListener('click',e=>{const row=e.target.closest?.('[data-member-uid]');if(row&&!e.target.closest('button')){const uid=row.dataset.memberUid;if(uid)novaOpenUserProfile(uid);}});
 })();
 </script>
