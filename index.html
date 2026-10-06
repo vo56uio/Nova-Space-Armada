@@ -1743,53 +1743,6 @@ function novaEnsureVoicePresenceHeartbeat() {
   }, 10000);
 }
 
-async function novaLeaveVoicePresence() {
-  try { novaVoiceMeshStop(); } catch (e) { console.warn('Voice mesh stop failed:', e); }
-  if (!currentUser) return;
-  const entries = Array.from(novaVoicePresence.values()).filter(p => p.uid === currentUser.uid);
-  novaVoicePresence.forEach((p,id) => { if (p.uid === currentUser.uid) novaVoicePresence.delete(id); });
-  if (novaVoicePresenceHeartbeat) {
-    clearInterval(novaVoicePresenceHeartbeat);
-    novaVoicePresenceHeartbeat = null;
-  }
-  if (isCloudEnabled && COLLECTION_VOICE_PRESENCE) {
-    for (const p of entries) {
-      try { await deleteDoc(doc(COLLECTION_VOICE_PRESENCE, p.id)); }
-      catch (e) { console.warn('Voice presence leave failed:', e); }
-    }
-  }
-  renderChannels();
-}
-
-function novaInitVoicePresenceSystem() {
-  if (novaVoicePresenceUnsub || !isCloudEnabled || !COLLECTION_VOICE_PRESENCE) return;
-  novaVoicePresenceUnsub = onSnapshot(COLLECTION_VOICE_PRESENCE, snapshot => {
-    const next = new Map();
-    snapshot.forEach(ds => {
-      const p = { id: ds.id, ...ds.data() };
-      if (p.channelId && p.uid && Date.now() - Number(p.lastSeen || 0) < 30000) next.set(ds.id, p);
-    });
-    novaVoicePresence = next;
-    renderChannels();
-    if (novaVoiceMesh?.channelId === activeVoiceChannelId) novaVoiceMeshSyncParticipants();
-  }, err => console.warn('Voice presence listener failed:', err));
-
-  window.addEventListener('beforeunload', () => {
-    if (!activeVoiceChannelId || !COLLECTION_VOICE_PRESENCE) return;
-    const id = novaVoicePresenceKey(currentServerId, activeVoiceChannelId, currentUser.uid);
-    deleteDoc(doc(COLLECTION_VOICE_PRESENCE, id)).catch(() => {});
-  });
-}
-
-function novaEnsureVoicePresenceHeartbeat() {
-  clearInterval(novaVoicePresenceHeartbeat);
-  novaVoicePresenceHeartbeat = null;
-  if (!activeVoiceChannelId || !isCloudEnabled || !COLLECTION_VOICE_PRESENCE) return;
-  novaVoicePresenceHeartbeat = setInterval(() => {
-    novaPublishVoicePresence(activeVoiceChannelId, isMuted);
-  }, 10000);
-}
-
 async function connectVoiceChannel(voiceId, name) {
   if (activeVoiceChannelId === voiceId) {
     await novaPublishVoicePresence(voiceId, isMuted);
