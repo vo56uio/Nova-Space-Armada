@@ -1893,8 +1893,15 @@ function renderMessages() {
 
           <!-- Attachment image if present -->
           ${(m.attachmentUrl || m.attachmentDataUrl) ? `
-            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md">
-              <img src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" alt="Изображение" class="max-h-96 w-auto max-w-full object-contain bg-black/10" onerror="this.closest('.nova-image-attachment').style.display='none'">
+            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md" data-attachment-src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" data-attachment-name="${escapeHtml(m.attachmentName || 'изображение.jpg')}">
+              <button type="button" class="nova-image-open" data-open-attachment title="Открыть изображение" aria-label="Открыть изображение">
+                <img src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" alt="Изображение" class="max-h-96 w-auto max-w-full object-contain bg-black/10" onerror="this.closest('.nova-image-attachment').style.display='none'">
+                <span class="nova-image-overlay">Открыть</span>
+              </button>
+              <div class="nova-image-actions">
+                <button type="button" data-open-attachment title="Открыть" aria-label="Открыть">↗</button>
+                <button type="button" data-download-attachment title="Скачать" aria-label="Скачать">↓</button>
+              </div>
             </div>
           ` : ''}
 
@@ -3736,6 +3743,143 @@ initAuth();
   }
 </style>
 <!-- /NOVA_UI_POLISH_V6 -->
+
+<!-- NOVA_ATTACHMENT_VIEWER_V7 -->
+<style id="NOVA_ATTACHMENT_VIEWER_V7">
+  .nova-image-attachment{position:relative;overflow:hidden}
+  .nova-image-open{display:block;position:relative;width:100%;padding:0;margin:0;border:0;background:transparent;text-align:left;cursor:zoom-in}
+  .nova-image-open img{display:block}
+  .nova-image-overlay{position:absolute;inset:auto 10px 10px auto;padding:6px 9px;border-radius:9px;background:rgba(15,23,42,.78);color:#fff;font-size:11px;font-weight:700;opacity:0;transform:translateY(4px);transition:.16s ease;pointer-events:none}
+  .nova-image-attachment:hover .nova-image-overlay{opacity:1;transform:none}
+  .nova-image-actions{position:absolute;right:8px;top:8px;display:flex;gap:6px;opacity:0;transform:translateY(-3px);transition:.16s ease}
+  .nova-image-attachment:hover .nova-image-actions{opacity:1;transform:none}
+  .nova-image-actions button{width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(15,23,42,.80);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 5px 14px rgba(0,0,0,.20)}
+  .nova-image-actions button:hover{background:#5865F2}
+  html:not(.dark) .nova-image-actions button{background:rgba(255,255,255,.94);color:#1f2937;border-color:#d7dde7}
+  html:not(.dark) .nova-image-actions button:hover{background:#5865F2;color:#fff;border-color:#5865F2}
+  #nova-attachment-viewer{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(2,6,23,.80);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  #nova-attachment-viewer.is-open{display:flex}
+  .nova-attachment-dialog{position:relative;max-width:min(1100px,96vw);max-height:92vh;display:flex;flex-direction:column;gap:10px}
+  .nova-attachment-stage{position:relative;display:flex;align-items:center;justify-content:center;min-width:200px;min-height:120px;max-height:82vh;padding:12px;border-radius:18px;background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.12);box-shadow:0 30px 90px rgba(0,0,0,.45)}
+  .nova-attachment-stage img{display:block;max-width:90vw;max-height:78vh;width:auto;height:auto;object-fit:contain;border-radius:10px}
+  .nova-attachment-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .nova-attachment-title{max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:12px;font-weight:600}
+  .nova-attachment-btn{border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:8px 11px;background:rgba(30,31,34,.88);color:#fff;font-size:12px;font-weight:700;transition:.15s ease}
+  .nova-attachment-btn:hover{background:#5865F2}
+  html:not(.dark) #nova-attachment-viewer{background:rgba(15,23,42,.55)}
+  html:not(.dark) .nova-attachment-stage{background:rgba(255,255,255,.94);border-color:#d7dde7}
+  html:not(.dark) .nova-attachment-title{color:#111827}
+  html:not(.dark) .nova-attachment-btn{background:#fff;color:#1f2937;border-color:#d7dde7}
+  html:not(.dark) .nova-attachment-btn:hover{background:#5865F2;color:#fff;border-color:#5865F2}
+  @media (max-width:640px){
+    #nova-attachment-viewer{padding:12px}
+    .nova-attachment-title{max-width:44vw}
+    .nova-attachment-stage img{max-width:94vw;max-height:74vh}
+  }
+</style>
+
+<div id="nova-attachment-viewer" aria-hidden="true">
+  <div class="nova-attachment-dialog">
+    <div class="nova-attachment-stage">
+      <img id="nova-attachment-viewer-img" alt="Просмотр изображения">
+    </div>
+    <div class="nova-attachment-toolbar">
+      <div id="nova-attachment-viewer-title" class="nova-attachment-title">Изображение</div>
+      <div class="flex items-center gap-2">
+        <button type="button" id="nova-attachment-download" class="nova-attachment-btn">↓ Скачать</button>
+        <button type="button" id="nova-attachment-close" class="nova-attachment-btn">✕ Закрыть</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const viewer=document.getElementById('nova-attachment-viewer');
+  const img=document.getElementById('nova-attachment-viewer-img');
+  const title=document.getElementById('nova-attachment-viewer-title');
+  const downloadBtn=document.getElementById('nova-attachment-download');
+  if(!viewer||!img||!title||!downloadBtn)return;
+  let currentSrc='';
+  let currentName='image.jpg';
+  function openViewer(src,name){
+    if(!src)return;
+    currentSrc=src;
+    currentName=name||'image.jpg';
+    img.src=src;
+    title.textContent=currentName;
+    viewer.classList.add('is-open');
+    viewer.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+  }
+  function closeViewer(){
+    viewer.classList.remove('is-open');
+    viewer.setAttribute('aria-hidden','true');
+    img.removeAttribute('src');
+    document.body.style.overflow='';
+  }
+  async function downloadCurrent(){
+    if(!currentSrc)return;
+    try{
+      if(currentSrc.startsWith('data:')){
+        const a=document.createElement('a');
+        a.href=currentSrc;
+        a.download=currentName||'image.jpg';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return;
+      }
+      const response=await fetch(currentSrc);
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      const blob=await response.blob();
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=currentName||'image.jpg';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(err){
+      const a=document.createElement('a');
+      a.href=currentSrc;
+      a.target='_blank';
+      a.rel='noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  }
+  document.addEventListener('click',e=>{
+    const open=e.target.closest?.('[data-open-attachment]');
+    if(open){
+      const card=open.closest('.nova-image-attachment');
+      if(!card)return;
+      e.preventDefault();
+      e.stopPropagation();
+      openViewer(card.dataset.attachmentSrc,card.dataset.attachmentName);
+      return;
+    }
+    const dl=e.target.closest?.('[data-download-attachment]');
+    if(dl){
+      const card=dl.closest('.nova-image-attachment');
+      if(!card)return;
+      e.preventDefault();
+      e.stopPropagation();
+      openViewer(card.dataset.attachmentSrc,card.dataset.attachmentName);
+      setTimeout(downloadCurrent,0);
+    }
+  });
+  document.getElementById('nova-attachment-close')?.addEventListener('click',closeViewer);
+  viewer.addEventListener('click',e=>{if(e.target===viewer)closeViewer();});
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&viewer.classList.contains('is-open'))closeViewer();
+  });
+  downloadBtn.addEventListener('click',downloadCurrent);
+})();
+</script>
+<!-- /NOVA_ATTACHMENT_VIEWER_V7 -->
 
 </body>
 </html>
