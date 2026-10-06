@@ -3846,6 +3846,7 @@ function novaVoiceMeshListenSignals() {
     for (const change of snapshot.docChanges()) {
       if (change.type === 'removed') continue;
       const d = change.doc.data();
+      if (Number(d.ts || 0) < Number(novaVoiceMesh.startedAt || 0)) continue;
       if (!novaVoiceMesh.processedSignals.has(change.doc.id)) {
         novaVoiceMesh.processedSignals.add(change.doc.id);
         novaVoiceMeshHandleSignal(d);
@@ -3874,7 +3875,8 @@ function novaVoiceMeshStart(serverId, channelId, localStream) {
     localStream,
     peers: new Map(),
     processedSignals: new Set(),
-    signalUnsub: null
+    signalUnsub: null,
+    startedAt: Date.now()
   };
   novaVoiceMeshListenSignals();
   novaVoiceMeshSyncParticipants();
