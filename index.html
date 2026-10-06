@@ -3630,6 +3630,18 @@ function novaCallSetStatus(status) {
   const el = document.getElementById('nova-call-active-status');
   if (el) el.textContent = status;
 }
+function novaCallPrimeRemoteAudio() {
+  const audio = document.getElementById('nova-call-remote-audio');
+  if (!audio) return;
+  audio.autoplay = true;
+  audio.playsInline = true;
+  audio.muted = true;
+  audio.volume = 1;
+  if (!(audio.srcObject instanceof MediaStream)) audio.srcObject = new MediaStream();
+  try { audio.play()?.catch?.(() => {}); } catch (e) {}
+  audio.muted = false;
+}
+
 function novaCallCreatePeerConnection(callId, role) {
   const pc = new RTCPeerConnection({ iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -3656,22 +3668,33 @@ function novaCallCreatePeerConnection(callId, role) {
     const audio = document.getElementById('nova-call-remote-audio');
     if (!audio) return;
     audio.autoplay = true;
+    audio.playsInline = true;
     audio.muted = false;
     audio.volume = 1;
-    if (event.streams?.[0]) {
-      audio.srcObject = event.streams[0];
-    } else {
-      const stream = audio.srcObject instanceof MediaStream ? audio.srcObject : new MediaStream();
-      if (event.track && !stream.getTracks().some(t => t.id === event.track.id)) stream.addTrack(event.track);
-      audio.srcObject = stream;
-    }
+    const stream = event.streams?.[0] || (audio.srcObject instanceof MediaStream ? audio.srcObject : new MediaStream());
+    if (!event.streams?.[0] && event.track && !stream.getTracks().some(t => t.id === event.track.id)) stream.addTrack(event.track);
+    audio.srcObject = stream;
     const status = document.getElementById('nova-call-audio-status');
     if (status) status.textContent = 'Микрофон: готов · Собеседник: аудио получено';
-    const playPromise = audio.play?.();
-    if (playPromise?.catch) {
-      playPromise.catch(() => {
+    const playRemote = () => {
+      audio.muted = false;
+      audio.volume = 1;
+      try {
+        const p = audio.play?.();
+        if (p?.catch) p.catch(() => {
+          if (status) status.textContent = 'Микрофон: готов · Аудио получено — нажмите 🔊';
+        });
+      } catch (e) {
         if (status) status.textContent = 'Микрофон: готов · Аудио получено — нажмите 🔊';
-      });
+      }
+    };
+    playRemote();
+    audio.onloadedmetadata = playRemote;
+    if (event.track) {
+      event.track.onunmute = playRemote;
+      event.track.onended = () => {
+        if (status) status.textContent = 'Собеседник: аудиотрек завершён';
+      };
     }
   };
   pc.oniceconnectionstatechange = () => {
@@ -3683,7 +3706,12 @@ function novaCallCreatePeerConnection(callId, role) {
   };
   pc.onconnectionstatechange = () => {
     const state = pc.connectionState;
-    if (state === 'connected') novaCallSetStatus('Соединено');
+    if (state === 'connected') {
+      novaCallSetStatus('Соединено');
+      const el = document.getElementById('nova-call-audio-status');
+      const remoteReady = pc.getReceivers().some(r => r.track && r.track.kind === 'audio' && r.track.readyState === 'live');
+      if (el) el.textContent = remoteReady ? 'Микрофон: готов · Сеть: соединено · Аудио собеседника готово' : 'Микрофон: готов · Сеть: соединено · ждём аудио';
+    }
     else if (state === 'connecting') novaCallSetStatus('Соединение...');
     else if (state === 'failed') {
       novaCallSetStatus('Соединение не удалось');
@@ -3733,7 +3761,8 @@ async function novaCallStart(peerUid) {
   const peer = novaCallPeer(peerUid);
   if (!peer) { showToast('Пользователь не найден.', true); return; }
   try {
-    const stream = await novaCallCreateLocalStream();
+    novaCallPrimeRemoteAudio();
+    const stream = await novaCallCreateLocalStream(); if (audioStatus) audioStatus.textContent = 'Микрофон: готов · Собеседник: ожидание аудио';
     const audioStatus = document.getElementById('nova-call-audio-status'); if (audioStatus) audioStatus.textContent = 'Микрофон: готов · Собеседник: ожидание аудио';
     const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const pc = novaCallCreatePeerConnection(callId, 'caller');
@@ -3761,6 +3790,7 @@ async function novaCallAccept() {
   if (!incoming || novaCallState) return;
   novaCallHideIncoming();
   try {
+    novaCallPrimeRemoteAudio();
     currentView = 'dm';
     currentDmUserId = incoming.callerUid;
     document.getElementById('server-channels-container')?.classList.add('hidden');
