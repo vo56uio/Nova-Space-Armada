@@ -286,6 +286,12 @@
         </div>
       </div>
 
+      <div class="flex items-center gap-2">
+        <button id="btn-start-call" type="button" title="Позвонить" aria-label="Позвонить" class="hidden text-discord-muted hover:text-white p-1.5 rounded-lg hover:bg-discord-surface text-lg transition">
+          📞
+        </button>
+      </div>
+
       <!-- Action Buttons in Top Header -->
       <div class="flex items-center gap-2">
         <!-- Message Search Input -->
@@ -311,6 +317,39 @@
         </span>
       </div>
     </header>
+
+    
+    <!-- Nova audio call UI -->
+    <div id="nova-call-incoming" class="hidden fixed right-5 bottom-5 z-[160] w-[min(360px,calc(100vw-24px))]">
+      <div class="nova-call-card nova-call-incoming-card rounded-2xl border p-4 shadow-2xl">
+        <div class="flex items-center gap-3">
+          <div id="nova-call-incoming-avatar" class="nova-call-avatar w-12 h-12 rounded-full bg-discord-accent flex items-center justify-center text-white text-lg font-bold">V</div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[11px] uppercase tracking-wide font-bold opacity-70">Входящий звонок</div>
+            <div id="nova-call-incoming-name" class="font-bold truncate">Пользователь</div>
+            <div class="text-xs opacity-70">Вам звонят по аудио</div>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button id="nova-call-decline" type="button" class="flex-1 rounded-xl px-3 py-2.5 font-semibold nova-call-danger">Отклонить</button>
+          <button id="nova-call-accept" type="button" class="flex-1 rounded-xl px-3 py-2.5 font-semibold nova-call-accept">Принять</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="nova-call-active" class="hidden fixed inset-0 z-[155] items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/45 backdrop-blur-sm"></div>
+      <div class="nova-call-card relative w-[min(420px,calc(100vw-24px))] rounded-3xl border p-6 shadow-2xl text-center">
+        <div id="nova-call-active-avatar" class="nova-call-avatar w-20 h-20 mx-auto rounded-full bg-discord-accent flex items-center justify-center text-white text-3xl font-bold shadow-xl">V</div>
+        <div id="nova-call-active-name" class="mt-4 text-xl font-bold">Пользователь</div>
+        <div id="nova-call-active-status" class="mt-1 text-sm opacity-70">Вызов...</div>
+        <div class="mt-6 flex items-center justify-center gap-3">
+          <button id="nova-call-toggle-mic" type="button" class="nova-call-control w-12 h-12 rounded-full flex items-center justify-center text-lg" title="Выключить микрофон">🎙️</button>
+          <button id="nova-call-end" type="button" class="nova-call-end w-14 h-14 rounded-full flex items-center justify-center text-xl" title="Завершить звонок">✕</button>
+        </div>
+        <audio id="nova-call-remote-audio" autoplay playsinline></audio>
+      </div>
+    </div>
 
     <!-- Message Feed -->
     <div id="message-feed" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
@@ -747,7 +786,7 @@ let firebaseApp = null;
 let db = null;
 let auth = null;
 let storage = null;
-let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS;
+let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS, COLLECTION_CALLS, COLLECTION_CALL_SIGNALS;
 
 try {
   firebaseApp = initializeApp(firebaseConfig);
@@ -758,6 +797,8 @@ try {
   COLLECTION_CHANNELS = collection(db, 'artifacts', appId, 'public', 'data', 'channels');
   COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
   COLLECTION_USERS = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+  COLLECTION_CALLS = collection(db, 'artifacts', appId, 'public', 'data', 'calls');
+  COLLECTION_CALL_SIGNALS = collection(db, 'artifacts', appId, 'public', 'data', 'call_signals');
   isCloudEnabled = true;
 } catch(e) {
   console.warn("Режим переключен в локальный:", e);
@@ -1461,6 +1502,7 @@ function renderServers() {
 }
 
 document.getElementById('btn-home').onclick = () => {
+  document.getElementById('btn-start-call')?.classList.add('hidden');
   currentView = 'dm';
   document.getElementById('server-channels-container').classList.add('hidden');
   document.getElementById('dm-channels-container').classList.remove('hidden');
@@ -1762,6 +1804,13 @@ function renderMembersSidebar() {
 
 
 function renderMessages() {
+  const callBtn = document.getElementById('btn-start-call');
+  if (callBtn) {
+    const canCallHere = currentView === 'dm' && !!currentDmUserId && (!novaCallState || novaCallState.peerUid === currentDmUserId);
+    callBtn.classList.toggle('hidden', !canCallHere);
+    callBtn.disabled = !!novaCallState;
+    callBtn.classList.toggle('opacity-50', !!novaCallState);
+  }
   const feed = document.getElementById('message-feed');
   const chanNameElem = document.getElementById('current-channel-name');
   const chanIconElem = document.getElementById('current-channel-icon');
@@ -3418,6 +3467,286 @@ function novaInitVoicePlayers(root = document) {
 novaInitVoicePlayers(document);
 
 
+
+// ===== Nova audio calls (1:1, audio only; no video) =====
+let novaCallState = null;
+let novaIncomingCall = null;
+let novaCallUnsub = null;
+let novaSignalUnsub = null;
+let novaCallProcessedSignals = new Set();
+let novaCallPendingCandidates = [];
+let novaCallRingtoneTimer = null;
+
+function novaCallPeer(uid) {
+  if (uid === currentUser?.uid) return null;
+  return (usersData || []).find(u => u.uid === uid) || null;
+}
+function novaCallInitial(name) {
+  return (name || 'U').charAt(0).toUpperCase();
+}
+function novaCallShowIncoming(call) {
+  const card = document.getElementById('nova-call-incoming');
+  if (!card) return;
+  document.getElementById('nova-call-incoming-name').textContent = call.callerName || 'Пользователь';
+  document.getElementById('nova-call-incoming-avatar').textContent = novaCallInitial(call.callerName);
+  card.classList.remove('hidden');
+  novaIncomingCall = call;
+  clearInterval(novaCallRingtoneTimer);
+  let flip = false;
+  novaCallRingtoneTimer = setInterval(() => {
+    flip = !flip;
+    card.querySelector('.nova-call-card')?.classList.toggle('nova-call-ring', flip);
+  }, 700);
+}
+function novaCallHideIncoming() {
+  document.getElementById('nova-call-incoming')?.classList.add('hidden');
+  clearInterval(novaCallRingtoneTimer);
+  novaCallRingtoneTimer = null;
+  novaIncomingCall = null;
+}
+function novaCallShowActive(name, status = 'Вызов...') {
+  const panel = document.getElementById('nova-call-active');
+  if (!panel) return;
+  document.getElementById('nova-call-active-avatar').textContent = novaCallInitial(name);
+  document.getElementById('nova-call-active-name').textContent = name || 'Пользователь';
+  document.getElementById('nova-call-active-status').textContent = status;
+  panel.classList.remove('hidden');
+  panel.classList.add('flex');
+  novaUpdateCallButton();
+}
+function novaCallSetStatus(status) {
+  const el = document.getElementById('nova-call-active-status');
+  if (el) el.textContent = status;
+}
+function novaCallCreatePeerConnection(callId, role) {
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  pc.onicecandidate = async event => {
+    if (!event.candidate || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !novaCallState) return;
+    try {
+      const signalId = `sig_${callId}_${role}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      await setDoc(doc(COLLECTION_CALL_SIGNALS, signalId), {
+        id: signalId, callId, fromUid: currentUser.uid,
+        targetUid: novaCallState.peerUid, role, kind: 'ice',
+        candidate: {
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+          usernameFragment: event.candidate.usernameFragment || null
+        },
+        ts: Date.now()
+      });
+    } catch (e) { console.warn('Call ICE signal failed:', e); }
+  };
+  pc.ontrack = event => {
+    const audio = document.getElementById('nova-call-remote-audio');
+    if (!audio) return;
+    if (event.streams?.[0]) audio.srcObject = event.streams[0];
+    else {
+      const stream = audio.srcObject instanceof MediaStream ? audio.srcObject : new MediaStream();
+      stream.addTrack(event.track);
+      audio.srcObject = stream;
+    }
+    audio.play?.().catch(() => {});
+  };
+  pc.onconnectionstatechange = () => {
+    const state = pc.connectionState;
+    if (state === 'connected') novaCallSetStatus('Соединено');
+    else if (state === 'connecting') novaCallSetStatus('Соединение...');
+    else if (state === 'failed') {
+      novaCallSetStatus('Соединение не удалось');
+      setTimeout(() => novaCallEnd(true, 'Соединение не удалось установить'), 900);
+    } else if (state === 'disconnected') {
+      novaCallSetStatus('Связь прервалась');
+      setTimeout(() => {
+        if (novaCallState?.pc === pc && pc.connectionState === 'disconnected') novaCallEnd(true, 'Связь прервалась');
+      }, 2500);
+    }
+  };
+  return pc;
+}
+async function novaCallListenSignals() {
+  if (novaSignalUnsub || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !novaCallState) return;
+  novaSignalUnsub = onSnapshot(COLLECTION_CALL_SIGNALS, async snapshot => {
+    if (!novaCallState) return;
+    for (const change of snapshot.docChanges()) {
+      if (change.type === 'removed') continue;
+      const d = change.doc.data();
+      if (d.callId !== novaCallState.callId || d.targetUid !== currentUser.uid || novaCallProcessedSignals.has(change.doc.id)) continue;
+      novaCallProcessedSignals.add(change.doc.id);
+      if (d.kind !== 'ice' || !d.candidate) continue;
+      const candidate = new RTCIceCandidate(d.candidate);
+      if (novaCallState.pc?.remoteDescription) {
+        try { await novaCallState.pc.addIceCandidate(candidate); } catch (e) { console.warn('Call ICE candidate rejected:', e); }
+      } else {
+        novaCallPendingCandidates.push(candidate);
+      }
+    }
+  }, err => console.warn('Call signal listener failed:', err));
+}
+async function novaCallFlushCandidates() {
+  if (!novaCallState?.pc?.remoteDescription || !novaCallPendingCandidates.length) return;
+  const pending = novaCallPendingCandidates.splice(0);
+  for (const candidate of pending) {
+    try { await novaCallState.pc.addIceCandidate(candidate); } catch (e) { console.warn('Pending ICE candidate rejected:', e); }
+  }
+}
+async function novaCallCreateLocalStream() {
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('Ваш браузер не поддерживает доступ к микрофону.');
+  return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+}
+async function novaCallStart(peerUid) {
+  if (!isCloudEnabled || !COLLECTION_CALLS) { showToast('Для звонков нужен доступ к Firebase.', true); return; }
+  if (!peerUid || peerUid === currentUser.uid || novaCallState) return;
+  const peer = novaCallPeer(peerUid);
+  if (!peer) { showToast('Пользователь не найден.', true); return; }
+  try {
+    const stream = await novaCallCreateLocalStream();
+    const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const pc = novaCallCreatePeerConnection(callId, 'caller');
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    novaCallState = { callId, role:'caller', peerUid, peerName:peer.nickname || 'Пользователь', pc, localStream:stream, muted:false, answerApplied:false, startedAt:Date.now() };
+    await novaCallListenSignals();
+    novaCallShowActive(novaCallState.peerName, 'Вызов...');
+    await pc.setLocalDescription(await pc.createOffer({ offerToReceiveAudio:true }));
+    await setDoc(doc(COLLECTION_CALLS, callId), {
+      id:callId, callerUid:currentUser.uid, calleeUid:peerUid,
+      callerName:currentUser.nickname || 'Пользователь',
+      calleeName:peer.nickname || 'Пользователь',
+      status:'ringing',
+      offer:{ type:pc.localDescription.type, sdp:pc.localDescription.sdp },
+      answer:null, createdAt:Date.now(), updatedAt:Date.now()
+    });
+  } catch (err) {
+    console.error('Call start failed:', err);
+    showToast(err?.name === 'NotAllowedError' ? 'Доступ к микрофону запрещён.' : (err?.message || 'Не удалось начать звонок.'), true);
+    await novaCallEnd(true);
+  }
+}
+async function novaCallAccept() {
+  const incoming = novaIncomingCall;
+  if (!incoming || novaCallState) return;
+  novaCallHideIncoming();
+  try {
+    currentView = 'dm';
+    currentDmUserId = incoming.callerUid;
+    document.getElementById('server-channels-container')?.classList.add('hidden');
+    document.getElementById('dm-channels-container')?.classList.remove('hidden');
+    document.getElementById('sidebar-header-title').textContent = 'Личные сообщения';
+    document.getElementById('btn-server-invite')?.classList.add('hidden');
+    document.getElementById('btn-server-settings')?.classList.add('hidden');
+    document.getElementById('server-invite-badge')?.classList.add('hidden');
+    renderDirectMessagesList();
+    const stream = await novaCallCreateLocalStream();
+    const pc = novaCallCreatePeerConnection(incoming.id, 'callee');
+    novaCallState = {
+      callId:incoming.id, role:'callee', peerUid:incoming.callerUid,
+      peerName:incoming.callerName || 'Пользователь', pc, localStream:stream,
+      muted:false, answerApplied:true, startedAt:Date.now()
+    };
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    await novaCallListenSignals();
+    await pc.setRemoteDescription(new RTCSessionDescription(incoming.offer));
+    await novaCallFlushCandidates();
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await setDoc(doc(COLLECTION_CALLS, incoming.id), {
+      status:'active',
+      answer:{ type:pc.localDescription.type, sdp:pc.localDescription.sdp },
+      updatedAt:Date.now()
+    }, { merge:true });
+    novaCallShowActive(novaCallState.peerName, 'Соединение...');
+  } catch (err) {
+    console.error('Call accept failed:', err);
+    showToast(err?.name === 'NotAllowedError' ? 'Доступ к микрофону запрещён.' : (err?.message || 'Не удалось принять звонок.'), true);
+    await novaCallEnd(true);
+  }
+}
+async function novaCallDecline() {
+  const incoming = novaIncomingCall;
+  novaCallHideIncoming();
+  if (!incoming || !isCloudEnabled) return;
+  try { await setDoc(doc(COLLECTION_CALLS, incoming.id), { status:'ended', updatedAt:Date.now() }, { merge:true }); }
+  catch(e) { console.warn('Call decline failed:', e); }
+}
+async function novaCallEnd(silent=false, reason='Звонок завершён') {
+  const active = novaCallState;
+  novaCallHideIncoming();
+  if (!active) { if (!silent) showToast(reason); return; }
+  novaCallState = null;
+  novaCallPendingCandidates = [];
+  novaCallProcessedSignals = new Set();
+  if (novaSignalUnsub) { try { novaSignalUnsub(); } catch(e) {} novaSignalUnsub = null; }
+  try { active.localStream?.getTracks?.().forEach(track => track.stop()); } catch(e) {}
+  try { active.pc?.close?.(); } catch(e) {}
+  const remoteAudio = document.getElementById('nova-call-remote-audio');
+  if (remoteAudio) { try { remoteAudio.pause(); } catch(e) {} remoteAudio.srcObject = null; }
+  const panel = document.getElementById('nova-call-active');
+  if (panel) { panel.classList.add('hidden'); panel.classList.remove('flex'); }
+  if (isCloudEnabled && COLLECTION_CALLS) {
+    try { await setDoc(doc(COLLECTION_CALLS, active.callId), { status:'ended', updatedAt:Date.now() }, { merge:true }); }
+    catch(e) { console.warn('Call end signal failed:', e); }
+  }
+  novaUpdateCallButton();
+  if (!silent) showToast(reason);
+}
+async function novaHandleCallSnapshot(snapshot) {
+  for (const change of snapshot.docChanges()) {
+    const call = { id:change.doc.id, ...change.doc.data() };
+    if (!call.id || !call.status) continue;
+    if (change.type !== 'removed' && call.status === 'ringing' && call.calleeUid === currentUser.uid && call.createdAt > Date.now() - 60000) {
+      if (!novaCallState && (!novaIncomingCall || novaIncomingCall.id !== call.id)) novaCallShowIncoming(call);
+      continue;
+    }
+    if (novaCallState && call.id === novaCallState.callId) {
+      if (call.status === 'ended') { await novaCallEnd(true, 'Звонок завершён'); continue; }
+      if (novaCallState.role === 'caller' && call.answer && !novaCallState.answerApplied) {
+        try {
+          await novaCallState.pc.setRemoteDescription(new RTCSessionDescription(call.answer));
+          novaCallState.answerApplied = true;
+          await novaCallFlushCandidates();
+          novaCallSetStatus('Соединение...');
+          await setDoc(doc(COLLECTION_CALLS, call.id), { status:'active', updatedAt:Date.now() }, { merge:true });
+        } catch(e) {
+          console.error('Applying call answer failed:', e);
+          await novaCallEnd(true, 'Не удалось установить соединение');
+        }
+      }
+    }
+  }
+}
+function novaInitCallSystem() {
+  if (novaCallUnsub || !isCloudEnabled || !COLLECTION_CALLS) return;
+  novaCallUnsub = onSnapshot(COLLECTION_CALLS, novaHandleCallSnapshot, err => console.warn('Call listener failed:', err));
+  document.getElementById('btn-start-call')?.addEventListener('click', () => {
+    if (currentView === 'dm' && currentDmUserId && !novaCallState) novaCallStart(currentDmUserId);
+  });
+  document.getElementById('nova-call-accept')?.addEventListener('click', novaCallAccept);
+  document.getElementById('nova-call-decline')?.addEventListener('click', novaCallDecline);
+  document.getElementById('nova-call-end')?.addEventListener('click', () => novaCallEnd(false));
+  document.getElementById('nova-call-toggle-mic')?.addEventListener('click', () => {
+    const track = novaCallState?.localStream?.getAudioTracks?.()[0];
+    if (!track) return;
+    track.enabled = !track.enabled;
+    novaCallState.muted = !track.enabled;
+    const btn = document.getElementById('nova-call-toggle-mic');
+    if (btn) {
+      btn.textContent = track.enabled ? '🎙️' : '🔇';
+      btn.title = track.enabled ? 'Выключить микрофон' : 'Включить микрофон';
+    }
+    novaCallSetStatus(track.enabled ? 'Соединено' : 'Микрофон выключен');
+  });
+  novaUpdateCallButton();
+}
+function novaUpdateCallButton() {
+  const btn = document.getElementById('btn-start-call');
+  if (!btn) return;
+  const canCallHere = currentView === 'dm' && !!currentDmUserId && (!novaCallState || novaCallState.peerUid === currentDmUserId);
+  btn.classList.toggle('hidden', !canCallHere);
+  btn.disabled = !!novaCallState;
+  btn.classList.toggle('opacity-50', !!novaCallState);
+}
+
+
 // Safe bridge for legacy/non-module Stage 4 helpers.
 // State is exposed through getters so the classic Stage 4 script always sees live module values.
 Object.defineProperties(window, {
@@ -3454,6 +3783,7 @@ const banMember = window.banMember;
 const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
+novaInitCallSystem();
 initAuth();
 </script>
 
