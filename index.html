@@ -3453,6 +3453,63 @@ initAuth();
   function novaItemsForDM(u){return[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(u.uid)},{icon:'✉️',label:'Открыть личный чат',action:()=>openDirectMessage(u.uid)},{icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(u.uid).then(()=>showToast('ID скопирован'))}];}
   // Context menus are handled by the main module's per-element handlers.
   document.addEventListener('click',e=>{const row=e.target.closest?.('[data-member-uid]');if(row&&!e.target.closest('button')){const uid=row.dataset.memberUid;if(uid)novaOpenUserProfile(uid);}});
+
+  // Public bridge for the small non-module safety dispatcher below.
+  // Keeping the actual data/functions inside the main module avoids module-scope errors.
+  window.NovaContextBridge = {
+    showServerMenu(serverId, x, y) {
+      const srv = (serversData || []).find(s => s.id === serverId);
+      if (!srv) return false;
+      const items = [
+        {icon:'➜', label:'Открыть сервер', action:()=>{
+          currentView='server'; currentServerId=srv.id; currentChannelId=null;
+          document.getElementById('server-channels-container').classList.remove('hidden');
+          document.getElementById('dm-channels-container').classList.add('hidden');
+          renderServers();
+        }},
+        {icon:'👥', label:'Открыть участников', action:()=>{
+          currentView='server'; currentServerId=srv.id;
+          renderServers(); openServerSettings('members');
+        }},
+        {icon:'🔗', label:'Скопировать код приглашения', action:()=>copyTextSilently(srv.inviteCode || '').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}
+      ];
+      if (hasServerPermission(srv,'create_invites')) items.push({icon:'📨',label:'Пригласить людей',action:()=>{
+        currentView='server'; currentServerId=srv.id; renderServers();
+        document.getElementById('btn-server-invite')?.click();
+      }});
+      if (hasServerPermission(srv,'manage_channels')) items.push({icon:'➕',label:'Создать канал',action:()=>openModal('modal-channel')});
+      if (isServerManager(srv)) items.push({icon:'⚙️',label:'Настройки сервера',action:()=>openServerSettings('general')});
+      if (isServerOwner(srv)) items.push('separator',{icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()});
+      showContextMenu(x, y, items);
+      return true;
+    },
+    showMemberMenu(uid, x, y) {
+      const member = uid === currentUser?.uid ? currentUser : (usersData || []).find(u => u.uid === uid);
+      const srv = (serversData || []).find(s => s.id === currentServerId);
+      if (!member) return false;
+      const self = uid === currentUser?.uid;
+      const owner = !!(srv && srv.ownerId === uid);
+      const items = [
+        {icon:'👤', label:'Открыть профиль', action:()=>novaOpenUserProfile(uid)}
+      ];
+      if (!self) items.push({icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(uid)});
+      items.push({icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(uid).then(()=>showToast('ID скопирован'))});
+      if (self) {
+        items.push('separator',
+          {icon:'🟢',label:'В сети',action:()=>novaSetStatus('online')},
+          {icon:'🟡',label:'Не активен',action:()=>novaSetStatus('idle')},
+          {icon:'🔴',label:'Не беспокоить',action:()=>novaSetStatus('dnd')},
+          'separator',
+          {icon:'⚙️',label:'Настройки аккаунта',action:()=>openModal('modal-account-settings')}
+        );
+      } else if (srv && !owner) {
+        if (hasServerPermission(srv,'manage_roles')) items.push({icon:'🛡️',label:'Управлять ролями',action:()=>openServerSettings('members')});
+        if (hasServerPermission(srv,'manage_members')) items.push({icon:'🚪',label:'Заблокировать участника',danger:true,action:()=>window.banMember(uid)});
+      }
+      showContextMenu(x, y, items);
+      return true;
+    }
+  };
 })();
 </script>
 <!-- /NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
@@ -3565,7 +3622,29 @@ initAuth();
   },true);
 })();
 </script>
-<!-- /NOVA_CUSTOM_VOICE_PLAYER_SCRIPT -->
+<script>
+(function(){
+  // Delegated safety net for context menus. The main module owns all app state;
+  // this listener only forwards server/member right-clicks through the public bridge.
+  document.addEventListener('contextmenu', function(e){
+    const bridge = window.NovaContextBridge;
+    if (!bridge) return;
+    const target = e.target.closest?.('[data-server-id],[data-member-uid]');
+    if (!target) return;
+
+    let handled = false;
+    if (target.dataset.serverId) handled = bridge.showServerMenu(target.dataset.serverId, e.clientX, e.clientY);
+    else if (target.dataset.memberUid) handled = bridge.showMemberMenu(target.dataset.memberUid, e.clientX, e.clientY);
+
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+})();
+</script>
+<!-- /NOVA_CONTEXT_DISPATCHER -->
+<!-- NOVA_CUSTOM_VOICE_PLAYER_SCRIPT -->
 
 
 </body>
