@@ -3658,13 +3658,34 @@ function novaVoiceMeshCreateAudio(uid, stream) {
   }
   audio.autoplay = true;
   audio.playsInline = true;
-  audio.muted = !!isDeafened;
-  audio.volume = isDeafened ? 0 : 1;
+  audio.volume = 1;
   audio.srcObject = stream;
+
+  // Start playback muted first so Chrome's autoplay policy does not block the remote stream.
+  audio.muted = true;
+  const unmuteAfterStart = () => {
+    audio.muted = !!isDeafened;
+    audio.volume = isDeafened ? 0 : 1;
+  };
   try {
     const p = audio.play?.();
-    if (p?.catch) p.catch(() => {});
+    if (p?.then) p.then(unmuteAfterStart).catch(() => {
+      // A later track-unmute event can retry playback.
+    });
+    else unmuteAfterStart();
   } catch (e) {}
+
+  stream.getAudioTracks?.().forEach(track => {
+    track.onunmute = () => {
+      audio.muted = true;
+      try {
+        const retry = audio.play?.();
+        if (retry?.then) retry.then(unmuteAfterStart).catch(() => {});
+        else unmuteAfterStart();
+      } catch (e) {}
+    };
+  });
+
   return audio;
 }
 
