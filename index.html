@@ -348,9 +348,10 @@
         <button type="button" id="btn-voice-cancel" class="text-xs px-3 py-1.5 rounded-lg bg-discord-rail hover:bg-discord-hover text-white">Отмена</button>
         <button type="button" id="btn-voice-stop" class="text-xs px-3 py-1.5 rounded-lg bg-discord-accent hover:bg-discord-accentHover text-white font-semibold">Отправить</button>
       </div>
-      <button type="button" id="btn-attach-file" title="Прикрепить ссылку на картинку" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition">
+      <button type="button" id="btn-attach-file" title="Прикрепить изображение с компьютера" aria-label="Прикрепить изображение с компьютера" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition">
         📎
       </button>
+      <input id="attachment-file-input" type="file" accept="image/*" class="hidden">
 
       <button type="button" id="btn-voice-record" title="Записать голосовое сообщение" aria-label="Записать голосовое сообщение" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition flex-shrink-0">
         🎙️
@@ -489,20 +490,17 @@
   </div>
 </div>
 
-<!-- Modal: Attach Image / Media -->
+<!-- Modal: Attach Image / Media (legacy shell kept for compatibility) -->
 <div id="modal-attach" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
   <div class="bg-discord-surface border border-gray-700/50 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
     <div class="flex justify-between items-center border-b border-gray-700/50 pb-3">
-      <h3 class="text-xl font-bold text-white">Прикрепить картинку</h3>
+      <h3 class="text-xl font-bold text-white">Прикрепить изображение</h3>
       <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
     </div>
-    <div>
-      <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">URL Изображения</label>
-      <input id="input-attach-url" type="url" placeholder="https://images.unsplash.com/photo-..." class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent text-sm">
-    </div>
+    <p class="text-sm text-discord-muted">Выберите изображение с компьютера. Оно будет загружено в Firebase Storage и отправлено вместе с сообщением.</p>
+    <button id="btn-legacy-pick-attachment" type="button" class="w-full bg-discord-rail hover:bg-discord-hover border border-gray-700/50 text-white font-semibold py-2.5 rounded-xl transition">📁 Выбрать изображение</button>
     <div class="flex justify-end gap-2">
-      <button type="button" class="modal-close px-4 py-2 bg-discord-rail hover:bg-discord-hover text-white rounded-xl text-sm">Отмена</button>
-      <button id="btn-save-attachment" type="button" class="px-4 py-2 bg-discord-accent hover:bg-discord-accentHover text-white rounded-xl text-sm font-semibold">Прикрепить</button>
+      <button type="button" class="modal-close px-4 py-2 bg-discord-rail hover:bg-discord-hover text-white rounded-xl text-sm">Закрыть</button>
     </div>
   </div>
 </div>
@@ -790,6 +788,8 @@ let isDeafened = false;
 
 let activeReplyMessage = null;
 let pendingAttachmentUrl = '';
+let pendingAttachmentFile = null;
+let pendingAttachmentUploading = false;
 let messageSearchQuery = '';
 
 let serversData = [];
@@ -1870,27 +1870,10 @@ function renderMessages() {
           ${m.text ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>` : ''}
 
           ${(m.voiceUrl || m.voiceDataUrl) ? `
-            <div class="nova-voice-message mt-2" data-voice-player>
-              <button type="button" class="nova-voice-play" data-voice-play aria-label="Воспроизвести голосовое сообщение" title="Воспроизвести">
-                <span class="nova-voice-play-icon" aria-hidden="true">▶</span>
-              </button>
-              <div class="nova-voice-content">
-                <div class="nova-voice-topline">
-                  <span class="nova-voice-label"><span class="nova-voice-mic">🎙️</span> Голосовое сообщение</span>
-                  <span class="nova-voice-duration" data-voice-duration>${formatVoiceDuration(m.voiceDuration || 0)}</span>
-                </div>
-                <button type="button" class="nova-voice-track" data-voice-seek aria-label="Перемотать голосовое сообщение">
-                  <span class="nova-voice-track-fill" data-voice-progress></span>
-                  <span class="nova-voice-bars" aria-hidden="true">
-                    ${Array.from({length: 28}, (_, i) => `<span style="--h:${[28,44,34,62,48,72,39,55,30,66,46,78,52,68,36,58,42,74,50,64,32,70,45,56,38,76,48,60][i]}%"></span>`).join('')}
-                  </span>
-                </button>
-                <div class="nova-voice-bottomline">
-                  <span data-voice-current>0:00</span>
-                  <span class="nova-voice-status">Голосовое</span>
-                </div>
-              </div>
-              <audio class="nova-voice-audio" data-voice-audio preload="metadata" src="${escapeHtml(m.voiceUrl || m.voiceDataUrl)}"></audio>
+            <div class="nova-voice-message mt-2">
+              <span class="text-lg" aria-hidden="true">🎙️</span>
+              <audio controls preload="metadata" src="${escapeHtml(m.voiceUrl || m.voiceDataUrl)}"></audio>
+              <span class="nova-voice-duration">${formatVoiceDuration(m.voiceDuration || 0)}</span>
             </div>
           ` : ''}
 
@@ -2066,35 +2049,108 @@ window.scrollToMessage = function(msgId) {
   setTimeout(() => { const el = document.querySelector(`[data-message-id="${msgId}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
 };
 
-// Attachment modal logic
-document.getElementById('btn-attach-file').onclick = () => openModal('modal-attach');
-document.getElementById('btn-save-attachment').onclick = () => {
-  const url = document.getElementById('input-attach-url').value.trim();
-  if (url) {
-    pendingAttachmentUrl = url;
-    document.getElementById('attachment-url-text').textContent = url;
-    document.getElementById('attachment-preview-bar').classList.remove('hidden');
+// Local image attachment: choose from computer, upload to Firebase Storage on Send, then store the download URL in Firestore.
+const attachmentFileInput = document.getElementById('attachment-file-input');
+const attachmentPreviewBar = document.getElementById('attachment-preview-bar');
+const attachmentUrlText = document.getElementById('attachment-url-text');
+
+function novaClearPendingAttachment() {
+  pendingAttachmentUrl = '';
+  pendingAttachmentFile = null;
+  pendingAttachmentUploading = false;
+  if (attachmentFileInput) attachmentFileInput.value = '';
+  attachmentPreviewBar?.classList.add('hidden');
+  if (attachmentUrlText) attachmentUrlText.textContent = '';
+}
+
+function novaShowAttachmentSelection(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('Можно прикреплять только изображения.', true);
+    return;
   }
+  const maxBytes = 15 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    showToast('Изображение слишком большое. Максимум — 15 МБ.', true);
+    return;
+  }
+  pendingAttachmentFile = file;
+  pendingAttachmentUrl = '';
+  pendingAttachmentUploading = false;
+  if (attachmentUrlText) {
+    const sizeMb = Math.max(0.1, file.size / 1024 / 1024).toFixed(1);
+    attachmentUrlText.textContent = `${file.name} · ${sizeMb} МБ`;
+  }
+  attachmentPreviewBar?.classList.remove('hidden');
+  showToast('Изображение прикреплено. Нажмите «Отправить».');
+}
+
+async function novaUploadAttachmentFile(file) {
+  if (!storage || !isCloudEnabled) throw new Error('Firebase Storage недоступен');
+  const safeName = (file.name || 'image').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120);
+  const path = `artifacts/${appId}/public/uploads/${currentUser.uid}/${Date.now()}_${safeName}`;
+  const fileRef = ref(storage, path);
+  pendingAttachmentUploading = true;
+  if (attachmentUrlText) attachmentUrlText.textContent = `Загрузка ${file.name || 'изображения'}… 0%`;
+  try {
+    const task = uploadBytesResumable(fileRef, file, {
+      contentType: file.type || 'application/octet-stream',
+      cacheControl: 'public,max-age=31536000'
+    });
+    const url = await new Promise((resolve, reject) => {
+      task.on('state_changed', snap => {
+        const pct = snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0;
+        if (attachmentUrlText) attachmentUrlText.textContent = `Загрузка ${file.name || 'изображения'}… ${pct}%`;
+      }, reject, async () => {
+        try { resolve(await getDownloadURL(fileRef)); } catch (err) { reject(err); }
+      });
+    });
+    pendingAttachmentUrl = url;
+    if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${file.name || 'изображение'} загружено`;
+    return url;
+  } finally {
+    pendingAttachmentUploading = false;
+  }
+}
+
+attachmentFileInput?.addEventListener('change', () => {
+  novaShowAttachmentSelection(attachmentFileInput.files?.[0] || null);
+});
+
+document.getElementById('btn-attach-file').onclick = () => attachmentFileInput?.click();
+document.getElementById('btn-legacy-pick-attachment')?.addEventListener('click', () => {
   closeModals();
-};
+  attachmentFileInput?.click();
+});
 
 document.getElementById('btn-cancel-attachment').onclick = () => {
-  pendingAttachmentUrl = '';
-  document.getElementById('attachment-preview-bar').classList.add('hidden');
+  novaClearPendingAttachment();
 };
-
 
 window.handleSendMessage = async function(e) {
   if (e) e.preventDefault();
+  if (pendingAttachmentUploading) return false;
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
+  const hasAttachment = !!pendingAttachmentFile || !!pendingAttachmentUrl;
 
-  if ((!text && !pendingAttachmentUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
+  if ((!text && !hasAttachment) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
   }
 
-  await novaSendMessagePayload({ text, attachmentUrl: pendingAttachmentUrl || null });
-  return false;
+  try {
+    let attachmentUrl = pendingAttachmentUrl || null;
+    if (pendingAttachmentFile) {
+      attachmentUrl = await novaUploadAttachmentFile(pendingAttachmentFile);
+    }
+    await novaSendMessagePayload({ text, attachmentUrl });
+    return false;
+  } catch (err) {
+    console.error('Attachment upload failed:', err);
+    const code = err?.code || '';
+    showToast(`Не удалось загрузить изображение${code ? ` (${code})` : ''}.`, true);
+    return false;
+  }
 };
 
 async function novaSendMessagePayload({ text = '', attachmentUrl = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
@@ -2126,6 +2182,9 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, voiceUr
 
   activeReplyMessage = null;
   pendingAttachmentUrl = '';
+  pendingAttachmentFile = null;
+  pendingAttachmentUploading = false;
+  if (attachmentFileInput) attachmentFileInput.value = '';
   document.getElementById('reply-preview-bar')?.classList.add('hidden');
   document.getElementById('attachment-preview-bar')?.classList.add('hidden');
 
@@ -3258,114 +3317,37 @@ initAuth();
     color: #fff;
     background: #f23f43;
   }
-
-  /* Recording UI — intentionally unchanged in behavior and selectors. */
+  .nova-voice-message {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    max-width: 430px;
+    background: rgba(30,31,34,.72);
+    border: 1px solid rgba(148,155,164,.2);
+    border-radius: 14px;
+    padding: 8px 10px;
+  }
+  .nova-voice-message audio { width: min(310px, 100%); height: 38px; }
+  .nova-voice-duration { min-width: 36px; text-align: right; font-size: 11px; color: #949ba4; }
   #voice-recording-bar { min-width: min(520px, calc(100vw - 24px)); }
   .nova-recording-waveform{height:38px;display:flex;align-items:center;gap:2px;width:100%;margin-top:5px;overflow:hidden}
   .nova-wave-bar{display:block;flex:1;min-width:2px;height:4px;border-radius:999px;background:linear-gradient(to top,#5865f2,#8ea0ff);opacity:.6;transition:height .06s linear,opacity .06s linear}
 
-  /* Sent voice messages — custom player */
-  .nova-voice-message{
-    position:relative;
-    display:flex;
-    align-items:center;
-    gap:12px;
-    width:min(470px,100%);
-    max-width:100%;
-    padding:10px 12px;
-    border:1px solid rgba(148,155,164,.16);
-    border-radius:16px;
-    background:linear-gradient(145deg,rgba(43,45,49,.98),rgba(30,31,34,.92));
-    box-shadow:0 8px 24px rgba(0,0,0,.16), inset 0 1px rgba(255,255,255,.035);
-    overflow:hidden;
-    transition:border-color .16s ease, box-shadow .16s ease, transform .16s ease;
-  }
-  .nova-voice-message:hover{
-    border-color:rgba(88,101,242,.34);
-    box-shadow:0 10px 28px rgba(0,0,0,.22),0 0 0 1px rgba(88,101,242,.05);
-  }
-  .nova-voice-message.is-playing{
-    border-color:rgba(88,101,242,.46);
-    box-shadow:0 10px 30px rgba(88,101,242,.12), inset 0 1px rgba(255,255,255,.04);
-  }
-  .nova-voice-play{
-    width:42px;
-    height:42px;
-    flex:0 0 42px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border:0;
-    border-radius:50%;
-    background:linear-gradient(135deg,#5865f2,#7c5cff);
-    color:#fff;
-    cursor:pointer;
-    box-shadow:0 7px 18px rgba(88,101,242,.24);
-    transition:transform .14s ease,box-shadow .14s ease,filter .14s ease;
-  }
-  .nova-voice-play:hover{transform:translateY(-1px) scale(1.03);box-shadow:0 9px 21px rgba(88,101,242,.32);filter:brightness(1.05)}
-  .nova-voice-play:active{transform:scale(.96)}
-  .nova-voice-play-icon{font-size:14px;line-height:1;transform:translateX(1px)}
-  .nova-voice-message.is-playing .nova-voice-play-icon{transform:none}
-  .nova-voice-content{min-width:0;flex:1}
-  .nova-voice-topline,.nova-voice-bottomline{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
-  .nova-voice-label{font-size:11px;font-weight:700;color:#d7d9df;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .nova-voice-mic{margin-right:4px}
-  .nova-voice-duration{min-width:36px;text-align:right;font-size:11px;font-weight:600;color:#a6abb5;white-space:nowrap}
-  .nova-voice-track{
-    position:relative;
-    display:block;
-    width:100%;
-    height:28px;
-    margin:3px 0 1px;
-    padding:0;
-    border:0;
-    background:transparent;
-    cursor:pointer;
-    overflow:hidden;
-  }
-  .nova-voice-track:focus-visible{outline:2px solid rgba(88,101,242,.7);outline-offset:2px;border-radius:6px}
-  .nova-voice-bars{
-    position:absolute;
-    inset:3px 0;
-    display:flex;
-    align-items:center;
-    gap:3px;
-    opacity:.52;
-    pointer-events:none;
-  }
-  .nova-voice-bars span{
-    display:block;
-    flex:1;
-    min-width:2px;
-    height:var(--h);
-    border-radius:999px;
-    background:rgba(174,181,205,.48);
-    transition:background .16s ease,transform .16s ease;
-  }
-  .nova-voice-track-fill{
-    position:absolute;
-    left:0;top:50%;
-    width:0;
-    height:100%;
-    transform:translateY(-50%);
-    background:linear-gradient(90deg,rgba(88,101,242,.94),rgba(124,92,255,.96));
-    opacity:.2;
-    border-radius:999px;
-    pointer-events:none;
-    transition:width .06s linear;
-  }
-  .nova-voice-message.is-playing .nova-voice-bars{opacity:.9}
-  .nova-voice-message.is-playing .nova-voice-bars span{background:#8190ff}
-  .nova-voice-message.is-playing .nova-voice-track-fill{opacity:.28}
-  .nova-voice-bottomline{font-size:10px;color:#858b97}
-  .nova-voice-status{opacity:.72}
-  .nova-voice-audio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  /* Light theme: replace fixed dark custom surfaces with readable light cards. */
+  html:not(.dark) .nova-voice-message{background:#f3f4f6;border-color:#d1d5db;box-shadow:0 5px 16px rgba(15,23,42,.10);}
+  html:not(.dark) .nova-voice-message .nova-voice-duration{color:#4b5563}
+  html:not(.dark) .context-menu{background:rgba(255,255,255,.98);border-color:#d1d5db;box-shadow:0 18px 50px rgba(15,23,42,.18)}
+  html:not(.dark) .context-menu-item{color:#374151}
+  html:not(.dark) .context-menu-item:hover{background:#e8edff;color:#111827}
+  html:not(.dark) .context-menu-item.danger{color:#dc2626}
+  html:not(.dark) .context-menu-item.danger:hover{background:#fee2e2;color:#991b1b}
+  html:not(.dark) .context-menu-sep{background:#e5e7eb}
+  html:not(.dark) .nova-user-card{background:#ffffff;border-color:#d1d5db;box-shadow:0 24px 80px rgba(15,23,42,.18)}
+  html:not(.dark) .nova-profile-action{background:#f8fafc;border-color:#d1d5db;color:#1f2937}
+  html:not(.dark) .nova-profile-action:hover{background:#eef2ff;border-color:rgba(88,101,242,.45);color:#111827}
+  html:not(.dark) #nova-profile-close{background:rgba(255,255,255,.78);color:#374151}
+  html:not(.dark) #nova-profile-close:hover{background:#fff;color:#111827}
 
-  @media (max-width:640px){
-    .nova-voice-message{width:100%;padding:9px 10px;gap:10px;border-radius:14px}
-    .nova-voice-play{width:40px;height:40px;flex-basis:40px}
-  }
 </style>
 <!-- NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
 <style>
@@ -3451,201 +3433,20 @@ initAuth();
     if(srv){items.push({icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(chan.id).then(()=>showToast('ID канала скопирован'))});if(hasServerPermission(srv,'manage_channels'))items.push('separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(chan.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(chan.id)});}return items;
   }
   function novaItemsForDM(u){return[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(u.uid)},{icon:'✉️',label:'Открыть личный чат',action:()=>openDirectMessage(u.uid)},{icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(u.uid).then(()=>showToast('ID скопирован'))}];}
-  // Context menus are handled by the main module's per-element handlers.
+  document.addEventListener('contextmenu',e=>{
+    const target=e.target.closest?.('[data-server-id],[data-chan-id],[data-voice-id],[data-dm-user-id],[data-member-uid],[data-message-id],#user-avatar,#user-status-dot');if(!target)return;e.preventDefault();e.stopPropagation();
+    if(target.matches('#user-avatar,#user-status-dot')){showContextMenu(e.clientX,e.clientY,novaItemsForMember(currentUser,novaCurrentServer()));return;}
+    if(target.dataset.serverId){const s=serversData.find(x=>x.id===target.dataset.serverId);if(s)showContextMenu(e.clientX,e.clientY,novaItemsForServer(s));return;}
+    if(target.dataset.chanId){const c=channelsData.find(x=>x.id===target.dataset.chanId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,novaItemsForChannel(c,s));return;}
+    if(target.dataset.voiceId){const c=channelsData.find(x=>x.id===target.dataset.voiceId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,[{icon:'🔊',label:'Подключиться',action:()=>connectVoiceChannel(c.id,vcNameById(c.id))},{icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(c.id).then(()=>showToast('ID канала скопирован'))},...(s&&hasServerPermission(s,'manage_channels')?['separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(c.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(c.id)}]:[])]);return;}
+    if(target.dataset.dmUserId){const u=novaUser(target.dataset.dmUserId);if(u)showContextMenu(e.clientX,e.clientY,novaItemsForDM(u));return;}
+    if(target.dataset.memberUid){const u=novaUser(target.dataset.memberUid);if(u)showContextMenu(e.clientX,e.clientY,novaItemsForMember(u,novaCurrentServer()));return;}
+    if(target.dataset.messageId){const m=(messagesData||[]).find(x=>x.id===target.dataset.messageId);if(m)showContextMenu(e.clientX,e.clientY,novaItemsForMessage(m));return;}
+  },true);
   document.addEventListener('click',e=>{const row=e.target.closest?.('[data-member-uid]');if(row&&!e.target.closest('button')){const uid=row.dataset.memberUid;if(uid)novaOpenUserProfile(uid);}});
-
-  // Public bridge for the small non-module safety dispatcher below.
-  // Keeping the actual data/functions inside the main module avoids module-scope errors.
-  window.NovaContextBridge = {
-    showServerMenu(serverId, x, y) {
-      const srv = (serversData || []).find(s => s.id === serverId);
-      if (!srv) return false;
-      const items = [
-        {icon:'➜', label:'Открыть сервер', action:()=>{
-          currentView='server'; currentServerId=srv.id; currentChannelId=null;
-          document.getElementById('server-channels-container').classList.remove('hidden');
-          document.getElementById('dm-channels-container').classList.add('hidden');
-          renderServers();
-        }},
-        {icon:'👥', label:'Открыть участников', action:()=>{
-          currentView='server'; currentServerId=srv.id;
-          renderServers(); openServerSettings('members');
-        }},
-        {icon:'🔗', label:'Скопировать код приглашения', action:()=>copyTextSilently(srv.inviteCode || '').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}
-      ];
-      if (hasServerPermission(srv,'create_invites')) items.push({icon:'📨',label:'Пригласить людей',action:()=>{
-        currentView='server'; currentServerId=srv.id; renderServers();
-        document.getElementById('btn-server-invite')?.click();
-      }});
-      if (hasServerPermission(srv,'manage_channels')) items.push({icon:'➕',label:'Создать канал',action:()=>openModal('modal-channel')});
-      if (isServerManager(srv)) items.push({icon:'⚙️',label:'Настройки сервера',action:()=>openServerSettings('general')});
-      if (isServerOwner(srv)) items.push('separator',{icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()});
-      showContextMenu(x, y, items);
-      return true;
-    },
-    showMemberMenu(uid, x, y) {
-      const member = uid === currentUser?.uid ? currentUser : (usersData || []).find(u => u.uid === uid);
-      const srv = (serversData || []).find(s => s.id === currentServerId);
-      if (!member) return false;
-      const self = uid === currentUser?.uid;
-      const owner = !!(srv && srv.ownerId === uid);
-      const items = [
-        {icon:'👤', label:'Открыть профиль', action:()=>novaOpenUserProfile(uid)}
-      ];
-      if (!self) items.push({icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(uid)});
-      items.push({icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(uid).then(()=>showToast('ID скопирован'))});
-      if (self) {
-        items.push('separator',
-          {icon:'🟢',label:'В сети',action:()=>novaSetStatus('online')},
-          {icon:'🟡',label:'Не активен',action:()=>novaSetStatus('idle')},
-          {icon:'🔴',label:'Не беспокоить',action:()=>novaSetStatus('dnd')},
-          'separator',
-          {icon:'⚙️',label:'Настройки аккаунта',action:()=>openModal('modal-account-settings')}
-        );
-      } else if (srv && !owner) {
-        if (hasServerPermission(srv,'manage_roles')) items.push({icon:'🛡️',label:'Управлять ролями',action:()=>openServerSettings('members')});
-        if (hasServerPermission(srv,'manage_members')) items.push({icon:'🚪',label:'Заблокировать участника',danger:true,action:()=>window.banMember(uid)});
-      }
-      showContextMenu(x, y, items);
-      return true;
-    }
-  };
 })();
 </script>
 <!-- /NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
-<!-- NOVA_CUSTOM_VOICE_PLAYER_SCRIPT -->
-<script>
-(function(){
-  let activeVoiceAudio = null;
-
-  function formatTime(sec){
-    sec=Math.max(0,Math.floor(Number(sec)||0));
-    const m=Math.floor(sec/60),s=String(sec%60).padStart(2,'0');
-    return `${m}:${s}`;
-  }
-
-  function resetPlayer(player){
-    if(!player)return;
-    player.classList.remove('is-playing');
-    const play=player.querySelector('[data-voice-play]');
-    const icon=player.querySelector('.nova-voice-play-icon');
-    const current=player.querySelector('[data-voice-current]');
-    const fill=player.querySelector('[data-voice-progress]');
-    const status=player.querySelector('.nova-voice-status');
-    if(play)play.setAttribute('aria-label','Воспроизвести голосовое сообщение');
-    if(play)play.title='Воспроизвести';
-    if(icon)icon.textContent='▶';
-    if(current)current.textContent=formatTime(0);
-    if(fill)fill.style.width='0%';
-    if(status)status.textContent='Голосовое';
-  }
-
-  document.addEventListener('click',async(e)=>{
-    const play=e.target.closest?.('[data-voice-play]');
-    const seek=e.target.closest?.('[data-voice-seek]');
-
-    if(play){
-      e.preventDefault();
-      const player=play.closest('[data-voice-player]');
-      const audio=player?.querySelector('[data-voice-audio]');
-      if(!player||!audio)return;
-
-      if(activeVoiceAudio && activeVoiceAudio!==audio){
-        activeVoiceAudio.pause();
-        resetPlayer(activeVoiceAudio.closest('[data-voice-player]'));
-      }
-
-      if(audio.paused){
-        try{
-          await audio.play();
-          activeVoiceAudio=audio;
-          player.classList.add('is-playing');
-          play.setAttribute('aria-label','Поставить на паузу');
-          play.title='Пауза';
-          const icon=player.querySelector('.nova-voice-play-icon');
-          if(icon)icon.textContent='❚❚';
-          const status=player.querySelector('.nova-voice-status');
-          if(status)status.textContent='Воспроизводится';
-        }catch(err){
-          if(typeof showToast==='function')showToast('Не удалось воспроизвести голосовое сообщение',true);
-        }
-      }else{
-        audio.pause();
-        resetPlayer(player);
-        activeVoiceAudio=null;
-      }
-      return;
-    }
-
-    if(seek){
-      const player=seek.closest('[data-voice-player]');
-      const audio=player?.querySelector('[data-voice-audio]');
-      if(!player||!audio||!Number.isFinite(audio.duration)||audio.duration<=0)return;
-      const rect=seek.getBoundingClientRect();
-      const ratio=Math.min(1,Math.max(0,(e.clientX-rect.left)/rect.width));
-      audio.currentTime=ratio*audio.duration;
-      if(audio.paused){
-        const current=player.querySelector('[data-voice-current]');
-        const fill=player.querySelector('[data-voice-progress]');
-        if(current)current.textContent=formatTime(audio.currentTime);
-        if(fill)fill.style.width=`${ratio*100}%`;
-      }
-    }
-  });
-
-  document.addEventListener('timeupdate',e=>{
-    const audio=e.target.closest?.('[data-voice-audio]');
-    if(!audio)return;
-    const player=audio.closest('[data-voice-player]');
-    if(!player)return;
-    const pct=Number.isFinite(audio.duration)&&audio.duration>0?(audio.currentTime/audio.duration)*100:0;
-    const current=player.querySelector('[data-voice-current]');
-    const fill=player.querySelector('[data-voice-progress]');
-    if(current)current.textContent=formatTime(audio.currentTime);
-    if(fill)fill.style.width=`${Math.min(100,Math.max(0,pct))}%`;
-  },true);
-
-  document.addEventListener('ended',e=>{
-    const audio=e.target.closest?.('[data-voice-audio]');
-    if(!audio)return;
-    resetPlayer(audio.closest('[data-voice-player]'));
-    if(activeVoiceAudio===audio)activeVoiceAudio=null;
-  },true);
-
-  document.addEventListener('loadedmetadata',e=>{
-    const audio=e.target.closest?.('[data-voice-audio]');
-    if(!audio)return;
-    const player=audio.closest('[data-voice-player]');
-    if(!player)return;
-    const duration=player.querySelector('[data-voice-duration]');
-    if(duration && (!duration.textContent || duration.textContent==='0:00'))duration.textContent=formatTime(audio.duration);
-  },true);
-})();
-</script>
-<script>
-(function(){
-  // Delegated safety net for context menus. The main module owns all app state;
-  // this listener only forwards server/member right-clicks through the public bridge.
-  document.addEventListener('contextmenu', function(e){
-    const bridge = window.NovaContextBridge;
-    if (!bridge) return;
-    const target = e.target.closest?.('[data-server-id],[data-member-uid]');
-    if (!target) return;
-
-    let handled = false;
-    if (target.dataset.serverId) handled = bridge.showServerMenu(target.dataset.serverId, e.clientX, e.clientY);
-    else if (target.dataset.memberUid) handled = bridge.showMemberMenu(target.dataset.memberUid, e.clientX, e.clientY);
-
-    if (handled) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, true);
-})();
-</script>
-<!-- /NOVA_CONTEXT_DISPATCHER -->
-<!-- NOVA_CUSTOM_VOICE_PLAYER_SCRIPT -->
-
 
 </body>
 </html>
