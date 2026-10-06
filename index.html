@@ -3634,6 +3634,7 @@ let novaCallLastStats = null;
 // ===== Nova server voice mesh (multi-user audio) =====
 let novaVoiceMesh = null;
 let novaVoiceMeshStatsTimer = null;
+let novaVoiceMeshRefreshTimer = null;
 
 function novaVoiceMeshIceServers() {
   return [
@@ -3956,15 +3957,45 @@ function novaVoiceMeshListenSignals() {
   }, err => console.warn('Voice mesh signal listener failed:', err));
 }
 
+function novaVoiceMeshScheduleRefresh(reason = 'participant change') {
+  if (!novaVoiceMesh || !activeVoiceChannelId) return;
+  clearTimeout(novaVoiceMeshRefreshTimer);
+  novaVoiceMeshRefreshTimer = setTimeout(async () => {
+    if (!novaVoiceMesh || !activeVoiceChannelId) return;
+    const participants = novaGetVoiceParticipants(novaVoiceMesh.channelId)
+      .filter(p => p.uid !== currentUser.uid);
+
+    for (const uid of Array.from(novaVoiceMesh.peers.keys())) {
+      novaVoiceMeshRemovePeer(uid);
+    }
+    for (const p of participants) {
+      novaVoiceMeshEnsurePeer(p.uid, p.nickname || 'Пользователь');
+    }
+
+    console.debug('[Nova voice mesh] refreshed', {
+      reason,
+      participants: participants.map(p => ({ uid: p.uid, nickname: p.nickname || 'Пользователь' })),
+      peers: novaVoiceMesh.peers.size
+    });
+  }, 500);
+}
+
 async function novaVoiceMeshSyncParticipants() {
   if (!novaVoiceMesh) return;
   const participants = novaGetVoiceParticipants(novaVoiceMesh.channelId)
     .filter(p => p.uid !== currentUser.uid);
   const wanted = new Set(participants.map(p => p.uid));
+  const participantKey = participants.map(p => p.uid).sort().join('|');
+  const participantSetChanged = novaVoiceMesh.participantKey !== participantKey;
+  novaVoiceMesh.participantKey = participantKey;
 
   for (const p of participants) novaVoiceMeshEnsurePeer(p.uid, p.nickname || 'Пользователь');
   for (const uid of Array.from(novaVoiceMesh.peers.keys())) {
     if (!wanted.has(uid)) novaVoiceMeshRemovePeer(uid);
+  }
+
+  if (participantSetChanged && novaVoiceMesh.peers.size) {
+    novaVoiceMeshScheduleRefresh('изменился состав голосового канала');
   }
 }
 
@@ -3977,6 +4008,7 @@ function novaVoiceMeshStart(serverId, channelId, localStream) {
     peers: new Map(),
     processedSignals: new Set(),
     signalUnsub: null,
+    participantKey: '',
     startedAt: Date.now()
   };
   novaVoiceMeshListenSignals();
@@ -3986,6 +4018,8 @@ function novaVoiceMeshStart(serverId, channelId, localStream) {
 
 function novaVoiceMeshStop() {
   novaVoiceMeshStopStatsMonitor();
+  clearTimeout(novaVoiceMeshRefreshTimer);
+  novaVoiceMeshRefreshTimer = null;
   const mesh = novaVoiceMesh;
   if (!mesh) return;
   if (mesh.signalUnsub) {
