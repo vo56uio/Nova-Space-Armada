@@ -497,7 +497,7 @@
       <h3 class="text-xl font-bold text-white">Прикрепить изображение</h3>
       <button type="button" class="modal-close text-discord-muted hover:text-white text-xl">✕</button>
     </div>
-    <p class="text-sm text-discord-muted">Выберите изображение с компьютера. Оно будет загружено в Firebase Storage и отправлено вместе с сообщением.</p>
+    <p class="text-sm text-discord-muted">Выберите изображение с компьютера. Оно будет подготовлено и сохранено в Firebase вместе с сообщением.</p>
     <button id="btn-legacy-pick-attachment" type="button" class="w-full bg-discord-rail hover:bg-discord-hover border border-gray-700/50 text-white font-semibold py-2.5 rounded-xl transition">📁 Выбрать изображение</button>
     <div class="flex justify-end gap-2">
       <button type="button" class="modal-close px-4 py-2 bg-discord-rail hover:bg-discord-hover text-white rounded-xl text-sm">Закрыть</button>
@@ -735,7 +735,7 @@ const defaultFirebaseConfig = {
   authDomain: "novaspacearmada.firebaseapp.com",
   databaseURL: "https://novaspacearmada-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "novaspacearmada",
-  storageBucket: "novaspacearmada.appspot.com"
+  storageBucket: "novaspacearmada.firebasestorage.app"
 };
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'discord-chat-v2';
@@ -1870,17 +1870,30 @@ function renderMessages() {
           ${m.text ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>` : ''}
 
           ${(m.voiceUrl || m.voiceDataUrl) ? `
-            <div class="nova-voice-message mt-2">
-              <span class="text-lg" aria-hidden="true">🎙️</span>
-              <audio controls preload="metadata" src="${escapeHtml(m.voiceUrl || m.voiceDataUrl)}"></audio>
-              <span class="nova-voice-duration">${formatVoiceDuration(m.voiceDuration || 0)}</span>
+            <div class="nova-voice-message mt-2" data-nova-voice-player>
+              <button type="button" class="nova-voice-play" data-nova-voice-play aria-label="Воспроизвести голосовое сообщение">▶</button>
+              <div class="nova-voice-main">
+                <div class="nova-voice-head">
+                  <span class="nova-voice-label"><span aria-hidden="true">🎙️</span> Голосовое сообщение</span>
+                  <span class="nova-voice-total">${formatVoiceDuration(m.voiceDuration || 0)}</span>
+                </div>
+                <div class="nova-voice-track" data-nova-voice-track role="progressbar" aria-label="Прогресс голосового сообщения" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <span class="nova-voice-bars" aria-hidden="true">${Array.from({length: 30}, (_, i) => `<i style=\"--i:${i}\"></i>`).join('')}</span>
+                  <span class="nova-voice-progress" data-nova-voice-progress></span>
+                </div>
+                <div class="nova-voice-bottom">
+                  <span class="nova-voice-current" data-nova-voice-current>0:00</span>
+                  <span class="nova-voice-kind">Голосовое</span>
+                </div>
+              </div>
+              <audio class="nova-voice-audio" preload="metadata" src="${escapeHtml(m.voiceUrl || m.voiceDataUrl)}"></audio>
             </div>
           ` : ''}
 
           <!-- Attachment image if present -->
-          ${m.attachmentUrl ? `
-            <div class="mt-2 max-w-sm rounded-xl overflow-hidden border border-gray-700/50 shadow-md">
-              <img src="${escapeHtml(m.attachmentUrl)}" alt="Вложение" class="max-h-60 w-auto object-cover" onerror="this.style.display='none'">
+          ${(m.attachmentUrl || m.attachmentDataUrl) ? `
+            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md">
+              <img src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" alt="Изображение" class="max-h-96 w-auto max-w-full object-contain bg-black/10" onerror="this.closest('.nova-image-attachment').style.display='none'">
             </div>
           ` : ''}
 
@@ -1906,6 +1919,8 @@ function renderMessages() {
       </div>
     `;
   }).join('');
+
+  novaInitVoicePlayers(feed);
 
   feed.querySelectorAll('[data-message-id]').forEach(row => {
     row.oncontextmenu = (e) => {
@@ -2011,7 +2026,7 @@ window.editMessage = async function(msgId) {
   const next = prompt('Изменить сообщение:', msg.text || '');
   if (next === null) return;
   const text = next.trim();
-  if (!text && !msg.attachmentUrl && !msg.voiceUrl && !msg.voiceDataUrl) { showToast('Сообщение не может быть пустым', true); return; }
+  if (!text && !msg.attachmentUrl && !msg.attachmentDataUrl && !msg.voiceUrl && !msg.voiceDataUrl) { showToast('Сообщение не может быть пустым', true); return; }
   try {
     if (isCloudEnabled) await updateDoc(doc(COLLECTION_MESSAGES, msgId), { text, editedAt: Date.now() });
     else { msg.text = text; msg.editedAt = Date.now(); saveLocalStore(); renderMessages(); }
@@ -2056,6 +2071,7 @@ const attachmentUrlText = document.getElementById('attachment-url-text');
 
 function novaClearPendingAttachment() {
   pendingAttachmentUrl = '';
+  pendingAttachmentDataUrl = '';
   pendingAttachmentFile = null;
   pendingAttachmentUploading = false;
   if (attachmentFileInput) attachmentFileInput.value = '';
@@ -2085,31 +2101,45 @@ function novaShowAttachmentSelection(file) {
   showToast('Изображение прикреплено. Нажмите «Отправить».');
 }
 
-async function novaUploadAttachmentFile(file) {
-  if (!storage || !isCloudEnabled) throw new Error('Firebase Storage недоступен');
-  const safeName = (file.name || 'image').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120);
-  const path = `artifacts/${appId}/public/uploads/${currentUser.uid}/${Date.now()}_${safeName}`;
-  const fileRef = ref(storage, path);
-  pendingAttachmentUploading = true;
-  if (attachmentUrlText) attachmentUrlText.textContent = `Загрузка ${file.name || 'изображения'}… 0%`;
+async function novaPrepareImageForFirebase(file) {
+  if (!file || !file.type.startsWith('image/')) throw Object.assign(new Error('Only images are supported'), { code: 'attachment/not-image' });
+  const sourceUrl = URL.createObjectURL(file);
   try {
-    const task = uploadBytesResumable(fileRef, file, {
-      contentType: file.type || 'application/octet-stream',
-      cacheControl: 'public,max-age=31536000'
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Не удалось прочитать изображение'));
+      image.src = sourceUrl;
     });
-    const url = await new Promise((resolve, reject) => {
-      task.on('state_changed', snap => {
-        const pct = snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0;
-        if (attachmentUrlText) attachmentUrlText.textContent = `Загрузка ${file.name || 'изображения'}… ${pct}%`;
-      }, reject, async () => {
-        try { resolve(await getDownloadURL(fileRef)); } catch (err) { reject(err); }
-      });
-    });
-    pendingAttachmentUrl = url;
-    if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${file.name || 'изображение'} загружено`;
-    return url;
+
+    const attempts = [
+      { maxDim: 1400, quality: 0.80 },
+      { maxDim: 1200, quality: 0.74 },
+      { maxDim: 1000, quality: 0.68 },
+      { maxDim: 800, quality: 0.60 },
+      { maxDim: 650, quality: 0.52 }
+    ];
+    let best = '';
+    const maxDataUrlChars = 700000;
+
+    for (const attempt of attempts) {
+      const scale = Math.min(1, attempt.maxDim / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+      const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+      const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) throw new Error('Canvas недоступен');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      best = canvas.toDataURL('image/jpeg', attempt.quality);
+      if (best.length <= maxDataUrlChars) return best;
+    }
+    throw Object.assign(new Error('Изображение слишком велико после сжатия'), { code: 'attachment/too-large' });
   } finally {
-    pendingAttachmentUploading = false;
+    URL.revokeObjectURL(sourceUrl);
   }
 }
 
@@ -2132,7 +2162,7 @@ window.handleSendMessage = async function(e) {
   if (pendingAttachmentUploading) return false;
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
-  const hasAttachment = !!pendingAttachmentFile || !!pendingAttachmentUrl;
+  const hasAttachment = !!pendingAttachmentFile || !!pendingAttachmentUrl || !!pendingAttachmentDataUrl;
 
   if ((!text && !hasAttachment) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
@@ -2140,10 +2170,15 @@ window.handleSendMessage = async function(e) {
 
   try {
     let attachmentUrl = pendingAttachmentUrl || null;
-    if (pendingAttachmentFile) {
-      attachmentUrl = await novaUploadAttachmentFile(pendingAttachmentFile);
+    let attachmentDataUrl = pendingAttachmentDataUrl || null;
+    let attachmentName = pendingAttachmentFile?.name || null;
+    if (pendingAttachmentFile && !attachmentDataUrl) {
+      if (attachmentUrlText) attachmentUrlText.textContent = `Подготавливаю ${pendingAttachmentFile.name || 'изображение'}…`;
+      attachmentDataUrl = await novaPrepareImageForFirebase(pendingAttachmentFile);
+      pendingAttachmentDataUrl = attachmentDataUrl;
+      if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${pendingAttachmentFile.name || 'изображение'} готово`;
     }
-    await novaSendMessagePayload({ text, attachmentUrl });
+    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName });
     return false;
   } catch (err) {
     console.error('Attachment upload failed:', err);
@@ -2153,9 +2188,9 @@ window.handleSendMessage = async function(e) {
   }
 };
 
-async function novaSendMessagePayload({ text = '', attachmentUrl = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
+async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
   const cleanText = String(text || '').trim();
-  if ((!cleanText && !attachmentUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
+  if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
   }
 
@@ -2171,6 +2206,8 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, voiceUr
     authorName: currentUser.nickname,
     text: cleanText,
     attachmentUrl: attachmentUrl || null,
+    attachmentDataUrl: attachmentDataUrl || null,
+    attachmentName: attachmentName || null,
     voiceUrl: voiceUrl || null,
     voiceDataUrl: voiceDataUrl || null,
     voiceDuration: Math.max(0, Math.round(voiceDuration || 0)),
@@ -2182,6 +2219,7 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, voiceUr
 
   activeReplyMessage = null;
   pendingAttachmentUrl = '';
+  pendingAttachmentDataUrl = '';
   pendingAttachmentFile = null;
   pendingAttachmentUploading = false;
   if (attachmentFileInput) attachmentFileInput.value = '';
@@ -3295,6 +3333,105 @@ window.deleteCurrentServer = async function() {
   renderServers();
 };
 
+
+function novaFormatAudioClock(seconds) {
+  const s = Math.max(0, Number.isFinite(seconds) ? Math.floor(seconds) : 0);
+  const mins = Math.floor(s / 60);
+  const secs = String(s % 60).padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+let novaActiveVoiceAudio = null;
+
+function novaInitVoicePlayers(root = document) {
+  root.querySelectorAll?.('[data-nova-voice-player]').forEach(card => {
+    if (card.dataset.novaVoiceBound === '1') return;
+    const audio = card.querySelector('.nova-voice-audio');
+    const play = card.querySelector('[data-nova-voice-play]');
+    const track = card.querySelector('[data-nova-voice-track]');
+    const progress = card.querySelector('[data-nova-voice-progress]');
+    const current = card.querySelector('[data-nova-voice-current]');
+    const total = card.querySelector('.nova-voice-total');
+    if (!audio || !play || !track || !progress || !current || !total) return;
+    card.dataset.novaVoiceBound = '1';
+
+    const sync = () => {
+      const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+      const ratio = duration ? Math.min(1, Math.max(0, audio.currentTime / duration)) : 0;
+      progress.style.width = `${ratio * 100}%`;
+      current.textContent = novaFormatAudioClock(audio.currentTime);
+      if (duration > 0) total.textContent = novaFormatAudioClock(duration);
+      track.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+      play.textContent = audio.paused ? '▶' : '❚❚';
+      card.classList.toggle('is-playing', !audio.paused);
+    };
+
+    audio.addEventListener('loadedmetadata', sync);
+    audio.addEventListener('durationchange', sync);
+    audio.addEventListener('timeupdate', sync);
+    audio.addEventListener('play', () => {
+      if (novaActiveVoiceAudio && novaActiveVoiceAudio !== audio) {
+        try { novaActiveVoiceAudio.pause(); } catch (e) {}
+      }
+      novaActiveVoiceAudio = audio;
+      sync();
+    });
+    audio.addEventListener('pause', sync);
+    audio.addEventListener('ended', () => {
+      if (novaActiveVoiceAudio === audio) novaActiveVoiceAudio = null;
+      audio.currentTime = 0;
+      sync();
+    });
+    audio.addEventListener('error', () => card.classList.add('is-error'));
+
+    play.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (audio.paused) {
+        const promise = audio.play();
+        if (promise?.catch) promise.catch(() => card.classList.add('is-error'));
+      } else {
+        audio.pause();
+      }
+    });
+
+    track.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = track.getBoundingClientRect();
+      const ratio = rect.width ? Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) : 0;
+      if (Number.isFinite(audio.duration) && audio.duration > 0) audio.currentTime = audio.duration * ratio;
+    });
+
+    sync();
+  });
+}
+
+novaInitVoicePlayers(document);
+
+
+// Safe bridge for legacy/non-module Stage 4 helpers.
+// State is exposed through getters so the classic Stage 4 script always sees live module values.
+Object.defineProperties(window, {
+  currentUser: { configurable: true, get: () => currentUser },
+  currentView: { configurable: true, get: () => currentView },
+  currentServerId: { configurable: true, get: () => currentServerId },
+  currentChannelId: { configurable: true, get: () => currentChannelId },
+  currentDmUserId: { configurable: true, get: () => currentDmUserId },
+  activeVoiceChannelId: { configurable: true, get: () => activeVoiceChannelId },
+  serversData: { configurable: true, get: () => serversData },
+  channelsData: { configurable: true, get: () => channelsData },
+  messagesData: { configurable: true, get: () => messagesData },
+  usersData: { configurable: true, get: () => usersData }
+});
+Object.assign(window, {
+  showContextMenu, hideContextMenu, openDirectMessage, copyTextSilently,
+  renderServers, renderChannels, renderMembersSidebar, renderDirectMessagesList,
+  showToast, connectVoiceChannel, vcNameById, getMemberRole,
+  hasServerPermission, isServerManager, isServerOwner,
+  setReplyMessage, updateUserProfileDisplay, syncUserProfileCloud
+});
+
 // Module-scope aliases for handlers exposed on window.
 // In <script type="module"> bare names like openModal() do not resolve from window.openModal.
 const handleLogin = window.handleLogin;
@@ -3327,18 +3464,42 @@ initAuth();
     border-radius: 14px;
     padding: 8px 10px;
   }
-  .nova-voice-message audio { width: min(310px, 100%); height: 38px; }
+  .nova-voice-message{display:flex;align-items:center;gap:12px;width:min(430px,100%);padding:10px 12px;background:linear-gradient(135deg,#22242a,#1d1f24);border:1px solid rgba(148,155,164,.18);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+  .nova-voice-play{width:40px;height:40px;flex:0 0 40px;border:0;border-radius:50%;background:#5865f2;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s ease,background .15s ease;box-shadow:0 5px 16px rgba(88,101,242,.30)}
+  .nova-voice-play:hover{background:#4752c4;transform:scale(1.04)}
+  .nova-voice-message.is-playing .nova-voice-play{background:#7c5cff}
+  .nova-voice-main{min-width:0;flex:1}
+  .nova-voice-head,.nova-voice-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .nova-voice-label{font-size:11px;font-weight:700;color:#f3f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nova-voice-total,.nova-voice-current,.nova-voice-kind{font-size:10px;color:#949ba4;font-variant-numeric:tabular-nums}
+  .nova-voice-track{position:relative;height:24px;margin:2px 0;border:0;padding:0;width:100%;background:transparent;cursor:pointer;overflow:hidden;border-radius:7px}
+  .nova-voice-bars{position:absolute;inset:0;display:flex;align-items:center;gap:2px;padding:0 1px}
+  .nova-voice-bars i{display:block;flex:1;min-width:2px;height:7px;border-radius:99px;background:#4f535d;opacity:.95;transition:background .1s linear}
+  .nova-voice-bars i:nth-child(3n){height:11px}.nova-voice-bars i:nth-child(5n){height:15px}.nova-voice-bars i:nth-child(7n){height:9px}.nova-voice-bars i:nth-child(11n){height:13px}
+  .nova-voice-progress{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#5865f2,#8ea0ff);opacity:.92;mix-blend-mode:screen;border-radius:7px;pointer-events:none}
+  .nova-voice-bottom{padding-top:1px}
+  .nova-voice-message .nova-voice-audio{display:none}
+  .nova-voice-message.is-error{border-color:rgba(242,63,67,.55)}
+  .nova-image-attachment img{display:block}
   .nova-voice-duration { min-width: 36px; text-align: right; font-size: 11px; color: #949ba4; }
   #voice-recording-bar { min-width: min(520px, calc(100vw - 24px)); }
   .nova-recording-waveform{height:38px;display:flex;align-items:center;gap:2px;width:100%;margin-top:5px;overflow:hidden}
   .nova-wave-bar{display:block;flex:1;min-width:2px;height:4px;border-radius:999px;background:linear-gradient(to top,#5865f2,#8ea0ff);opacity:.6;transition:height .06s linear,opacity .06s linear}
 
-  /* Light theme: replace fixed dark custom surfaces with readable light cards. */
-  html:not(.dark) .nova-voice-message{background:#f3f4f6;border-color:#d1d5db;box-shadow:0 5px 16px rgba(15,23,42,.10);}
-  html:not(.dark) .nova-voice-message .nova-voice-duration{color:#4b5563}
-  html:not(.dark) .context-menu{background:rgba(255,255,255,.98);border-color:#d1d5db;box-shadow:0 18px 50px rgba(15,23,42,.18)}
+  /* Light theme: readable custom surfaces instead of dark blocks. */
+  html:not(.dark) .nova-voice-message{background:linear-gradient(135deg,#ffffff,#f4f6fb);border-color:#d6dbe7;box-shadow:0 8px 24px rgba(15,23,42,.10)}
+  html:not(.dark) .nova-voice-bars i{background:#cbd5e1}
+  html:not(.dark) .nova-voice-progress{mix-blend-mode:multiply;opacity:.9}
+  html:not(.dark) .nova-image-attachment{background:#f8fafc;border-color:#d6dbe7!important}
+  html:not(.dark) .nova-voice-label{color:#1f2937}
+  html:not(.dark) .nova-voice-total,html:not(.dark) .nova-voice-current,html:not(.dark) .nova-voice-kind{color:#64748b}
+  html:not(.dark) .nova-voice-track{background:#e5e7eb}
+  html:not(.dark) .nova-voice-bars i{background:#aeb7c8}
+  html:not(.dark) .nova-voice-play{background:#eef2ff;color:#5865f2}
+  html:not(.dark) .nova-voice-play:hover{background:#e0e7ff}
+  html:not(.dark) .context-menu{background:#ffffff;border-color:#d7dce6;box-shadow:0 18px 50px rgba(15,23,42,.18)}
   html:not(.dark) .context-menu-item{color:#374151}
-  html:not(.dark) .context-menu-item:hover{background:#e8edff;color:#111827}
+  html:not(.dark) .context-menu-item:hover{background:#edf2ff;color:#111827}
   html:not(.dark) .context-menu-item.danger{color:#dc2626}
   html:not(.dark) .context-menu-item.danger:hover{background:#fee2e2;color:#991b1b}
   html:not(.dark) .context-menu-sep{background:#e5e7eb}
@@ -3347,6 +3508,13 @@ initAuth();
   html:not(.dark) .nova-profile-action:hover{background:#eef2ff;border-color:rgba(88,101,242,.45);color:#111827}
   html:not(.dark) #nova-profile-close{background:rgba(255,255,255,.78);color:#374151}
   html:not(.dark) #nova-profile-close:hover{background:#fff;color:#111827}
+  html:not(.dark) .bg-black\/20,html:not(.dark) .bg-black\/30,html:not(.dark) .bg-black\/40{background-color:rgba(226,232,240,.72)!important}
+  html:not(.dark) .bg-discord-rail{background-color:#e7eaf0!important}
+  html:not(.dark) .bg-discord-surface{background-color:#f4f6f9!important}
+  html:not(.dark) .bg-discord-bg{background-color:#ffffff!important}
+  html:not(.dark) .border-gray-700\/50,html:not(.dark) .border-gray-700\/60,html:not(.dark) .border-gray-800\/40,html:not(.dark) .border-gray-800\/50,html:not(.dark) .border-gray-800\/60{border-color:#dce1ea!important}
+  html:not(.dark) .text-white{color:#111827!important}
+  html:not(.dark) .text-gray-200,html:not(.dark) .text-gray-100{color:#374151!important}
 
 </style>
 <!-- NOVA_STAGE4_PROFILE_CONTEXT_PATCH -->
