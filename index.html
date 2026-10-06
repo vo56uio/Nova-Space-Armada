@@ -234,6 +234,10 @@
             ✕
           </button>
         </div>
+        <div id="nova-voice-stats" class="mt-2 rounded-lg border border-emerald-500/15 bg-black/10 px-2 py-1.5 text-[10px] leading-4 text-discord-muted">
+          <div id="nova-voice-stats-line">Mesh: ожидание статистики...</div>
+          <div id="nova-voice-stats-detail" class="opacity-80">TX — · RX — · соединений 0</div>
+        </div>
         <div class="flex items-center justify-around pt-1 text-xs text-discord-muted">
           <button id="btn-toggle-mic" class="hover:text-white flex items-center gap-1">
             <span id="mic-icon">🎙️</span> <span id="mic-text">Микрофон</span>
@@ -3629,6 +3633,7 @@ let novaCallLastStats = null;
 
 // ===== Nova server voice mesh (multi-user audio) =====
 let novaVoiceMesh = null;
+let novaVoiceMeshStatsTimer = null;
 
 function novaVoiceMeshIceServers() {
   return [
@@ -3644,6 +3649,102 @@ function novaVoiceMeshRoomId(serverId, channelId) {
 function novaVoiceMeshGetAudio(uid) {
   if (!uid) return null;
   return Array.from(document.querySelectorAll('audio[data-nova-voice-audio]')).find(a => a.dataset.novaVoiceAudio === uid) || null;
+}
+
+async function novaVoiceMeshCollectStats() {
+  const mesh = novaVoiceMesh;
+  if (!mesh) return;
+  let totalTxBytes = 0;
+  let totalRxBytes = 0;
+  let totalTxPackets = 0;
+  let totalRxPackets = 0;
+  let totalLost = 0;
+  let connected = 0;
+  let checking = 0;
+  let failed = 0;
+  const perPeer = [];
+
+  for (const [uid, peer] of mesh.peers) {
+    const pc = peer?.pc;
+    if (!pc) continue;
+    const state = pc.connectionState || pc.iceConnectionState || '—';
+    if (state === 'connected') connected++;
+    else if (state === 'connecting' || state === 'checking') checking++;
+    else if (state === 'failed' || state === 'disconnected') failed++;
+
+    let outAudio = null;
+    let inAudio = null;
+    let pair = null;
+
+    try {
+      const report = await pc.getStats();
+      report.forEach(stat => {
+        if (stat.type === 'outbound-rtp' && stat.kind === 'audio' && !stat.isRemote) outAudio = stat;
+        if (stat.type === 'inbound-rtp' && stat.kind === 'audio' && !stat.isRemote) inAudio = stat;
+        if (stat.type === 'candidate-pair' && (stat.state === 'succeeded' || stat.nominated) && !pair) pair = stat;
+      });
+    } catch (e) {
+      console.warn('[Nova voice mesh getStats] failed for peer', uid, e);
+    }
+
+    const txBytes = Number(outAudio?.bytesSent || 0);
+    const rxBytes = Number(inAudio?.bytesReceived || 0);
+    const txPackets = Number(outAudio?.packetsSent || 0);
+    const rxPackets = Number(inAudio?.packetsReceived || 0);
+    const lost = Number(inAudio?.packetsLost || 0);
+
+    totalTxBytes += txBytes;
+    totalRxBytes += rxBytes;
+    totalTxPackets += txPackets;
+    totalRxPackets += rxPackets;
+    totalLost += lost;
+
+    perPeer.push({
+      uid,
+      connectionState: pc.connectionState,
+      iceConnectionState: pc.iceConnectionState,
+      outboundAudio: outAudio ? { packetsSent: txPackets, bytesSent: txBytes } : null,
+      inboundAudio: inAudio ? { packetsReceived: rxPackets, bytesReceived: rxBytes, packetsLost: lost, jitter: inAudio.jitter || 0 } : null,
+      candidatePair: pair ? { state: pair.state, nominated: !!pair.nominated, rtt: pair.currentRoundTripTime || 0 } : null
+    });
+  }
+
+  const line = document.getElementById('nova-voice-stats-line');
+  const detail = document.getElementById('nova-voice-stats-detail');
+
+  const peerCount = mesh.peers.size;
+  if (line) {
+    line.textContent = 'Mesh: ' + connected + ' connected · ' + checking + ' checking · ' + failed + ' failed · peers ' + peerCount;
+  }
+  if (detail) {
+    detail.textContent =
+      'TX ' + totalTxPackets + ' pkt / ' + totalTxBytes + ' B · RX ' + totalRxPackets + ' pkt / ' + totalRxBytes +
+      ' B · loss ' + totalLost;
+  }
+
+  console.debug('[Nova voice mesh getStats]', {
+    roomId: mesh.roomId,
+    localStreamTracks: mesh.localStream?.getAudioTracks?.().length || 0,
+    peers: peerCount,
+    connected,
+    checking,
+    failed,
+    totalOutboundAudio: { packetsSent: totalTxPackets, bytesSent: totalTxBytes },
+    totalInboundAudio: { packetsReceived: totalRxPackets, bytesReceived: totalRxBytes, packetsLost: totalLost },
+    perPeer
+  });
+}
+
+function novaVoiceMeshStartStatsMonitor() {
+  clearInterval(novaVoiceMeshStatsTimer);
+  novaVoiceMeshStatsTimer = null;
+  novaVoiceMeshCollectStats();
+  novaVoiceMeshStatsTimer = setInterval(novaVoiceMeshCollectStats, 1000);
+}
+
+function novaVoiceMeshStopStatsMonitor() {
+  clearInterval(novaVoiceMeshStatsTimer);
+  novaVoiceMeshStatsTimer = null;
 }
 
 function novaVoiceMeshCreateAudio(uid, stream) {
@@ -3880,9 +3981,11 @@ function novaVoiceMeshStart(serverId, channelId, localStream) {
   };
   novaVoiceMeshListenSignals();
   novaVoiceMeshSyncParticipants();
+  novaVoiceMeshStartStatsMonitor();
 }
 
 function novaVoiceMeshStop() {
+  novaVoiceMeshStopStatsMonitor();
   const mesh = novaVoiceMesh;
   if (!mesh) return;
   if (mesh.signalUnsub) {
@@ -3896,6 +3999,8 @@ function novaVoiceMeshStop() {
   }
   try { mesh.localStream?.getTracks?.().forEach(track => track.stop()); } catch (e) {}
   novaVoiceMesh = null;
+  document.getElementById('nova-voice-stats-line')?.replaceChildren(document.createTextNode('Mesh: ожидание статистики...'));
+  document.getElementById('nova-voice-stats-detail')?.replaceChildren(document.createTextNode('TX — · RX — · соединений 0'));
 }
 
 function novaCallPeer(uid) {
