@@ -3851,7 +3851,7 @@ async function novaCallStart(peerUid) {
   if (!peer) { showToast('Пользователь не найден.', true); return; }
   try {
     novaCallPrimeRemoteAudio();
-    const stream = await novaCallCreateLocalStream(); if (audioStatus) audioStatus.textContent = 'Микрофон: готов · Собеседник: ожидание аудио';
+    const stream = await novaCallCreateLocalStream();
     const audioStatus = document.getElementById('nova-call-audio-status'); if (audioStatus) audioStatus.textContent = 'Микрофон: готов · Собеседник: ожидание аудио';
     const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const pc = novaCallCreatePeerConnection(callId, 'caller');
