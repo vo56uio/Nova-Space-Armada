@@ -342,7 +342,7 @@
       <div class="nova-call-card relative w-[min(420px,calc(100vw-24px))] rounded-3xl border p-6 shadow-2xl text-center">
         <div id="nova-call-active-avatar" class="nova-call-avatar w-20 h-20 mx-auto rounded-full bg-discord-accent flex items-center justify-center text-white text-3xl font-bold shadow-xl">V</div>
         <div id="nova-call-active-name" class="mt-4 text-xl font-bold">Пользователь</div>
-        <div id="nova-call-active-status" class="mt-1 text-sm opacity-70">Вызов...</div><div id="nova-call-mode" class="mt-2 text-[11px] opacity-60"></div><div id="nova-call-audio-status" class="mt-2 text-[11px] opacity-70">Микрофон: проверка · Собеседник: ожидание аудио</div>
+        <div id="nova-call-active-status" class="mt-1 text-sm opacity-70">Вызов...</div><div id="nova-call-mode" class="mt-2 text-[11px] opacity-60"></div><div id="nova-call-audio-status" class="mt-2 text-[11px] opacity-70">Микрофон: проверка · Собеседник: ожидание аудио</div><div id="nova-call-stats" class="mt-3 mx-auto max-w-sm text-left text-[10px] leading-4 rounded-xl px-3 py-2 nova-call-stats"><div class="font-bold mb-1">Диагностика WebRTC</div><div id="nova-call-stats-line">Ожидание статистики...</div><div id="nova-call-stats-detail" class="opacity-70 mt-1">Аудио TX/RX: —</div></div>
         <div class="mt-6 flex items-center justify-center gap-3">
           <button id="nova-call-toggle-mic" type="button" class="nova-call-control w-12 h-12 rounded-full flex items-center justify-center text-lg" title="Выключить микрофон">🎙️</button>
           <button id="nova-call-end" type="button" class="nova-call-end w-14 h-14 rounded-full flex items-center justify-center text-xl" title="Завершить звонок">✕</button>
@@ -3586,6 +3586,8 @@ let novaSignalUnsub = null;
 let novaCallProcessedSignals = new Set();
 let novaCallPendingCandidates = [];
 let novaCallRingtoneTimer = null;
+let novaCallStatsTimer = null;
+let novaCallLastStats = null;
 
 function novaCallPeer(uid) {
   if (uid === currentUser?.uid) return null;
@@ -3620,6 +3622,8 @@ function novaCallShowActive(name, status = 'Вызов...') {
   document.getElementById('nova-call-active-avatar').textContent = novaCallInitial(name);
   document.getElementById('nova-call-active-name').textContent = name || 'Пользователь';
   document.getElementById('nova-call-active-status').textContent = status;
+  document.getElementById('nova-call-stats-line')?.replaceChildren(document.createTextNode('Ожидание статистики...'));
+  document.getElementById('nova-call-stats-detail')?.replaceChildren(document.createTextNode('Аудио TX/RX: —'));
   const mode = document.getElementById('nova-call-mode');
   if (mode) mode.textContent = `📞 Личный звонок · ${name || 'собеседник'}`;
   panel.classList.remove('hidden');
@@ -3629,6 +3633,91 @@ function novaCallShowActive(name, status = 'Вызов...') {
 function novaCallSetStatus(status) {
   const el = document.getElementById('nova-call-active-status');
   if (el) el.textContent = status;
+}
+async function novaCallCollectStats() {
+  const state = novaCallState;
+  if (!state?.pc) return;
+  try {
+    const report = await state.pc.getStats();
+    let outAudio = null;
+    let inAudio = null;
+    let remoteIn = null;
+    let selectedPair = null;
+    let audioCodec = null;
+
+    report.forEach(stat => {
+      if (stat.type === 'outbound-rtp' && stat.kind === 'audio' && !stat.isRemote) outAudio = stat;
+      if (stat.type === 'inbound-rtp' && stat.kind === 'audio' && !stat.isRemote) inAudio = stat;
+      if (stat.type === 'remote-inbound-rtp' && stat.kind === 'audio') remoteIn = stat;
+      if (stat.type === 'candidate-pair' && (stat.state === 'succeeded' || stat.nominated) && !selectedPair) selectedPair = stat;
+      if (stat.type === 'codec' && stat.mimeType && String(stat.mimeType).toLowerCase().startsWith('audio/')) audioCodec = stat;
+    });
+
+    const sender = state.pc.getSenders().find(x => x.track?.kind === 'audio');
+    const receiver = state.pc.getReceivers().find(x => x.track?.kind === 'audio');
+    const micState = sender?.track ? (sender.track.enabled ? 'вкл' : 'выкл') : 'нет';
+    const remoteTrackState = receiver?.track ? receiver.track.readyState : 'нет';
+
+    const sentBytes = Number(outAudio?.bytesSent || 0);
+    const recvBytes = Number(inAudio?.bytesReceived || 0);
+    const sentPackets = Number(outAudio?.packetsSent || 0);
+    const recvPackets = Number(inAudio?.packetsReceived || 0);
+    const lostPackets = Number(inAudio?.packetsLost || 0);
+    const rtt = Number(selectedPair?.currentRoundTripTime || remoteIn?.roundTripTime || 0);
+
+    let txDelta = '—';
+    let rxDelta = '—';
+    if (novaCallLastStats) {
+      txDelta = String(Math.max(0, sentBytes - novaCallLastStats.sentBytes));
+      rxDelta = String(Math.max(0, recvBytes - novaCallLastStats.recvBytes));
+    }
+    novaCallLastStats = { sentBytes, recvBytes };
+
+    const line = document.getElementById('nova-call-stats-line');
+    const detail = document.getElementById('nova-call-stats-detail');
+    if (line) {
+      const network = selectedPair?.state || state.pc.iceConnectionState || state.pc.connectionState || '—';
+      const codec = audioCodec?.mimeType || 'codec: —';
+      line.textContent = 'Сеть: ' + network + ' · Микрофон: ' + micState + ' · Собеседник: ' + remoteTrackState;
+      if (detail) detail.textContent = 'TX ' + sentPackets + ' пакетов / ' + sentBytes + ' B · RX ' + recvPackets + ' пакетов / ' + recvBytes + ' B · ΔTX ' + txDelta + ' B/s · ΔRX ' + rxDelta + ' B/s · loss ' + lostPackets + ' · RTT ' + (rtt ? Math.round(rtt * 1000) + ' ms' : '—') + ' · ' + codec;
+    }
+
+    const audioStatus = document.getElementById('nova-call-audio-status');
+    if (audioStatus) {
+      const hasRx = recvBytes > 0 || recvPackets > 0;
+      const hasTx = sentBytes > 0 || sentPackets > 0;
+      if (hasRx && hasTx) audioStatus.textContent = 'Микрофон: отправляет · Собеседник: аудио получено';
+      else if (hasTx) audioStatus.textContent = 'Микрофон: отправляет · Собеседник: аудио пока не пришло';
+      else if (hasRx) audioStatus.textContent = 'Микрофон: данные не отправляются · Собеседник: аудио получено';
+    }
+
+    console.debug('[Nova WebRTC getStats]', {
+      connectionState: state.pc.connectionState,
+      iceConnectionState: state.pc.iceConnectionState,
+      micTrack: micState,
+      remoteTrack: remoteTrackState,
+      outboundAudio: outAudio ? { packetsSent: sentPackets, bytesSent: sentBytes, codecId: outAudio.codecId || null } : null,
+      inboundAudio: inAudio ? { packetsReceived: recvPackets, bytesReceived: recvBytes, packetsLost: lostPackets, jitter: inAudio.jitter || 0 } : null,
+      remoteInboundAudio: remoteIn ? { packetsReceived: remoteIn.packetsReceived || 0, bytesReceived: remoteIn.bytesReceived || 0, roundTripTime: remoteIn.roundTripTime || 0 } : null,
+      candidatePair: selectedPair ? { state: selectedPair.state, nominated: !!selectedPair.nominated, currentRoundTripTime: selectedPair.currentRoundTripTime || 0, availableOutgoingBitrate: selectedPair.availableOutgoingBitrate || 0 } : null
+    });
+  } catch (e) {
+    console.warn('WebRTC getStats failed:', e);
+  }
+}
+
+function novaStartStatsMonitor() {
+  clearInterval(novaCallStatsTimer);
+  novaCallStatsTimer = null;
+  novaCallLastStats = null;
+  novaCallCollectStats();
+  novaCallStatsTimer = setInterval(novaCallCollectStats, 1000);
+}
+
+function novaStopStatsMonitor() {
+  clearInterval(novaCallStatsTimer);
+  novaCallStatsTimer = null;
+  novaCallLastStats = null;
 }
 function novaCallPrimeRemoteAudio() {
   const audio = document.getElementById('nova-call-remote-audio');
@@ -3770,6 +3859,7 @@ async function novaCallStart(peerUid) {
     novaCallState = { callId, role:'caller', peerUid, peerName:peer.nickname || 'Пользователь', pc, localStream:stream, muted:false, answerApplied:false, startedAt:Date.now() };
     await novaCallListenSignals();
     novaCallShowActive(novaCallState.peerName, 'Вызов...');
+    novaStartStatsMonitor();
     await pc.setLocalDescription(await pc.createOffer({ offerToReceiveAudio:true }));
     await setDoc(doc(COLLECTION_CALLS, callId), {
       id:callId, callerUid:currentUser.uid, calleeUid:peerUid,
@@ -3820,6 +3910,7 @@ async function novaCallAccept() {
       updatedAt:Date.now()
     }, { merge:true });
     novaCallShowActive(novaCallState.peerName, 'Соединение...');
+    novaStartStatsMonitor();
   } catch (err) {
     console.error('Call accept failed:', err);
     showToast(err?.name === 'NotAllowedError' ? 'Доступ к микрофону запрещён.' : (err?.message || 'Не удалось принять звонок.'), true);
@@ -3837,6 +3928,7 @@ async function novaCallEnd(silent=false, reason='Звонок завершён')
   const active = novaCallState;
   novaCallHideIncoming();
   if (!active) { if (!silent) showToast(reason); return; }
+  novaStopStatsMonitor();
   novaCallState = null;
   novaCallPendingCandidates = [];
   novaCallProcessedSignals = new Set();
@@ -3965,6 +4057,11 @@ novaInitCallSystem();
 novaInitVoicePresenceSystem();
 initAuth();
 </script>
+
+<style id="NOVA_AUDIO_CALL_STATS_CSS">
+  .nova-call-stats{background:rgba(0,0,0,.12);border:1px solid rgba(148,155,164,.16)}
+  html:not(.dark) .nova-call-stats{background:#f8fafc;border-color:#dfe4ec}
+</style>
 
 <style id="NOVA_AUDIO_CALL_CSS">
   .nova-call-control{background:rgba(88,101,242,.16);border:1px solid rgba(88,101,242,.35);color:#fff;transition:.15s ease}
