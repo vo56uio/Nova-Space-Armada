@@ -787,7 +787,8 @@ let isMuted = false;
 let isDeafened = false;
 
 let activeReplyMessage = null;
-let pendingAttachmentUrl = '';
+window.novaPendingAttachmentUrl = '';
+window.novaPendingAttachmentDataUrl = '';
 let pendingAttachmentFile = null;
 let pendingAttachmentUploading = false;
 let messageSearchQuery = '';
@@ -2070,8 +2071,8 @@ const attachmentPreviewBar = document.getElementById('attachment-preview-bar');
 const attachmentUrlText = document.getElementById('attachment-url-text');
 
 function novaClearPendingAttachment() {
-  pendingAttachmentUrl = '';
-  pendingAttachmentDataUrl = '';
+  window.novaPendingAttachmentUrl = '';
+  window.novaPendingAttachmentDataUrl = '';
   pendingAttachmentFile = null;
   pendingAttachmentUploading = false;
   if (attachmentFileInput) attachmentFileInput.value = '';
@@ -2091,7 +2092,7 @@ function novaShowAttachmentSelection(file) {
     return;
   }
   pendingAttachmentFile = file;
-  pendingAttachmentUrl = '';
+  window.novaPendingAttachmentUrl = '';
   pendingAttachmentUploading = false;
   if (attachmentUrlText) {
     const sizeMb = Math.max(0.1, file.size / 1024 / 1024).toFixed(1);
@@ -2162,20 +2163,20 @@ window.handleSendMessage = async function(e) {
   if (pendingAttachmentUploading) return false;
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
-  const hasAttachment = !!pendingAttachmentFile || !!pendingAttachmentUrl || !!pendingAttachmentDataUrl;
+  const hasAttachment = !!pendingAttachmentFile || !!window.novaPendingAttachmentUrl || !!window.novaPendingAttachmentDataUrl;
 
   if ((!text && !hasAttachment) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
   }
 
   try {
-    let attachmentUrl = pendingAttachmentUrl || null;
-    let attachmentDataUrl = pendingAttachmentDataUrl || null;
+    let attachmentUrl = window.novaPendingAttachmentUrl || null;
+    let attachmentDataUrl = window.novaPendingAttachmentDataUrl || null;
     let attachmentName = pendingAttachmentFile?.name || null;
     if (pendingAttachmentFile && !attachmentDataUrl) {
       if (attachmentUrlText) attachmentUrlText.textContent = `Подготавливаю ${pendingAttachmentFile.name || 'изображение'}…`;
       attachmentDataUrl = await novaPrepareImageForFirebase(pendingAttachmentFile);
-      pendingAttachmentDataUrl = attachmentDataUrl;
+      window.novaPendingAttachmentDataUrl = attachmentDataUrl;
       if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${pendingAttachmentFile.name || 'изображение'} готово`;
     }
     await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName });
@@ -2218,8 +2219,8 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
   };
 
   activeReplyMessage = null;
-  pendingAttachmentUrl = '';
-  pendingAttachmentDataUrl = '';
+  window.novaPendingAttachmentUrl = '';
+  window.novaPendingAttachmentDataUrl = '';
   pendingAttachmentFile = null;
   pendingAttachmentUploading = false;
   if (attachmentFileInput) attachmentFileInput.value = '';
