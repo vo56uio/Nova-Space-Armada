@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Discord Web Chat — Ultimate Edition</title>
+<title>Nova Space Armada — Web Chat</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -3675,6 +3675,67 @@ initAuth();
   html:not(.dark) .nova-profile-avatar { border-color:#ffffff !important; }
 </style>
 <!-- /NOVA_LIGHT_THEME_POLISH_V5 -->
+
+
+<!-- NOVA_UI_POLISH_V6 -->
+<style id="NOVA_UI_POLISH_V6">
+  #app-shell{background:#313338}
+  #app-shell main{background:#313338}
+  #app-shell aside{transition:background-color .2s ease,border-color .2s ease}
+  #app-shell header{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+
+  #server-rail-list button[data-server-id]{box-shadow:0 4px 14px rgba(0,0,0,.08);transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease,border-radius .16s ease}
+  #server-rail-list button[data-server-id]:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(0,0,0,.16)}
+
+  #channel-list button,#voice-channel-list button,#dm-user-list button{transition:background-color .14s ease,color .14s ease,transform .14s ease}
+  #channel-list button:hover,#voice-channel-list button:hover,#dm-user-list button:hover{transform:translateX(1px)}
+  #channel-list button[class~="bg-discord-hover"],#voice-channel-list button[class~="bg-discord-hover"],#dm-user-list button[class~="bg-discord-hover"]{box-shadow:inset 3px 0 0 #5865F2}
+
+  #message-feed{scroll-behavior:smooth}
+  #message-feed [data-message-id]{transition:background-color .14s ease,box-shadow .14s ease}
+  #message-feed [data-message-id]:hover{background-color:rgba(43,45,49,.34)}
+
+  #chat-form{background:rgba(49,51,56,.94);box-shadow:0 -10px 28px rgba(0,0,0,.08)}
+  #chat-input{box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 2px 10px rgba(0,0,0,.06)}
+  #chat-input:focus{box-shadow:0 0 0 3px rgba(88,101,242,.12),inset 0 1px 0 rgba(255,255,255,.03)}
+  #btn-attach-file,#btn-voice-record,#btn-emoji{transition:transform .14s ease,background-color .14s ease,color .14s ease}
+  #btn-attach-file:hover,#btn-voice-record:hover,#btn-emoji:hover{transform:translateY(-1px)}
+
+  #attachment-preview-bar{box-shadow:0 -4px 14px rgba(0,0,0,.04)}
+  #attachment-url-text{max-width:min(70vw,560px)}
+
+  .nova-image-attachment{position:relative;background:#1e1f22;box-shadow:0 10px 26px rgba(0,0,0,.12);transition:transform .16s ease,box-shadow .16s ease}
+  .nova-image-attachment:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(0,0,0,.16)}
+  .nova-image-attachment img{max-width:100%;border-radius:inherit}
+
+  #members-list-content [data-member-uid]{transition:background-color .14s ease,transform .14s ease}
+  #members-list-content [data-member-uid]:hover{transform:translateX(1px)}
+
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid rgba(88,101,242,.75);outline-offset:2px}
+
+  html:not(.dark) #app-shell{background:#f4f6f9}
+  html:not(.dark) #app-shell main{background:#ffffff}
+  html:not(.dark) #app-shell header{background:rgba(255,255,255,.92)!important;border-color:#dfe4ec!important}
+  html:not(.dark) #chat-form{background:rgba(244,246,249,.96)!important;box-shadow:0 -10px 28px rgba(15,23,42,.06)}
+  html:not(.dark) #message-feed [data-message-id]:hover{background:rgba(226,232,240,.38)}
+  html:not(.dark) #chat-input{box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 2px 10px rgba(15,23,42,.05)}
+  html:not(.dark) #attachment-preview-bar{background:#f8fafc!important;border-color:#dfe4ec!important}
+  html:not(.dark) .nova-image-attachment{background:#f8fafc;box-shadow:0 10px 26px rgba(15,23,42,.08)}
+  html:not(.dark) #server-rail-list button[data-server-id]{box-shadow:0 4px 14px rgba(15,23,42,.08)}
+  html:not(.dark) #server-rail-list button[data-server-id]:hover{box-shadow:0 7px 18px rgba(15,23,42,.12)}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  }
+
+  @media (max-width:640px){
+    #message-feed{padding:12px}
+    #chat-form{padding:10px}
+    #attachment-url-text{max-width:58vw}
+    .nova-voice-message{max-width:100%}
+  }
+</style>
+<!-- /NOVA_UI_POLISH_V6 -->
 
 </body>
 </html>
