@@ -694,6 +694,11 @@
             <input id="input-account-nickname" type="text" maxlength="24" required class="w-full bg-discord-surface border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent" placeholder="Ваш никнейм">
             <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl transition">Сохранить никнейм</button>
           </form>
+          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-3">
+            <div class="font-bold text-white">Техническая поддержка</div>
+            <p class="text-xs text-discord-muted">Если что-то сломалось или есть предложение — напишите напрямую в ЛС разработчику.</p>
+            <button id="btn-contact-support" type="button" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl transition">🛠️ Написать техподдержке</button>
+          </div>
         </section>
 
         <section id="account-settings-panel-security" class="account-settings-panel space-y-4 hidden">
@@ -1516,6 +1521,7 @@ function renderServers() {
   rail.innerHTML = myServers.map(s => {
     const isActive = currentView === 'server' && s.id === currentServerId;
     const initial = (s.name || 'S').charAt(0).toUpperCase();
+    const muted = novaServerIsMuted(s);
     return `
       <div class="relative group flex items-center">
         <div class="absolute -left-2 w-1.5 bg-white rounded-r-full transition-all duration-200 ${isActive ? 'h-8' : 'h-0 group-hover:h-4'}"></div>
@@ -1524,7 +1530,7 @@ function renderServers() {
             ? 'bg-discord-accent text-white shadow-lg shadow-discord-accent/30 rounded-2xl' 
             : 'bg-discord-surface text-gray-200 hover:bg-discord-accent hover:text-white rounded-3xl hover:rounded-2xl'
         }">
-          ${escapeHtml(initial)}
+          ${muted ? '🔕' : escapeHtml(initial)}
         </button>
       </div>
     `;
@@ -1547,11 +1553,13 @@ function renderServers() {
       const items=[
         {icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},
         {icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode || '').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))},
+        {icon:novaServerIsMuted(srv)?'🔔':'🔕',label:novaServerIsMuted(srv)?'Включить уведомления':'Заглушить сервер',action:()=>{window._novaMuteX=e.clientX;window._novaMuteY=e.clientY;novaChooseServerMute(srv);}},
         {icon:'👥',label:'Участники',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}}
       ];
       if (hasServerPermission(srv,'create_invites')) items.push({icon:'👥',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite').click();}});
       if (isServerManager(srv)) items.push({icon:'⚙️',label:'Настройки сервера',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('general');}});
       if (isServerOwner(srv)) { items.push('separator'); items.push({icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()}); }
+      else { items.push('separator'); items.push({icon:'🚪',label:'Выйти из сервера',danger:true,action:()=>window.leaveCurrentServer(srv.id)}); }
       showContextMenu(e.clientX,e.clientY,items);
     };
   });
@@ -3274,6 +3282,20 @@ document.getElementById('form-update-profile').onsubmit = async (e) => {
   showToast("Профиль обновлен!");
 };
 
+document.getElementById('btn-contact-support')?.addEventListener('click', () => {
+  if (currentUser?.uid === 'l2RhCaFQV6hYlQgMxNK3ZAhmdPe2') {
+    showToast('Вы уже находитесь в аккаунте техподдержки');
+    return;
+  }
+  const supportUser = (usersData || []).find(u => u.uid === 'l2RhCaFQV6hYlQgMxNK3ZAhmdPe2');
+  if (!supportUser) {
+    showToast('Аккаунт техподдержки пока не найден', true);
+    return;
+  }
+  closeModals();
+  openDirectMessage('l2RhCaFQV6hYlQgMxNK3ZAhmdPe2');
+});
+
 document.getElementById('form-account-nickname').onsubmit = async (e) => {
   e.preventDefault();
   const newNick = document.getElementById('input-account-nickname').value.trim();
@@ -3662,9 +3684,39 @@ document.getElementById('btn-browser-notifications').onclick = async () => {
   showToast(perm === 'granted' ? 'Уведомления браузера разрешены' : 'Разрешение не выдано', perm !== 'granted');
 };
 
+function novaServerMuteUntil(srv) {
+  const until = Number(srv?.mutedUntil?.[currentUser.uid] || 0);
+  return until > Date.now() ? until : 0;
+}
+function novaServerIsMuted(srv) { return !!novaServerMuteUntil(srv); }
+
+async function novaSetServerMute(srv, until) {
+  if (!srv) return;
+  const mutedUntil = { ...(srv.mutedUntil || {}) };
+  if (until) mutedUntil[currentUser.uid] = until;
+  else delete mutedUntil[currentUser.uid];
+  await updateServerFields(srv, { mutedUntil });
+  renderServers();
+  renderChannels();
+  showToast(until ? 'Сервер заглушён' : 'Уведомления сервера включены');
+}
+function novaChooseServerMute(srv) {
+  const options = [
+    { label:'1 час', ms:60*60*1000 },
+    { label:'8 часов', ms:8*60*60*1000 },
+    { label:'24 часа', ms:24*60*60*1000 },
+    { label:'Навсегда', ms:0 }
+  ];
+  const items = options.map(o => ({ icon:'🔕', label:o.label, action:()=>novaSetServerMute(srv, o.ms ? Date.now()+o.ms : 0) }));
+  if (novaServerIsMuted(srv)) items.push('separator',{icon:'🔔',label:'Снять заглушение',action:()=>novaSetServerMute(srv,0)});
+  showContextMenu(window._novaMuteX || 120, window._novaMuteY || 120, items);
+}
+
 function notifyIncomingMessage(msg) {
   if (!msg || msg.authorId === currentUser.uid) return;
   const isDm = !!msg.targetDmId;
+  const msgServer = !isDm && msg.serverId ? (serversData || []).find(s => s.id === msg.serverId) : null;
+  if (msgServer && novaServerIsMuted(msgServer)) return;
   const activeContext = currentView === 'dm' && isDm && msg.targetDmId === currentUser.uid && msg.authorId === currentDmUserId;
   const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase());
   const allowed = accountNotificationSettings.inApp !== false && ((isDm && accountNotificationSettings.dm !== false) || (!isDm && mention && accountNotificationSettings.mentions !== false));
@@ -3718,6 +3770,26 @@ window.toggleAdmin = async function(uid) {
   const current = srv.admins || [];
   const admins = current.includes(uid) ? current.filter(a => a !== uid) : [...current, uid];
   if (await updateServerFields(srv, { admins })) showToast('Роли обновлены');
+};
+
+window.leaveCurrentServer = async function(serverId) {
+  const srv = serversData.find(s => s.id === serverId);
+  if (!srv || isServerOwner(srv)) {
+    if (srv && isServerOwner(srv)) showToast('Владелец не может выйти из своего сервера — сначала передайте владение или удалите сервер.', true);
+    return;
+  }
+  if (!confirm(`Выйти с сервера "${srv.name}"? Вернуться можно будет по приглашению.`)) return;
+  const members = (srv.members || []).filter(uid => uid !== currentUser.uid);
+  if (await updateServerFields(srv, { members })) {
+    if (currentServerId === serverId) {
+      currentServerId = null;
+      currentChannelId = null;
+      currentView = 'server';
+    }
+    showToast(`Вы вышли с сервера "${srv.name}"`);
+    renderServers();
+    renderChannels();
+  }
 };
 
 window.deleteCurrentServer = async function() {
