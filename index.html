@@ -3308,9 +3308,9 @@ window.openModal = function(id) {
   }
   if (id === 'modal-server-settings') renderServerSettings();
   if (id === 'modal-account-settings') {
-    document.getElementById('account-settings-email').textContent = auth?.currentUser?.email || '—';
-    const providers = auth?.currentUser?.providerData?.map(p => p.providerId).join(', ') || '—';
-    document.getElementById('account-settings-provider').textContent = `Способы входа: ${providers}`;
+    document.getElementById('security-session-email').textContent = auth?.currentUser?.email || '—';
+    const providers = auth?.currentUser?.providerData?.map(p => p.providerId === 'google.com' ? 'Google' : p.providerId === 'password' ? 'Email + пароль' : p.providerId).join(' · ') || '—';
+    document.getElementById('security-session-provider').textContent = `Способы входа: ${providers}`;
     const isPasswordProvider = auth?.currentUser?.providerData?.some(p => p.providerId === 'password');
     const canManagePassword = !!auth?.currentUser?.email;
     document.getElementById('input-new-password').disabled = !canManagePassword;
@@ -3459,7 +3459,7 @@ document.getElementById('form-change-password').onsubmit = async (e) => {
     }
     document.getElementById('input-new-password').value='';
     document.getElementById('input-new-password-confirm').value='';
-    document.getElementById('account-settings-provider').textContent = `Способы входа: ${user.providerData?.map(p=>p.providerId).join(', ') || '—'}`;
+    document.getElementById('security-session-provider').textContent = `Способы входа: ${user.providerData?.map(p=>p.providerId === 'google.com' ? 'Google' : p.providerId === 'password' ? 'Email + пароль' : p.providerId).join(' · ') || '—'}`;
     openModal('modal-account-settings');
   } catch(err) {
     if (err?.code==='auth/requires-recent-login') showToast('Нужен недавний вход. Выйди и войди снова, затем повтори.',true);
