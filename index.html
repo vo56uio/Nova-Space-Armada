@@ -221,15 +221,6 @@
             ✕
           </button>
         </div>
-        <div id="nova-relay-prototype" class="hidden mt-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-2 py-1.5 text-[10px] leading-4">
-          <div class="font-semibold text-violet-300">Nova Relay Network · прототип</div>
-          <div id="nova-relay-prototype-line">Relay prototype: ожидание…</div>
-          <div id="nova-relay-prototype-details" class="opacity-80">Топология пока не построена.</div>
-          <details class="mt-1">
-            <summary class="cursor-pointer select-none text-violet-300/80">Топология</summary>
-            <pre id="nova-relay-prototype-tree" class="mt-1 whitespace-pre-wrap font-mono text-[9px] text-discord-muted"></pre>
-          </details>
-        </div>
         <div class="flex items-center justify-around pt-1 text-xs text-discord-muted">
           <button id="btn-toggle-mic" class="hover:text-white flex items-center gap-1">
             <span id="mic-icon">🎙️</span> <span id="mic-text">Микрофон</span>
@@ -514,7 +505,6 @@
   </div>
 </div>
 
-<script src="./nova-relay-network.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -1133,49 +1123,16 @@ function vcNameById(id) {
   return c ? c.name : 'Голосовой канал';
 }
 
-function novaRelayPrototypeBuildParticipants() {
-  const now = Date.now();
-  const srv = serversData.find(s => s.id === currentServerId);
-  const memberIds = Array.isArray(srv?.members) ? srv.members : [];
-  const source = usersData.filter(u =>
-    u?.uid &&
-    (memberIds.length === 0 || memberIds.includes(u.uid)) &&
-    (u.status || 'online') !== 'offline'
-  );
-
-  if (!source.some(u => u.uid === currentUser.uid)) {
-    source.push({
-      uid: currentUser.uid,
-      nickname: currentUser.nickname || 'Вы',
-      status: currentUser.status || 'online'
-    });
-  }
-
-  return source.map(u => ({
-    uid: u.uid,
-    nickname: u.nickname || 'Пользователь',
-    status: u.uid === currentUser.uid ? (currentUser.status || 'online') : (u.status || 'online'),
-    joinedAt: now,
-    lastSeen: now
-  }));
-}
-
 function connectVoiceChannel(voiceId, name) {
   activeVoiceChannelId = voiceId;
   document.getElementById('active-voice-bar').classList.remove('hidden');
   document.getElementById('active-voice-name').textContent = `🔊 ${name}`;
-  window.NovaRelayNetwork?.start?.({
-    selfId: currentUser.uid,
-    participants: novaRelayPrototypeBuildParticipants(),
-    getParticipants: novaRelayPrototypeBuildParticipants
-  });
   audioFX.playVoiceJoin();
   showToast(`Подключено к голосу: ${name}`);
   renderChannels();
 }
 
 document.getElementById('btn-disconnect-voice').onclick = () => {
-  window.NovaRelayNetwork?.stop?.();
   activeVoiceChannelId = null;
   document.getElementById('active-voice-bar').classList.add('hidden');
   showToast("Отключено от голосового канала");
