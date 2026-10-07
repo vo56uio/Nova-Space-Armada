@@ -676,14 +676,10 @@
       <div class="flex-1 overflow-y-auto p-6">
         <section id="account-settings-panel-account" class="account-settings-panel space-y-5">
           <div><h4 class="font-bold text-white text-lg">Учётная запись</h4><p class="text-xs text-discord-muted mt-1">Управление входом и безопасностью.</p></div>
-          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4"><div class="text-xs text-discord-muted uppercase font-semibold">Email</div><div id="account-settings-email" class="mt-1 text-white font-semibold break-all">—</div><div id="account-settings-provider" class="text-xs text-discord-muted mt-1">—</div></div>
-          <form id="form-change-password" class="space-y-3 border-t border-gray-700/50 pt-4">
-            <div class="font-bold text-white">Сменить пароль</div>
-            <p id="password-change-note" class="text-xs text-discord-muted">Для аккаунтов с входом по email и паролю.</p>
-            <input id="input-new-password" type="password" minlength="6" placeholder="Новый пароль (минимум 6 символов)" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
-            <input id="input-new-password-confirm" type="password" minlength="6" placeholder="Повторите новый пароль" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
-            <div class="flex gap-2"><button type="submit" id="btn-change-password" class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить новый пароль</button><button type="button" id="btn-reset-password-email" class="px-4 bg-discord-rail hover:bg-discord-hover text-white rounded-xl font-semibold">Письмо для сброса</button></div>
-          </form>
+          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4">
+            <div class="text-xs text-discord-muted uppercase font-semibold">Профиль аккаунта</div>
+            <div class="text-sm text-discord-muted mt-1">Основные данные профиля и способы входа управляются в соответствующих разделах.</div>
+          </div>
         </section>
 
         <section id="account-settings-panel-security" class="account-settings-panel space-y-4 hidden">
@@ -693,6 +689,13 @@
             <div id="security-session-email" class="text-white font-semibold break-all">—</div>
             <div id="security-session-provider" class="text-xs text-discord-muted">—</div>
           </div>
+          <form id="form-change-password" class="space-y-3 border-t border-gray-700/50 pt-4">
+            <div class="font-bold text-white">Сменить пароль</div>
+            <p id="password-change-note" class="text-xs text-discord-muted">Для аккаунтов с входом по email и паролю.</p>
+            <input id="input-new-password" type="password" minlength="6" placeholder="Новый пароль (минимум 6 символов)" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+            <input id="input-new-password-confirm" type="password" minlength="6" placeholder="Повторите новый пароль" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
+            <div class="flex gap-2"><button type="submit" id="btn-change-password" class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить новый пароль</button><button type="button" id="btn-reset-password-email" class="px-4 bg-discord-rail hover:bg-discord-hover text-white rounded-xl font-semibold">Письмо для сброса</button></div>
+          </form>
           <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-3">
             <div class="font-bold text-white">Выход</div>
             <p class="text-xs text-discord-muted">Завершить текущую сессию на этом устройстве.</p>
