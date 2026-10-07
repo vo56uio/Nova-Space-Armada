@@ -3802,6 +3802,7 @@ async function novaVoiceMeshSendSignal(peerUid, payload) {
       fromUid: currentUser.uid,
       targetUid: peerUid,
       kind: payload.kind,
+      sessionId: payload.sessionId || null,
       offer: payload.offer || null,
       answer: payload.answer || null,
       candidate: payload.candidate || null,
@@ -3812,46 +3813,12 @@ async function novaVoiceMeshSendSignal(peerUid, payload) {
   }
 }
 
-async function novaVoiceMeshFlushCandidates(peer) {
-  if (!peer?.pc?.remoteDescription || !peer.pendingCandidates?.length) return;
-  const pending = peer.pendingCandidates.splice(0);
-  for (const candidate of pending) {
-    try { await peer.pc.addIceCandidate(candidate); }
-    catch (e) { console.warn('Voice mesh pending ICE rejected:', e); }
-  }
-}
-
-async function novaVoiceMeshCreateOffer(peer) {
-  if (!novaVoiceMesh || !peer?.pc || !peer.initiator || peer.offerStarted) return;
-  peer.offerStarted = true;
-  try {
-    const offer = await peer.pc.createOffer({ offerToReceiveAudio: true });
-    await peer.pc.setLocalDescription(offer);
-    await novaVoiceMeshSendSignal(peer.uid, {
-      kind: 'offer',
-      offer: { type: peer.pc.localDescription.type, sdp: peer.pc.localDescription.sdp }
-    });
-  } catch (e) {
-    peer.offerStarted = false;
-    console.warn('Voice mesh offer failed:', e);
-  }
-}
-
-function novaVoiceMeshRemovePeer(uid) {
-  if (!novaVoiceMesh?.peers) return;
-  const peer = novaVoiceMesh.peers.get(uid);
-  if (!peer) return;
-  try { peer.pc?.close?.(); } catch (e) {}
-  try { peer.audio?.remove?.(); } catch (e) {}
-  novaVoiceMesh.peers.delete(uid);
-}
-
 function novaVoiceMeshRandomId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 async function novaVoiceMeshCreateOffer(peer) {
-  if (!peer?.pc || peer.makingOffer || peer.pc.signalingState !== 'stable') return;
+  if (!novaVoiceMesh || !peer?.pc || peer.makingOffer || peer.pc.signalingState !== 'stable') return;
   try {
     peer.makingOffer = true;
     await peer.pc.setLocalDescription();
