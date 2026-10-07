@@ -106,6 +106,25 @@
     });
   }
 
+  function fallbackRemoteCapability(uid, online = true) {
+    const text = String(uid || 'node');
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+    const normalized = Math.abs(hash) % 36;
+    const score = online ? 58 + normalized : 0;
+    return {
+      version: VERSION,
+      capable: !!online,
+      score,
+      maxChildren: online ? (score >= 88 ? 5 : score >= 76 ? 4 : score >= 66 ? 3 : 2) : 0,
+      cores: null,
+      memoryGb: null,
+      network: { rtt: null, downlink: null, effectiveType: 'remote-estimate' },
+      updatedAt: Date.now(),
+      estimated: true
+    };
+  }
+
   function normalizedParticipants(participants, selfId) {
     const now = Date.now();
     const list = Array.isArray(participants) ? participants : [];
@@ -114,7 +133,8 @@
     for (const raw of list) {
       if (!raw?.uid) continue;
       const p = { ...raw };
-      p.relay = p.relay && typeof p.relay === 'object' ? p.relay : { capable: false, score: 0, maxChildren: 0 };
+      const online = p.status !== 'offline';
+      p.relay = p.relay && typeof p.relay === 'object' ? p.relay : fallbackRemoteCapability(p.uid, online);
       p.lastSeen = num(p.lastSeen, now);
       if (now - p.lastSeen >= HEARTBEAT_MAX_AGE_MS) continue;
       unique.set(String(p.uid), p);
@@ -325,6 +345,7 @@
     const workers = t.workers.length;
     const standby = t.standby.length;
     const role = roleFor(state.selfId, t);
+    const selfInfo = state.participants.find(p => p.uid === state.selfId);
 
     const overloaded = (t.loadReport || []).filter(x => x.utilization >= 85).length;
     const headroom = (t.loadReport || []).reduce((sum, x) => sum + Math.max(0, x.capacity - x.used), 0);
@@ -340,7 +361,8 @@
       ' · узлов: ' + state.participants.length +
       ' · запасных слотов: ' + headroom +
       (overloaded ? ' · перегружено: ' + overloaded : '') +
-      '\nМаршруты: ' + t.routes.length + ' · резервов: ' + t.routes.filter(r => r.backup).length;
+      '\nМаршруты: ' + t.routes.length + ' · резервов: ' + t.routes.filter(r => r.backup).length +
+      (selfInfo?.relay?.estimated ? '\nДоступность удалённых relay пока моделируется.' : '');
 
     const tree = document.getElementById('nova-relay-prototype-tree');
     if (tree) {
@@ -371,7 +393,7 @@
     render();
   }
 
-  function start({ selfId, participants = [] } = {}) {
+  function start({ selfId, participants = [], getParticipants = null } = {}) {
     if (!selfId) return;
     state = {
       selfId: String(selfId),
@@ -379,11 +401,15 @@
       participants: [],
       localRelay: calculateLocalCapability(),
       topology: null,
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      getParticipants: typeof getParticipants === 'function' ? getParticipants : null
     };
     update(participants);
     clearTimeout(renderTimer);
-    renderTimer = setInterval(() => update(state.participants), 5000);
+    renderTimer = setInterval(() => {
+      const latest = state?.getParticipants?.();
+      update(Array.isArray(latest) ? latest : state?.participants || []);
+    }, 5000);
   }
 
   function stop() {
