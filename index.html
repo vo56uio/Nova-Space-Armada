@@ -3846,22 +3846,49 @@ function novaVoiceMeshRemovePeer(uid) {
   novaVoiceMesh.peers.delete(uid);
 }
 
-function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
+function novaVoiceMeshRandomId() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+async function novaVoiceMeshCreateOffer(peer) {
+  if (!peer?.pc || peer.makingOffer || peer.pc.signalingState !== 'stable') return;
+  try {
+    peer.makingOffer = true;
+    await peer.pc.setLocalDescription();
+    await novaVoiceMeshSendSignal(peer.uid, {
+      kind: 'offer',
+      sessionId: peer.sessionId,
+      offer: {
+        type: peer.pc.localDescription.type,
+        sdp: peer.pc.localDescription.sdp
+      }
+    });
+  } catch (e) {
+    console.warn('Voice mesh offer failed:', e);
+  } finally {
+    peer.makingOffer = false;
+  }
+}
+
+async function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
   if (!novaVoiceMesh || !uid || uid === currentUser.uid) return null;
   const existing = novaVoiceMesh.peers.get(uid);
   if (existing) return existing;
   if (!novaVoiceMesh.localStream) return null;
 
   const pc = new RTCPeerConnection({ iceServers: novaVoiceMeshIceServers() });
+  const polite = String(currentUser.uid) > String(uid);
   const peer = {
     uid,
     name,
     pc,
     audio: null,
     pendingCandidates: [],
-    initiator: String(currentUser.uid) < String(uid),
-    offerStarted: false,
-    answerApplied: false
+    polite,
+    makingOffer: false,
+    ignoreOffer: false,
+    isSettingRemoteAnswerPending: false,
+    sessionId: novaVoiceMeshRandomId()
   };
   novaVoiceMesh.peers.set(uid, peer);
 
@@ -3869,6 +3896,7 @@ function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
     if (!event.candidate || !novaVoiceMesh || !novaVoiceMesh.peers.has(uid)) return;
     await novaVoiceMeshSendSignal(uid, {
       kind: 'ice',
+      sessionId: peer.sessionId,
       candidate: {
         candidate: event.candidate.candidate,
         sdpMid: event.candidate.sdpMid,
@@ -3876,6 +3904,10 @@ function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
         usernameFragment: event.candidate.usernameFragment || null
       }
     });
+  };
+
+  pc.onnegotiationneeded = async () => {
+    await novaVoiceMeshCreateOffer(peer);
   };
 
   pc.ontrack = event => {
@@ -3900,32 +3932,50 @@ function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
   };
 
   novaVoiceMesh.localStream.getTracks().forEach(track => pc.addTrack(track, novaVoiceMesh.localStream));
-  if (peer.initiator) novaVoiceMeshCreateOffer(peer);
   return peer;
 }
 
 async function novaVoiceMeshHandleSignal(d) {
   if (!novaVoiceMesh || d.roomId !== novaVoiceMesh.roomId || d.targetUid !== currentUser.uid || d.fromUid === currentUser.uid) return;
-  const peer = novaVoiceMeshEnsurePeer(d.fromUid, d.fromUid);
+  const peer = await novaVoiceMeshEnsurePeer(d.fromUid, d.fromUid);
   if (!peer) return;
   const pc = peer.pc;
 
   try {
-    if (d.kind === 'offer' && d.offer && !peer.initiator) {
+    if (d.sessionId && d.sessionId !== peer.sessionId) {
+      if (d.kind === 'offer') peer.sessionId = d.sessionId;
+      else if (d.kind === 'answer' || d.kind === 'ice') return;
+    }
+
+    if (d.kind === 'offer' && d.offer) {
+      const readyForOffer =
+        !peer.makingOffer &&
+        (pc.signalingState === 'stable' || peer.isSettingRemoteAnswerPending);
+
+      const offerCollision = !readyForOffer;
+      peer.ignoreOffer = !peer.polite && offerCollision;
+      if (peer.ignoreOffer) return;
+
+      peer.isSettingRemoteAnswerPending = d.offer.type === 'offer';
       await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
+      peer.isSettingRemoteAnswerPending = false;
       await novaVoiceMeshFlushCandidates(peer);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+
+      await pc.setLocalDescription();
       await novaVoiceMeshSendSignal(peer.uid, {
         kind: 'answer',
-        answer: { type: pc.localDescription.type, sdp: pc.localDescription.sdp }
+        sessionId: peer.sessionId,
+        answer: {
+          type: pc.localDescription.type,
+          sdp: pc.localDescription.sdp
+        }
       });
       return;
     }
 
-    if (d.kind === 'answer' && d.answer && peer.initiator && !peer.answerApplied) {
+    if (d.kind === 'answer' && d.answer) {
+      if (pc.signalingState !== 'have-local-offer') return;
       await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
-      peer.answerApplied = true;
       await novaVoiceMeshFlushCandidates(peer);
       return;
     }
@@ -3936,6 +3986,7 @@ async function novaVoiceMeshHandleSignal(d) {
       else peer.pendingCandidates.push(candidate);
     }
   } catch (e) {
+    peer.isSettingRemoteAnswerPending = false;
     console.warn('Voice mesh signal handling failed:', e);
   }
 }
