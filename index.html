@@ -558,10 +558,6 @@
     </div>
     <form id="form-update-profile" class="space-y-4">
       <div>
-        <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Никнейм</label>
-        <input id="input-profile-nickname" type="text" maxlength="24" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
-      </div>
-      <div>
         <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Статус сети</label>
         <select id="select-profile-status" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
           <option value="online">🟢 В сети</option>
@@ -676,10 +672,14 @@
       <div class="flex-1 overflow-y-auto p-6">
         <section id="account-settings-panel-account" class="account-settings-panel space-y-5">
           <div><h4 class="font-bold text-white text-lg">Учётная запись</h4><p class="text-xs text-discord-muted mt-1">Управление входом и безопасностью.</p></div>
-          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4">
-            <div class="text-xs text-discord-muted uppercase font-semibold">Профиль аккаунта</div>
-            <div class="text-sm text-discord-muted mt-1">Основные данные профиля и способы входа управляются в соответствующих разделах.</div>
-          </div>
+          <form id="form-account-nickname" class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-3">
+            <div>
+              <div class="font-bold text-white">Никнейм</div>
+              <p class="text-xs text-discord-muted mt-1">Этот никнейм отображается в сообщениях, профиле и списках участников.</p>
+            </div>
+            <input id="input-account-nickname" type="text" maxlength="24" required class="w-full bg-discord-surface border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent" placeholder="Ваш никнейм">
+            <button type="submit" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl transition">Сохранить никнейм</button>
+          </form>
         </section>
 
         <section id="account-settings-panel-security" class="account-settings-panel space-y-4 hidden">
@@ -3115,17 +3115,12 @@ document.getElementById('form-create-channel').onsubmit = async (e) => {
 // Profile updates modal handler
 document.getElementById('form-update-profile').onsubmit = async (e) => {
   e.preventDefault();
-  const newNick = document.getElementById('input-profile-nickname').value.trim();
   const newStatus = document.getElementById('select-profile-status').value;
   const newCustomStatus = document.getElementById('input-profile-custom-status').value.trim();
 
-  if (!newNick) return;
-
-  currentUser.nickname = newNick;
   currentUser.status = newStatus;
   currentUser.customStatus = newCustomStatus;
 
-  localStorage.setItem('chat_nickname', currentUser.nickname);
   localStorage.setItem('chat_status', currentUser.status);
   localStorage.setItem('chat_custom_status', currentUser.customStatus);
 
@@ -3133,6 +3128,20 @@ document.getElementById('form-update-profile').onsubmit = async (e) => {
   await syncUserProfileCloud();
   closeModals();
   showToast("Профиль обновлен!");
+};
+
+document.getElementById('form-account-nickname').onsubmit = async (e) => {
+  e.preventDefault();
+  const newNick = document.getElementById('input-account-nickname').value.trim();
+  if (!newNick) return;
+
+  currentUser.nickname = newNick;
+  localStorage.setItem('chat_nickname', currentUser.nickname);
+
+  updateUserProfileDisplay();
+  await syncUserProfileCloud();
+  closeModals();
+  showToast("Никнейм изменен!");
 };
 
 function setServerSettingsTab(tab) {
@@ -3302,12 +3311,12 @@ window.openServerSettings = function(tab='general') {
 
 window.openModal = function(id) {
   if (id === 'modal-profile') {
-    document.getElementById('input-profile-nickname').value = currentUser.nickname;
     document.getElementById('select-profile-status').value = currentUser.status;
     document.getElementById('input-profile-custom-status').value = currentUser.customStatus || '';
   }
   if (id === 'modal-server-settings') renderServerSettings();
   if (id === 'modal-account-settings') {
+    document.getElementById('input-account-nickname').value = currentUser.nickname || '';
     document.getElementById('security-session-email').textContent = auth?.currentUser?.email || '—';
     const providers = auth?.currentUser?.providerData?.map(p => p.providerId === 'google.com' ? 'Google' : p.providerId === 'password' ? 'Email + пароль' : p.providerId).join(' · ') || '—';
     document.getElementById('security-session-provider').textContent = `Способы входа: ${providers}`;
