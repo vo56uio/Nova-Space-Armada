@@ -669,6 +669,7 @@
     <div class="flex min-h-0 flex-1">
       <nav class="w-44 bg-discord-rail/50 border-r border-gray-700/50 p-2 space-y-1 shrink-0">
         <button data-account-settings-tab="account" class="account-settings-tab active w-full text-left px-3 py-2 rounded-lg text-sm">👤 Учётная запись</button>
+        <button data-account-settings-tab="security" class="account-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🔐 Безопасность</button>
         <button data-account-settings-tab="notifications" class="account-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🔔 Уведомления</button>
         <button data-account-settings-tab="appearance" class="account-settings-tab w-full text-left px-3 py-2 rounded-lg text-sm">🎨 Внешний вид</button>
       </nav>
@@ -685,11 +686,34 @@
           </form>
         </section>
 
+        <section id="account-settings-panel-security" class="account-settings-panel space-y-4 hidden">
+          <div><h4 class="font-bold text-white text-lg">Безопасность</h4><p class="text-xs text-discord-muted mt-1">Управление текущей сессией и способом входа.</p></div>
+          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-2">
+            <div class="text-xs text-discord-muted uppercase font-semibold">Текущая сессия</div>
+            <div id="security-session-email" class="text-white font-semibold break-all">—</div>
+            <div id="security-session-provider" class="text-xs text-discord-muted">—</div>
+          </div>
+          <div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-3">
+            <div class="font-bold text-white">Выход</div>
+            <p class="text-xs text-discord-muted">Завершить текущую сессию на этом устройстве.</p>
+            <button id="btn-security-signout" type="button" class="w-full bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white font-semibold py-2.5 rounded-xl">Выйти из аккаунта</button>
+          </div>
+          <div class="text-xs text-discord-muted bg-discord-rail/60 rounded-xl border border-gray-700/40 p-4">
+            Двухфакторную аутентификацию и управление удалёнными сессиями пока не добавляем: для небольшого закрытого проекта это избыточно.
+          </div>
+        </section>
+
         <section id="account-settings-panel-notifications" class="account-settings-panel space-y-4 hidden">
-          <div><h4 class="font-bold text-white text-lg">Уведомления</h4><p class="text-xs text-discord-muted mt-1">Базовые уведомления о новых сообщениях.</p></div>
-          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Уведомления в приложении</b><span class="block text-xs text-discord-muted mt-1">Показывать всплывающие уведомления и звук.</span></span><input id="setting-notify-inapp" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          <div><h4 class="font-bold text-white text-lg">Уведомления</h4><p class="text-xs text-discord-muted mt-1">Сообщения, звонки и системные звуки.</p></div>
+          <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Уведомления в приложении</b><span class="block text-xs text-discord-muted mt-1">Показывать всплывающие уведомления.</span></span><input id="setting-notify-inapp" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
           <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Личные сообщения</b><span class="block text-xs text-discord-muted mt-1">Уведомлять о новых сообщениях в ЛС.</span></span><input id="setting-notify-dm" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
           <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Упоминания</b><span class="block text-xs text-discord-muted mt-1">Уведомлять, когда в сообщении есть ваш ник.</span></span><input id="setting-notify-mentions" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          <div class="pt-2 border-t border-gray-700/50 space-y-2">
+            <div class="text-xs text-discord-muted uppercase font-semibold">Звуки</div>
+            <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Звонки</b><span class="block text-xs text-discord-muted mt-1">Звук входящего личного звонка и подключения к голосу.</span></span><input id="setting-sound-calls" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+            <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Новые сообщения</b><span class="block text-xs text-discord-muted mt-1">Звук новых сообщений с разным поведением для открытого сайта и фонового режима.</span></span><input id="setting-sound-messages" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+            <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Нажатия</b><span class="block text-xs text-discord-muted mt-1">Короткий звук при нажатии кнопок.</span></span><input id="setting-sound-clicks" type="checkbox" class="w-5 h-5 accent-discord-accent"></label>
+          </div>
           <button id="btn-browser-notifications" type="button" class="w-full bg-discord-rail hover:bg-discord-hover border border-gray-700/50 text-white font-semibold py-2.5 rounded-xl">Разрешить уведомления браузера</button>
         </section>
 
@@ -723,56 +747,52 @@ class AudioEngine {
   }
   init() {
     if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return; }
     }
+    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+  }
+  tone(type, from, to, duration, volume = 0.1) {
+    this.init();
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(from, this.ctx.currentTime);
+    if (to !== from) osc.frequency.exponentialRampToValueAtTime(to, this.ctx.currentTime + duration);
+    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + duration);
   }
   playSend() {
-    this.init();
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(440, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.08);
-    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.08);
+    if (accountNotificationSettings.sounds?.clicks === false) return;
+    this.tone('sine', 440, 880, 0.08, 0.1);
   }
   playReceive() {
-    this.init();
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
-    osc.frequency.setValueAtTime(800, this.ctx.currentTime + 0.05);
-    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.12);
+    if (accountNotificationSettings.sounds?.messages === false) return;
+    this.tone('triangle', 600, 800, 0.12, 0.12);
+  }
+  playBackgroundMessage() {
+    if (accountNotificationSettings.sounds?.messages === false) return;
+    this.tone('sine', 520, 760, 0.18, 0.09);
+  }
+  playCall() {
+    if (accountNotificationSettings.sounds?.calls === false) return;
+    this.tone('sine', 520, 760, 0.22, 0.12);
   }
   playVoiceJoin() {
-    this.init();
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.15);
+    if (accountNotificationSettings.sounds?.calls === false) return;
+    this.tone('sine', 300, 600, 0.15, 0.15);
   }
 }
 const audioFX = new AudioEngine();
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (!button || button.dataset.noClickSound === 'true') return;
+  audioFX.playSend();
+}, true);
 
 const defaultFirebaseConfig = {
   apiKey: "AIzaSyCXKzk_xRHIVERrzrg3WV9h0p3iNhtSCbw",
@@ -824,7 +844,7 @@ let currentServerId = null;
 let currentChannelId = null;
 let currentDmUserId = null;
 let activeVoiceChannelId = null;
-let accountNotificationSettings = { inApp: true, dm: true, mentions: true, browser: false };
+let accountNotificationSettings = { inApp: true, dm: true, mentions: true, browser: false, sounds: { calls: true, messages: true, clicks: true } };
 let messagesInitialized = false;
 let previousMessageIds = new Set();
 let activeServerSettingsTab = 'general';
@@ -1311,6 +1331,7 @@ async function syncUserProfileCloud() {
       nickname: currentUser.nickname,
       status: currentUser.status,
       customStatus: currentUser.customStatus,
+      notificationSettings: accountNotificationSettings,
       lastSeen: Date.now()
     }, { merge: true });
   } catch(e) {}
@@ -1391,7 +1412,18 @@ async function createDefaultStarterServer() {
 function subscribeCloudData() {
   onSnapshot(COLLECTION_USERS, (snapshot) => {
     usersData = [];
-    snapshot.forEach(docSnap => usersData.push({ id: docSnap.id, ...docSnap.data() }));
+    snapshot.forEach(docSnap => {
+      const userData = { id: docSnap.id, ...docSnap.data() };
+      usersData.push(userData);
+      if (docSnap.id === currentUser.uid && userData.notificationSettings) {
+        accountNotificationSettings = {
+          ...accountNotificationSettings,
+          ...userData.notificationSettings,
+          sounds: { ...accountNotificationSettings.sounds, ...(userData.notificationSettings.sounds || {}) }
+        };
+        localStorage.setItem('notification_settings', JSON.stringify(accountNotificationSettings));
+      }
+    });
     renderMembersSidebar();
     renderDirectMessagesList();
   });
@@ -3288,6 +3320,11 @@ window.openModal = function(id) {
     document.getElementById('setting-notify-inapp').checked = accountNotificationSettings.inApp !== false;
     document.getElementById('setting-notify-dm').checked = accountNotificationSettings.dm !== false;
     document.getElementById('setting-notify-mentions').checked = accountNotificationSettings.mentions !== false;
+    document.getElementById('setting-sound-calls').checked = accountNotificationSettings.sounds?.calls !== false;
+    document.getElementById('setting-sound-messages').checked = accountNotificationSettings.sounds?.messages !== false;
+    document.getElementById('setting-sound-clicks').checked = accountNotificationSettings.sounds?.clicks !== false;
+    document.getElementById('security-session-email').textContent = auth?.currentUser?.email || 'Локальная сессия';
+    document.getElementById('security-session-provider').textContent = (auth?.currentUser?.providerData || []).map(p => p.providerId === 'google.com' ? 'Google' : p.providerId === 'password' ? 'Email + пароль' : p.providerId).join(' · ') || 'Неизвестный способ входа';
     document.getElementById('setting-dark-theme').checked = isDark;
     document.getElementById('btn-browser-notifications').textContent = ('Notification' in window && Notification.permission === 'granted') ? 'Уведомления браузера разрешены' : 'Разрешить уведомления браузера';
   }
@@ -3441,12 +3478,25 @@ function saveNotificationSettings() {
     ...accountNotificationSettings,
     inApp: document.getElementById('setting-notify-inapp').checked,
     dm: document.getElementById('setting-notify-dm').checked,
-    mentions: document.getElementById('setting-notify-mentions').checked
+    mentions: document.getElementById('setting-notify-mentions').checked,
+    sounds: {
+      calls: document.getElementById('setting-sound-calls').checked,
+      messages: document.getElementById('setting-sound-messages').checked,
+      clicks: document.getElementById('setting-sound-clicks').checked
+    }
   };
   syncUserProfileCloud();
   localStorage.setItem('notification_settings', JSON.stringify(accountNotificationSettings));
 }
-['setting-notify-inapp','setting-notify-dm','setting-notify-mentions'].forEach(id => document.getElementById(id).addEventListener('change', saveNotificationSettings));
+['setting-notify-inapp','setting-notify-dm','setting-notify-mentions','setting-sound-calls','setting-sound-messages','setting-sound-clicks'].forEach(id => document.getElementById(id).addEventListener('change', saveNotificationSettings));
+document.getElementById('btn-security-signout').onclick = async () => {
+  try {
+    if (auth?.currentUser) await signOut(auth);
+    else checkLoginState();
+  } catch(e) {
+    showToast('Не удалось выйти из аккаунта', true);
+  }
+};
 document.getElementById('setting-dark-theme').addEventListener('change', e => { isDark = e.target.checked; document.documentElement.classList.toggle('dark', isDark); localStorage.setItem('theme_dark', String(isDark)); document.getElementById('btn-theme-toggle').textContent = isDark ? '🌙' : '☀'; });
 document.getElementById('btn-browser-notifications').onclick = async () => {
   if (!('Notification' in window)) { showToast('Браузер не поддерживает уведомления', true); return; }
@@ -3462,9 +3512,11 @@ function notifyIncomingMessage(msg) {
   const activeContext = currentView === 'dm' && isDm && msg.targetDmId === currentUser.uid && msg.authorId === currentDmUserId;
   const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase());
   const allowed = accountNotificationSettings.inApp !== false && ((isDm && accountNotificationSettings.dm !== false) || (!isDm && mention && accountNotificationSettings.mentions !== false));
-  if (!allowed || activeContext) return;
+  if (!allowed) return;
+  if (activeContext) return;
   showToast(`${isDm ? 'ЛС' : 'Упоминание'}: ${msg.authorName || 'Пользователь'} — ${(msg.text || '').slice(0,90)}`);
-  audioFX.playReceive();
+  if (document.visibilityState === 'visible') audioFX.playReceive();
+  else audioFX.playBackgroundMessage();
   if (accountNotificationSettings.browser && 'Notification' in window && Notification.permission === 'granted') { try { new Notification(`${isDm ? 'Личное сообщение' : 'Упоминание'} · ${msg.authorName || 'Пользователь'}`, { body: msg.text || '' }); } catch(e) {} }
 }
 
@@ -4040,6 +4092,7 @@ function novaCallShowIncoming(call) {
   novaCallRingtoneTimer = setInterval(() => {
     flip = !flip;
     card.querySelector('.nova-call-card')?.classList.toggle('nova-call-ring', flip);
+    if (flip) audioFX.playCall();
   }, 700);
 }
 function novaCallHideIncoming() {
