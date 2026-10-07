@@ -403,8 +403,11 @@
 
       <div class="relative flex-1 flex items-center">
         <input id="chat-input" type="text" maxlength="1000" placeholder="Написать сообщение..." class="w-full bg-discord-surface border border-gray-700/40 rounded-xl pl-4 pr-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-discord-accent transition text-sm">
-        <button type="button" id="btn-emoji" title="Добавить эмодзи" class="absolute right-3 text-discord-muted hover:text-white text-lg transition">
+        <button type="button" id="btn-emoji" title="Добавить эмодзи" class="absolute right-12 text-discord-muted hover:text-white text-lg transition">
           😊
+        </button>
+        <button type="button" id="btn-sticker" title="Стикеры" class="absolute right-3 text-discord-muted hover:text-white text-lg transition">
+          🖼️
         </button>
       </div>
 
@@ -425,6 +428,17 @@
     </div>
   </aside>
 
+</div>
+
+<!-- Sticker Picker Popup -->
+<div id="sticker-picker" class="fixed bottom-16 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] bg-discord-surface border border-gray-700 rounded-2xl p-3 hidden shadow-2xl">
+  <div class="flex items-center justify-between mb-3">
+    <div><div class="font-bold text-white">Стикеры</div><div class="text-[11px] text-discord-muted">Ваши загруженные стикеры</div></div>
+    <label class="cursor-pointer px-2.5 py-1.5 rounded-lg bg-discord-accent hover:bg-discord-accentHover text-white text-xs font-semibold">＋ Добавить<input id="sticker-file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden"></label>
+  </div>
+  <div id="sticker-picker-grid" class="grid grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+    <div class="col-span-3 text-center text-xs text-discord-muted py-8">Пока нет своих стикеров</div>
+  </div>
 </div>
 
 <!-- Emoji Picker Popup -->
@@ -814,7 +828,7 @@ let firebaseApp = null;
 let db = null;
 let auth = null;
 let storage = null;
-let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS, COLLECTION_CALLS, COLLECTION_CALL_SIGNALS, COLLECTION_VOICE_PRESENCE;
+let COLLECTION_SERVERS, COLLECTION_CHANNELS, COLLECTION_MESSAGES, COLLECTION_USERS, COLLECTION_STICKERS, COLLECTION_CALLS, COLLECTION_CALL_SIGNALS, COLLECTION_VOICE_PRESENCE;
 
 try {
   firebaseApp = initializeApp(firebaseConfig);
@@ -825,6 +839,7 @@ try {
   COLLECTION_CHANNELS = collection(db, 'artifacts', appId, 'public', 'data', 'channels');
   COLLECTION_MESSAGES = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
   COLLECTION_USERS = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+  COLLECTION_STICKERS = collection(db, 'artifacts', appId, 'public', 'data', 'stickers');
   COLLECTION_CALLS = collection(db, 'artifacts', appId, 'public', 'data', 'calls');
   COLLECTION_CALL_SIGNALS = collection(db, 'artifacts', appId, 'public', 'data', 'call_signals');
   COLLECTION_VOICE_PRESENCE = collection(db, 'artifacts', appId, 'public', 'data', 'voice_presence');
@@ -867,6 +882,8 @@ let serversData = [];
 let channelsData = [];
 let messagesData = [];
 let usersData = [];
+let stickersData = [];
+let stickerUploadBusy = false;
 
 let pendingInviteCode = null;
 const urlParams = new URLSearchParams(window.location.search);
@@ -2105,6 +2122,11 @@ function renderMessages() {
           </div>
 
           ${m.text ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>` : ''}
+          ${m.stickerDataUrl ? `
+            <div class="nova-sticker-message mt-1">
+              <img src="${escapeHtml(m.stickerDataUrl)}" alt="${escapeHtml(m.stickerName || 'Стикер')}" title="${escapeHtml(m.stickerName || 'Стикер')}" class="max-w-[180px] max-h-[180px] object-contain drop-shadow-lg">
+            </div>
+          ` : ''}
 
           ${(m.voiceUrl || m.voiceDataUrl) ? `
             <div class="nova-voice-message mt-2" data-nova-voice-player>
@@ -2432,9 +2454,9 @@ window.handleSendMessage = async function(e) {
   }
 };
 
-async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
+async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
   const cleanText = String(text || '').trim();
-  if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
+  if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !stickerDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
   }
 
@@ -2452,6 +2474,8 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
     attachmentUrl: attachmentUrl || null,
     attachmentDataUrl: attachmentDataUrl || null,
     attachmentName: attachmentName || null,
+    stickerDataUrl: stickerDataUrl || null,
+    stickerName: stickerName || null,
     voiceUrl: voiceUrl || null,
     voiceDataUrl: voiceDataUrl || null,
     voiceDuration: Math.max(0, Math.round(voiceDuration || 0)),
@@ -2486,6 +2510,126 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
   }
   return true;
 }
+
+
+function novaRenderStickerPicker() {
+  const grid = document.getElementById('sticker-picker-grid');
+  if (!grid) return;
+  const mine = stickersData.filter(s => s.ownerId === currentUser.uid);
+  if (!mine.length) {
+    grid.innerHTML = '<div class="col-span-3 text-center text-xs text-discord-muted py-8">Пока нет своих стикеров<br><span class="opacity-70">Нажмите «＋ Добавить»</span></div>';
+    return;
+  }
+  grid.innerHTML = mine.map(s => `
+    <div class="relative group bg-discord-rail rounded-xl p-2 min-h-[88px] flex items-center justify-center border border-gray-700/40 hover:border-discord-accent/60 transition">
+      <button type="button" class="nova-sticker-send w-full h-full flex items-center justify-center" data-sticker-id="${escapeHtml(s.id)}" title="Отправить стикер">
+        <img src="${escapeHtml(s.dataUrl)}" alt="${escapeHtml(s.name || 'Стикер')}" class="max-w-full max-h-20 object-contain">
+      </button>
+      <button type="button" class="nova-sticker-delete absolute top-1 right-1 hidden group-hover:block w-5 h-5 rounded-full bg-black/70 text-white text-xs" data-sticker-id="${escapeHtml(s.id)}" title="Удалить стикер">✕</button>
+    </div>
+  `).join('');
+}
+
+function novaToggleStickerPicker(force) {
+  const picker = document.getElementById('sticker-picker');
+  if (!picker) return;
+  const shouldOpen = typeof force === 'boolean' ? force : picker.classList.contains('hidden');
+  picker.classList.toggle('hidden', !shouldOpen);
+  if (shouldOpen) {
+    document.getElementById('emoji-picker')?.classList.add('hidden');
+    novaRenderStickerPicker();
+  }
+}
+
+function novaStickerDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) return reject(new Error('invalid_sticker'));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read_failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('decode_failed'));
+      img.onload = () => {
+        const maxSide = 320;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('canvas_failed'));
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/webp', 0.82);
+        if (dataUrl.length > 350000) return reject(new Error('sticker_too_large'));
+        resolve(dataUrl);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function novaUploadSticker(file) {
+  if (!isCloudEnabled || !COLLECTION_STICKERS || !currentUser?.uid || stickerUploadBusy) return;
+  stickerUploadBusy = true;
+  try {
+    const dataUrl = await novaStickerDataUrl(file);
+    const id = 'st_' + currentUser.uid + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    await setDoc(doc(COLLECTION_STICKERS, id), {
+      id, ownerId: currentUser.uid,
+      name: (file.name || 'Стикер').replace(/\.[^/.]+$/, '').slice(0, 40),
+      dataUrl, createdAt: Date.now()
+    });
+    showToast('Стикер добавлен!');
+  } catch (e) {
+    console.error('Sticker upload failed:', e);
+    showToast(e.message === 'sticker_too_large' ? 'Стикер получился слишком большим' : 'Не удалось добавить стикер', true);
+  } finally {
+    stickerUploadBusy = false;
+  }
+}
+
+async function novaDeleteSticker(id) {
+  const sticker = stickersData.find(s => s.id === id && s.ownerId === currentUser.uid);
+  if (!sticker || !isCloudEnabled) return;
+  if (!confirm('Удалить этот стикер?')) return;
+  try { await deleteDoc(doc(COLLECTION_STICKERS, id)); }
+  catch (e) { console.error('Sticker delete failed:', e); showToast('Не удалось удалить стикер', true); }
+}
+
+async function novaSendSticker(stickerId) {
+  const sticker = stickersData.find(s => s.id === stickerId && s.ownerId === currentUser.uid);
+  if (!sticker) return;
+  await novaSendMessagePayload({ stickerDataUrl: sticker.dataUrl, stickerName: sticker.name || 'Стикер' });
+  novaToggleStickerPicker(false);
+}
+
+onSnapshot(COLLECTION_STICKERS, snapshot => {
+  stickersData = [];
+  snapshot.forEach(d => stickersData.push({ id: d.id, ...d.data() }));
+  stickersData.sort((a,b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+  novaRenderStickerPicker();
+}, err => console.warn('Sticker listener:', err));
+
+document.getElementById('btn-sticker')?.addEventListener('click', e => {
+  e.stopPropagation();
+  novaToggleStickerPicker();
+});
+document.getElementById('sticker-file-input')?.addEventListener('change', async e => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (file) await novaUploadSticker(file);
+});
+document.getElementById('sticker-picker-grid')?.addEventListener('click', async e => {
+  const sendBtn = e.target.closest('.nova-sticker-send');
+  if (sendBtn) return novaSendSticker(sendBtn.dataset.stickerId);
+  const deleteBtn = e.target.closest('.nova-sticker-delete');
+  if (deleteBtn) return novaDeleteSticker(deleteBtn.dataset.stickerId);
+});
+document.addEventListener('click', e => {
+  const picker = document.getElementById('sticker-picker');
+  if (picker && !picker.classList.contains('hidden') && !e.target.closest('#sticker-picker') && !e.target.closest('#btn-sticker')) novaToggleStickerPicker(false);
+});
 
 // Voice message recorder.
 // Primary path: Firebase Storage.
