@@ -108,8 +108,24 @@
 
   function chooseRoot(user) {
     const roots=[state.nodes.get(state.roots.A),state.nodes.get(state.roots.B)]
-      .filter(Boolean).filter(n=>n.status!=="offline");
-    roots.sort((a,b)=>scoreRelay(b,user)-scoreRelay(a,user));
+      .filter(Boolean).filter(n=>n.status==="healthy");
+
+    // Choose by actual free relay capacity, not by ROOT trunk load.
+    // A ROOT with an idle trunk can still have no room for users if we
+    // ignore the relays below it; conversely a less-loaded ROOT may have
+    // the better user capacity.
+    roots.sort((a,b)=>{
+      const aRelays=[...state.nodes.values()]
+        .filter(n=>n.type==="relay" && n.status==="healthy" && n.parent===a.id);
+      const bRelays=[...state.nodes.values()]
+        .filter(n=>n.type==="relay" && n.status==="healthy" && n.parent===b.id);
+      const aFree=aRelays.reduce((sum,n)=>sum+Math.max(0,n.capacity-n.children.length),0);
+      const bFree=bRelays.reduce((sum,n)=>sum+Math.max(0,n.capacity-n.children.length),0);
+      if (aFree!==bFree) return bFree-aFree;
+      const aBest=aRelays.reduce((best,n)=>Math.max(best,scoreRelay(n,user)),-1e9);
+      const bBest=bRelays.reduce((best,n)=>Math.max(best,scoreRelay(n,user)),-1e9);
+      return bBest-aBest;
+    });
     return roots[0] || null;
   }
 
@@ -259,7 +275,7 @@
     $("stats").innerHTML =
       "<b>Network status</b><div class='metric'><span>Users</span><span class='value'>"+users.length+"</span></div>"+
       "<div class='metric'><span>Roots</span><span class='value'>"+roots.filter(r=>r.status!=="offline").length+"/2</span></div>"+
-      "<div class='metric'><span>Relays</span><span class='value'>"+healthyRelays.length+"/"+relays.length+"</span></div>"+
+      "<div class='metric'><span>Relays</span><span class='value'>"+healthyRelays+"/"+relays.length+"</span></div>"+
       "<div class='metric'><span>Unreachable</span><span class='value "+(unreachable?"bad":"ok")+"'>"+unreachable+"</span></div>"+
       "<div class='metric'><span>Max hops</span><span class='value'>"+MAX_HOPS+"</span></div>"+
       "<div class='metric'><span>Relay capacity</span><span class='value'>"+MAX_RELAY_CHILDREN+" users</span></div>"+
