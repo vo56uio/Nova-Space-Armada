@@ -117,7 +117,7 @@
     for (const n of state.nodes.values()) { n.children=[]; n.parent=null; n.load=0; }
     const users=[...state.users.values()];
     const activeUsers=users.filter(u=>u.status!=="offline");
-    const needed=Math.max(0,Math.ceil(activeUsers.length/(MAX_RELAY_CHILDREN*HEADROOM))-2);
+    const needed=Math.ceil(activeUsers.length/(MAX_RELAY_CHILDREN*HEADROOM));
     const relays=[...state.nodes.values()].filter(n=>n.type==="relay");
     while(relays.length<needed) relays.push(makeRelay("relay"));
     while(relays.length>needed && relays.some(r=>r.status==="healthy")) {
@@ -129,42 +129,43 @@
     const roots=[state.nodes.get(state.roots.A),state.nodes.get(state.roots.B)].filter(Boolean);
     for(const r of roots) { r.children=[]; r.load=0; }
 
-    const healthyRelays=relays.filter(r=>r.status!=="offline").sort((a,b)=>a.load-b.load);
-    // First attach relay trunks to roots with bounded fan-out.
+    const healthyRelays=relays.filter(r=>r.status==="healthy").sort((a,b)=>a.load-b.load);
+    // Attach relay trunks to healthy roots first. Root capacity is trunk capacity,
+    // not user capacity: users should normally terminate on relays.
     for (const r of healthyRelays) {
       const root = roots
         .filter(x => x.status === "healthy" && x.children.length < x.capacity)
         .sort((a,b)=>a.children.length-b.children.length)[0];
-      if (root) { r.parent=root.id; root.children.push(r.id); root.load=root.children.length/root.capacity; }
-      else { r.parent=null; r.status="degraded"; }
+      if (root) {
+        r.parent=root.id;
+        root.children.push(r.id);
+        root.load=root.children.length/root.capacity;
+      } else {
+        r.parent=null;
+        r.status="degraded";
+      }
     }
 
     for(const u of activeUsers) {
       const root=chooseRoot(u);
       if(!root) { u.route={state:"unreachable"}; continue; }
-      let target=healthyRelays
-        .filter(r=>r.status==="healthy" && r.children.length<r.capacity)
-        .sort((a,b)=>scoreRelay(b,u)-scoreRelay(a,u))[0];
-      if(target && target.children.length<target.capacity && target.parent===root.id) {
-        target.children.push(u.id); target.rtt=Math.round((target.rtt+u.rtt)/2||u.rtt);
+
+      const candidates=healthyRelays
+        .filter(r=>r.parent===root.id && r.children.length<r.capacity)
+        .sort((a,b)=>scoreRelay(b,u)-scoreRelay(a,u));
+      const target=candidates[0]||null;
+
+      if(target) {
+        target.children.push(u.id);
+        target.rtt=Math.round((target.rtt+u.rtt)/2||u.rtt);
         target.load=target.children.length/target.capacity;
-        u.route={root:root.id,relay:target.id,hops:2,backup:roots.find(x=>x.id!==root.id)?.id||null};
-      } else {
-        const alternate = healthyRelays
-          .filter(r=>r.status==="healthy" && r.parent && r.children.length<r.capacity)
-          .sort((a,b)=>scoreRelay(b,u)-scoreRelay(a,u))[0];
-        if (alternate) {
-          alternate.children.push(u.id); alternate.load=alternate.children.length/alternate.capacity;
-          u.route={root:alternate.parent,relay:alternate.id,hops:2,backup:roots.find(x=>x.id!==alternate.parent)?.id||null};
-          continue;
-        }
+        u.route={root:root.id,relay:target.id,hops:2,backup:roots.find(x=>x.id!==root.id && x.status==="healthy")?.id||null};
+        continue;
       }
-      if (root.children.length<root.capacity) {
-        root.children.push(u.id); root.load=root.children.length/root.capacity;
-        u.route={root:root.id,relay:null,hops:1,backup:roots.find(x=>x.id!==root.id)?.id||null};
-      } else {
-        u.route={state:"unreachable"};
-      }
+
+      // A direct root route is only a last-resort emergency path.
+      // Do not mix users into root.children used for relay trunks.
+      u.route={state:"unreachable"};
     }
     state.seq++;
     render();
@@ -256,13 +257,13 @@
     $("stats").innerHTML =
       "<b>Network status</b><div class='metric'><span>Users</span><span class='value'>"+users.length+"</span></div>"+
       "<div class='metric'><span>Roots</span><span class='value'>"+roots.filter(r=>r.status!=="offline").length+"/2</span></div>"+
-      "<div class='metric'><span>Relays</span><span class='value'>"+healthyRelays+"/"+relays.length+"</span></div>"+
+      "<div class='metric'><span>Relays</span><span class='value'>"+healthyRelays.length+"/"+relays.length+"</span></div>"+
       "<div class='metric'><span>Unreachable</span><span class='value "+(unreachable?"bad":"ok")+"'>"+unreachable+"</span></div>"+
       "<div class='metric'><span>Max hops</span><span class='value'>"+MAX_HOPS+"</span></div>"+
       "<div class='metric'><span>Relay capacity</span><span class='value'>"+MAX_RELAY_CHILDREN+" users</span></div>"+
       "<div class='metric'><span>Headroom target</span><span class='value'>"+Math.round(HEADROOM*100)+"%</span></div>"+
       "<div class='metric'><span>Rebuild #</span><span class='value'>"+state.seq+"</span></div>"+
-      "<p style='color:#9aa8c2;font-size:12px;margin-bottom:0'>Пока это именно симулятор топологии. Реального аудио здесь ещё нет.</p>";
+      "<p style='color:#9aa8c2;font-size:12px;margin-bottom:0'>Релейная ёмкость считается с 25% запасом. При отказе одного ROOT здоровые relay-трубы переподключаются к оставшемуся ROOT, пока хватает его trunk-capacity.</p>";
   }
 
   document.querySelectorAll("[data-n]").forEach(b=>b.addEventListener("click",()=>setUsers(Number(b.dataset.n))));
