@@ -81,7 +81,7 @@
   }
 
   function makeRelay(kind="relay") {
-    const id = kind === "root" ? "ROOT-" + (state.roots.A ? "B" : "A") : "R" + state.nextRelay++;
+    const id = kind === "root" ? (state.nodes.has("ROOT-A") ? "ROOT-B" : "ROOT-A") : "R" + state.nextRelay++;
     const node = {
       id,type:kind,capacity: kind==="root" ? 24 : MAX_RELAY_CHILDREN,
       children:[],parent:null,status:"healthy",load:0,loss:0,rtt:0
@@ -228,7 +228,9 @@
       const t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x",x);t.setAttribute("y",yRoot+4);t.setAttribute("text-anchor","middle");t.textContent=r.id+" "+r.children.length+"/"+r.capacity;svg.appendChild(t);
     });
 
-    const buckets=relays.map((r,i)=>({r,x:80+(i%10)*115,y:yRelay+Math.floor(i/10)*75}));
+    const cols=Math.min(10,Math.max(1,Math.ceil(Math.sqrt(Math.max(1,relays.length)))));
+    const gapX=Math.min(115,1100/Math.max(1,cols-1));
+    const buckets=relays.map((r,i)=>({r,x:50+(i%cols)*gapX,y:yRelay+Math.floor(i/cols)*75}));
     buckets.forEach(({r,x,y})=>{
       r._x=x;r._y=y;
       const parent=state.nodes.get(r.parent);
