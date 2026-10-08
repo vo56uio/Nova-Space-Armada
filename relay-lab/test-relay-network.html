@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nova Relay Network — Simulation Arena</title>
+<style>
+  :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#e8edf7;background:#0b1020}
+  *{box-sizing:border-box} body{margin:0;padding:18px}
+  h1{margin:0 0 6px;font-size:24px} .sub{color:#9aa8c2;margin-bottom:16px}
+  .bar,.panel{background:#11182b;border:1px solid #263451;border-radius:12px;padding:12px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  button{border:1px solid #3b4e76;background:#18233a;color:#e8edf7;border-radius:8px;padding:8px 11px;cursor:pointer}
+  button:hover{background:#223250} button.danger{border-color:#70404a}
+  .grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:12px}
+  #arena{min-height:620px;overflow:auto}
+  svg{width:100%;height:600px;background:#0a0f1d;border-radius:10px;border:1px solid #1f2b44}
+  .node{cursor:pointer}.node text{font-size:11px;fill:#e8edf7;pointer-events:none}
+  .link{stroke:#40506d;stroke-width:2;opacity:.75}.backup{stroke-dasharray:6 5;opacity:.45}
+  .root{stroke-width:3}.user{stroke-width:2}
+  .healthy{fill:#173b2b;stroke:#49c781}.degraded{fill:#493b18;stroke:#e2b84e}
+  .offline{fill:#401d26;stroke:#d35b6d}.candidate{fill:#202b40;stroke:#8191ae}
+  .metric{display:grid;grid-template-columns:1fr auto;gap:6px;border-bottom:1px solid #202b42;padding:5px 0}
+  .metric:last-child{border:0}.value{font-variant-numeric:tabular-nums}
+  #log{height:250px;overflow:auto;font:12px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap}
+  .ok{color:#70d99e}.warn{color:#e7c35d}.bad{color:#e77a89}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Nova Relay Network — Simulation Arena v0.2.1</h1>
+<div class="sub">Виртуальные участники. Никаких Firebase, WebRTC или реальных пользователей: полигон тестирует только топологию и отказоустойчивость.</div>
+<div class="bar">
+  <button data-n="10">10 users</button><button data-n="20">20 users</button>
+  <button data-n="40">40 users</button><button data-n="60">60 users</button>
+  <button data-n="80">80 users</button><button data-n="100">100 users</button>
+  <button data-n="150">150 users</button><button data-n="200">200 users</button>
+  <button id="join">+1 user</button><button id="leave">-1 user</button>
+  <button id="killRootA" class="danger">Kill ROOT A</button>
+  <button id="killRootB" class="danger">Kill ROOT B</button>
+  <button id="killRelay" class="danger">Kill random relay</button>
+  <button id="overload">Overload relay</button>
+  <button id="loss">Packet loss</button>
+  <button id="recover">Recover all</button>
+  <button id="reset">Reset</button>
+</div>
+<div class="grid">
+  <section class="panel" id="arena"><svg id="topology" viewBox="0 0 1200 600" aria-label="Relay topology"></svg></section>
+  <aside>
+    <section class="panel" id="stats"></section>
+    <section class="panel" style="margin-top:12px"><b>Event log</b><div id="log"></div></section>
+  </aside>
+</div>
+<script>
+"use strict";
+(() => {
+  const MAX_RELAY_CHILDREN = 4;
+  const MAX_HOPS = 2;
+  const HEADROOM = 0.75;
+  const state = {users: new Map(), nodes: new Map(), nextUser: 1, nextRelay: 1, roots:{A:null,B:null}, seq:0};
+
+  const $ = id => document.getElementById(id);
+  const log = (msg, cls="") => {
+    const line = document.createElement("div");
+    line.className = cls;
+    line.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+    $("log").prepend(line);
+  };
+  const rand = (a,b) => Math.random()*(b-a)+a;
+  const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+
+  function makeUser() {
+    const id = "U" + state.nextUser++;
+    const cpu = Math.round(rand(35,100));
+    const upload = Math.round(rand(2,25));
+    const stability = Math.round(rand(70,100));
+    const rtt = Math.round(rand(20,180));
+    const nat = Math.random() < .18 ? "restricted" : "normal";
+    state.users.set(id,{id,cpu,upload,stability,rtt,nat,status:"healthy",route:null});
+    return id;
+  }
+
+  function makeRelay(kind="relay") {
+    const id = kind === "root" ? "ROOT-" + (state.roots.A ? "B" : "A") : "R" + state.nextRelay++;
+    const node = {
+      id,type:kind,capacity: kind==="root" ? 6 : MAX_RELAY_CHILDREN,
+      children:[],parent:null,status:"healthy",load:0,loss:0,rtt:0
+    };
+    state.nodes.set(id,node);
+    return node;
+  }
+
+  function resetNodes() {
+    state.nodes.clear();
+    state.roots={A:null,B:null};
+    for (const u of state.users.values()) u.route=null;
+    const a=makeRelay("root"), b=makeRelay("root");
+    state.roots.A=a.id; state.roots.B=b.id;
+  }
+
+  function scoreRelay(node,user) {
+    if (!node || node.status === "offline" || node.status === "degraded") return -1e9;
+    const free = node.capacity-node.children.length;
+    if (free <= 0) return -1e9;
+    return free*35 + node.capacity*3 + node.children.length===0 ? 0 : 0
+      - node.load*30 - node.loss*1.5 - Math.abs(node.rtt-user.rtt)*.08;
+  }
+
+  function chooseRoot(user) {
+    const roots=[state.nodes.get(state.roots.A),state.nodes.get(state.roots.B)]
+      .filter(Boolean).filter(n=>n.status!=="offline");
+    roots.sort((a,b)=>scoreRelay(b,user)-scoreRelay(a,user));
+    return roots[0] || null;
+  }
+
+  function rebuild() {
+    for (const n of state.nodes.values()) { n.children=[]; n.parent=null; n.load=0; }
+    const users=[...state.users.values()];
+    const activeUsers=users.filter(u=>u.status!=="offline");
+    const needed=Math.max(0,Math.ceil(activeUsers.length/(MAX_RELAY_CHILDREN*HEADROOM))-2);
+    const relays=[...state.nodes.values()].filter(n=>n.type==="relay");
+    while(relays.length<needed) relays.push(makeRelay("relay"));
+    while(relays.length>needed && relays.some(r=>r.status==="healthy")) {
+      const removable=relays.find(r=>r.status==="healthy" && r.children.length===0);
+      if(!removable) break;
+      state.nodes.delete(removable.id); relays.splice(relays.indexOf(removable),1);
+    }
+
+    const roots=[state.nodes.get(state.roots.A),state.nodes.get(state.roots.B)].filter(Boolean);
+    for(const r of roots) { r.children=[]; r.load=0; }
+
+    const healthyRelays=relays.filter(r=>r.status!=="offline").sort((a,b)=>a.load-b.load);
+    for(const u of activeUsers) {
+      const root=chooseRoot(u);
+      if(!root) { u.route={state:"unreachable"}; continue; }
+      let target=healthyRelays
+        .filter(r=>r.status==="healthy" && r.children.length<r.capacity)
+        .sort((a,b)=>scoreRelay(b,u)-scoreRelay(a,u))[0];
+      if(target && target.children.length<target.capacity) {
+        target.children.push(u.id); target.parent=root.id; target.rtt=Math.round((target.rtt+u.rtt)/2||u.rtt);
+        target.load=target.children.length/target.capacity;
+        u.route={root:root.id,relay:target.id,hops:2,backup:roots.find(x=>x.id!==root.id)?.id||null};
+      } else if(root.children.length<root.capacity) {
+        root.children.push(u.id); root.load=root.children.length/root.capacity;
+        u.route={root:root.id,relay:null,hops:1,backup:roots.find(x=>x.id!==root.id)?.id||null};
+      } else {
+        u.route={state:"unreachable"};
+      }
+    }
+    state.seq++;
+    render();
+  }
+
+  function setUsers(n) {
+    state.users.clear(); state.nextUser=1;
+    for(let i=0;i<n;i++) makeUser();
+    resetNodes(); rebuild();
+    log("Created " + n + " virtual users.", "ok");
+  }
+
+  function kill(id) {
+    const n=state.nodes.get(id); if(!n) return;
+    n.status="offline"; n.children=[];
+    log(id+" is OFFLINE. Rebuilding topology...", "bad");
+    rebuild();
+  }
+
+  function overload() {
+    const relays=[...state.nodes.values()].filter(n=>n.type==="relay" && n.status==="healthy");
+    if(!relays.length){log("No relay available.","warn");return;}
+    const r=relays[Math.floor(Math.random()*relays.length)];
+    r.status="degraded"; r.load=1; r.loss=8;
+    log(r.id+" overloaded → DEGRADED.","warn"); rebuild();
+  }
+
+  function addLoss() {
+    const relays=[...state.nodes.values()].filter(n=>n.status!=="offline");
+    for(const r of relays) r.loss=Math.round(rand(2,15));
+    for(const u of state.users.values()) if(Math.random()<.25) u.rtt=Math.round(rand(120,350));
+    log("Injected packet loss / high RTT into the network.","warn"); rebuild();
+  }
+
+  function recover() {
+    for(const n of state.nodes.values()){n.status="healthy";n.loss=0;n.load=0;}
+    for(const u of state.users.values()) u.status="healthy";
+    rebuild(); log("All simulated failures recovered.","ok");
+  }
+
+  function render() {
+    const svg=$("topology");
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    const relays=[...state.nodes.values()].filter(n=>n.type==="relay");
+    const roots=[state.nodes.get(state.roots.A),state.nodes.get(state.roots.B)].filter(Boolean);
+    const xs=[250,600,950];
+    const yRoot=90,yRelay=245,yUser=445;
+
+    const drawLine=(x1,y1,x2,y2,backup=false)=>{
+      const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+      l.setAttribute("x1",x1);l.setAttribute("y1",y1);l.setAttribute("x2",x2);l.setAttribute("y2",y2);
+      l.setAttribute("class","link"+(backup?" backup":""));svg.appendChild(l);
+    };
+    roots.forEach((r,i)=>{
+      const x=xs[i]||600;
+      r._x=x;r._y=yRoot;
+      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx",x);c.setAttribute("cy",yRoot);c.setAttribute("r",42);
+      c.setAttribute("class","node root "+r.status);svg.appendChild(c);
+      const t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x",x);t.setAttribute("y",yRoot+4);t.setAttribute("text-anchor","middle");t.textContent=r.id+" "+r.children.length+"/"+r.capacity;svg.appendChild(t);
+    });
+
+    const buckets=relays.map((r,i)=>({r,x:80+(i%10)*115,y:yRelay+Math.floor(i/10)*75}));
+    buckets.forEach(({r,x,y})=>{
+      r._x=x;r._y=y;
+      const parent=state.nodes.get(r.parent);
+      if(parent) drawLine(parent._x,parent._y,x,y);
+      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",27);
+      c.setAttribute("class","node "+r.status);svg.appendChild(c);
+      const t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x",x);t.setAttribute("y",y+4);t.setAttribute("text-anchor","middle");t.textContent=r.id+" "+r.children.length+"/"+r.capacity;svg.appendChild(t);
+    });
+
+    const users=[...state.users.values()];
+    const shown=Math.min(users.length,160);
+    for(let i=0;i<shown;i++){
+      const u=users[i], x=30+(i%20)*59, y=yUser+Math.floor(i/20)*38;
+      const r=u.route && u.route.relay ? state.nodes.get(u.route.relay) : (u.route?state.nodes.get(u.route.root):null);
+      if(r) drawLine(r._x,r._y,x,y);
+      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",8);
+      c.setAttribute("class","node "+(u.route?.state==="unreachable"?"offline":"healthy"));
+      c.setAttribute("title",u.id+" | "+(u.route?.relay||u.route?.root||"unreachable"));
+      svg.appendChild(c);
+    }
+
+    const unreachable=users.filter(u=>u.route?.state==="unreachable").length;
+    const healthyRelays=relays.filter(r=>r.status==="healthy").length;
+    $("stats").innerHTML =
+      "<b>Network status</b><div class='metric'><span>Users</span><span class='value'>"+users.length+"</span></div>"+
+      "<div class='metric'><span>Roots</span><span class='value'>"+roots.filter(r=>r.status!=="offline").length+"/2</span></div>"+
+      "<div class='metric'><span>Relays</span><span class='value'>"+healthyRelays+"/"+relays.length+"</span></div>"+
+      "<div class='metric'><span>Unreachable</span><span class='value "+(unreachable?"bad":"ok")+"'>"+unreachable+"</span></div>"+
+      "<div class='metric'><span>Max hops</span><span class='value'>"+MAX_HOPS+"</span></div>"+
+      "<div class='metric'><span>Relay capacity</span><span class='value'>"+MAX_RELAY_CHILDREN+" users</span></div>"+
+      "<div class='metric'><span>Headroom target</span><span class='value'>"+Math.round(HEADROOM*100)+"%</span></div>"+
+      "<div class='metric'><span>Rebuild #</span><span class='value'>"+state.seq+"</span></div>"+
+      "<p style='color:#9aa8c2;font-size:12px;margin-bottom:0'>Пока это именно симулятор топологии. Реального аудио здесь ещё нет.</p>";
+  }
+
+  document.querySelectorAll("[data-n]").forEach(b=>b.addEventListener("click",()=>setUsers(Number(b.dataset.n))));
+  $("join").onclick=()=>{makeUser();rebuild();log("One virtual user joined.","ok");};
+  $("leave").onclick=()=>{const ids=[...state.users.keys()];if(!ids.length)return;const id=ids[ids.length-1];state.users.delete(id);rebuild();log(id+" left.");};
+  $("killRootA").onclick=()=>kill(state.roots.A);
+  $("killRootB").onclick=()=>kill(state.roots.B);
+  $("killRelay").onclick=()=>{const r=[...state.nodes.values()].filter(n=>n.type==="relay"&&n.status!=="offline");if(r.length)kill(r[Math.floor(Math.random()*r.length)].id);};
+  $("overload").onclick=overload;
+  $("loss").onclick=addLoss;
+  $("recover").onclick=recover;
+  $("reset").onclick=()=>setUsers(0);
+
+  setUsers(80);
+})();
+</script>
+</body>
+</html>
