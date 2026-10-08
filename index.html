@@ -759,7 +759,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, linkWithCredential, reauthenticateWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 // Web Audio API Synthesizer for notifications
@@ -889,6 +889,10 @@ let messagesData = [];
 let usersData = [];
 let stickersData = [];
 let stickerUploadBusy = false;
+let novaCloudDataUnsubs = [];
+let novaAppStarted = false;
+let novaStickerUnsub = null;
+let novaStickerSystemInitialized = false;
 
 let pendingInviteCode = null;
 const urlParams = new URLSearchParams(window.location.search);
@@ -1251,6 +1255,7 @@ function initAuth() {
         }
       }
     } else {
+      stopApp();
       document.getElementById('auth-screen').classList.remove('hidden');
       setAuthMode('register');
     }
@@ -1262,19 +1267,43 @@ function checkLoginState() {
 }
 
 function startApp() {
+  const firstStart = !novaAppStarted;
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
-  
+
   updateUserProfileDisplay();
 
   if (isCloudEnabled) {
     document.getElementById('cloud-badge').classList.remove('hidden');
-    syncUserProfileCloud();
+    if (firstStart) syncUserProfileCloud();
     subscribeCloudData();
+    novaInitCallSystem();
+    novaInitVoicePresenceSystem();
+    novaInitStickerSystem();
+    novaAppStarted = true;
   } else {
     document.getElementById('status-text').textContent = getStatusLabel(currentUser.status);
-    loadLocalStore();
+    if (firstStart) loadLocalStore();
+    novaAppStarted = true;
   }
+}
+
+function stopCloudDataSubscriptions() {
+  for (const unsub of novaCloudDataUnsubs.splice(0)) {
+    try { unsub?.(); } catch (e) {}
+  }
+  messagesInitialized = false;
+  previousMessageIds = new Set();
+}
+
+function stopApp() {
+  try { novaVoiceMeshStop?.(); } catch (e) {}
+  try { novaStopCallSystem?.(); } catch (e) {}
+  try { novaStopVoicePresenceSystem?.(); } catch (e) {}
+  try { novaStopStickerSystem?.(); } catch (e) {}
+  stopCloudDataSubscriptions();
+  novaAppStarted = false;
+  document.getElementById('app-shell')?.classList.add('hidden');
 }
 
 const ROLE_PERMISSIONS = [
@@ -1435,7 +1464,9 @@ async function createDefaultStarterServer() {
 }
 
 function subscribeCloudData() {
-  onSnapshot(COLLECTION_USERS, (snapshot) => {
+  if (!isCloudEnabled || novaCloudDataUnsubs.length) return;
+
+  novaCloudDataUnsubs.push(onSnapshot(COLLECTION_USERS, (snapshot) => {
     usersData = [];
     snapshot.forEach(docSnap => {
       const userData = { id: docSnap.id, ...docSnap.data() };
@@ -1451,9 +1482,9 @@ function subscribeCloudData() {
     });
     renderMembersSidebar();
     renderDirectMessagesList();
-  });
+  }, err => console.warn('Users listener failed:', err));
 
-  onSnapshot(COLLECTION_SERVERS, (snapshot) => {
+  novaCloudDataUnsubs.push(onSnapshot(COLLECTION_SERVERS, (snapshot) => {
     serversData = [];
     snapshot.forEach(docSnap => { const srv = { id: docSnap.id, ...docSnap.data() }; ensureServerRoleSchema(srv); serversData.push(srv); });
     
@@ -1470,15 +1501,15 @@ function subscribeCloudData() {
     renderServers();
     renderMembersSidebar();
     if (!document.getElementById('modal-server-settings').classList.contains('hidden')) renderServerSettings();
-  });
+  }, err => console.warn('Servers listener failed:', err));
 
-  onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
+  novaCloudDataUnsubs.push(onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
     channelsData = [];
     snapshot.forEach(docSnap => channelsData.push({ id: docSnap.id, ...docSnap.data() }));
     renderChannels();
-  });
+  }, err => console.warn('Channels listener failed:', err));
 
-  onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
+  novaCloudDataUnsubs.push(onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
     const nextMessages = [];
     snapshot.forEach(docSnap => nextMessages.push({ id: docSnap.id, ...docSnap.data() }));
     const nextIds = new Set(nextMessages.map(m => m.id));
@@ -1490,7 +1521,7 @@ function subscribeCloudData() {
     messagesInitialized = true;
     renderMessages();
     if (!document.getElementById('modal-pins').classList.contains('hidden')) renderPinnedMessages();
-  });
+  }, err => console.warn('Messages listener failed:', err));
 }
 
 async function handlePendingInvite() {
@@ -1732,6 +1763,7 @@ function novaVoicePresenceKey(serverId, channelId, uid) {
 let novaVoicePresence = new Map();
 let novaVoicePresenceUnsub = null;
 let novaVoicePresenceHeartbeat = null;
+let novaVoicePresenceUnloadBound = false;
 
 function novaGetVoiceParticipants(channelId) {
   const now = Date.now();
@@ -1778,7 +1810,7 @@ async function novaLeaveVoicePresence() {
 }
 
 function novaInitVoicePresenceSystem() {
-  if (novaVoicePresenceUnsub || !isCloudEnabled || !COLLECTION_VOICE_PRESENCE) return;
+  if (novaVoicePresenceUnsub || !isCloudEnabled || !COLLECTION_VOICE_PRESENCE || !currentUser?.uid) return;
   novaVoicePresenceUnsub = onSnapshot(COLLECTION_VOICE_PRESENCE, snapshot => {
     const next = new Map();
     snapshot.forEach(ds => {
@@ -1790,12 +1822,29 @@ function novaInitVoicePresenceSystem() {
     if (novaVoiceMesh) novaVoiceMeshSyncParticipants();
   }, err => console.warn('Voice presence listener failed:', err));
 
-  window.addEventListener('beforeunload', () => {
-    novaVoiceMeshStop();
-    if (!activeVoiceChannelId || !COLLECTION_VOICE_PRESENCE) return;
-    const id = novaVoicePresenceKey(currentServerId, activeVoiceChannelId, currentUser.uid);
-    deleteDoc(doc(COLLECTION_VOICE_PRESENCE, id)).catch(() => {});
-  });
+  if (!novaVoicePresenceUnloadBound) {
+    novaVoicePresenceUnloadBound = true;
+    window.addEventListener('beforeunload', () => {
+      novaVoiceMeshStop();
+      if (!activeVoiceChannelId || !COLLECTION_VOICE_PRESENCE || !currentUser?.uid) return;
+      const id = novaVoicePresenceKey(currentServerId, activeVoiceChannelId, currentUser.uid);
+      deleteDoc(doc(COLLECTION_VOICE_PRESENCE, id)).catch(() => {});
+    });
+  }
+}
+
+function novaStopVoicePresenceSystem() {
+  clearInterval(novaVoicePresenceHeartbeat);
+  novaVoicePresenceHeartbeat = null;
+  if (novaVoicePresenceUnsub) {
+    try { novaVoicePresenceUnsub(); } catch (e) {}
+    novaVoicePresenceUnsub = null;
+  }
+  if (activeVoiceChannelId) void novaLeaveVoicePresence();
+  else novaVoiceMeshStop();
+  activeVoiceChannelId = null;
+  document.getElementById('active-voice-bar')?.classList.add('hidden');
+  novaVoicePresence.clear();
 }
 
 function novaEnsureVoicePresenceHeartbeat() {
@@ -2612,32 +2661,50 @@ async function novaSendSticker(stickerId) {
   novaToggleStickerPicker(false);
 }
 
-onSnapshot(COLLECTION_STICKERS, snapshot => {
-  stickersData = [];
-  snapshot.forEach(d => stickersData.push({ id: d.id, ...d.data() }));
-  stickersData.sort((a,b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
-  novaRenderStickerPicker();
-}, err => console.warn('Sticker listener:', err));
+function novaInitStickerSystem() {
+  if (!isCloudEnabled || !COLLECTION_STICKERS || !currentUser?.uid) return;
 
-document.getElementById('btn-sticker')?.addEventListener('click', e => {
-  e.stopPropagation();
-  novaToggleStickerPicker();
-});
-document.getElementById('sticker-file-input')?.addEventListener('change', async e => {
-  const file = e.target.files?.[0];
-  e.target.value = '';
-  if (file) await novaUploadSticker(file);
-});
-document.getElementById('sticker-picker-grid')?.addEventListener('click', async e => {
-  const sendBtn = e.target.closest('.nova-sticker-send');
-  if (sendBtn) return novaSendSticker(sendBtn.dataset.stickerId);
-  const deleteBtn = e.target.closest('.nova-sticker-delete');
-  if (deleteBtn) return novaDeleteSticker(deleteBtn.dataset.stickerId);
-});
-document.addEventListener('click', e => {
-  const picker = document.getElementById('sticker-picker');
-  if (picker && !picker.classList.contains('hidden') && !e.target.closest('#sticker-picker') && !e.target.closest('#btn-sticker')) novaToggleStickerPicker(false);
-});
+  if (!novaStickerUnsub) {
+    novaStickerUnsub = onSnapshot(COLLECTION_STICKERS, snapshot => {
+      stickersData = [];
+      snapshot.forEach(d => stickersData.push({ id: d.id, ...d.data() }));
+      stickersData.sort((a,b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      novaRenderStickerPicker();
+    }, err => console.warn('Sticker listener:', err));
+  }
+
+  if (novaStickerSystemInitialized) return;
+  novaStickerSystemInitialized = true;
+
+  document.getElementById('btn-sticker')?.addEventListener('click', e => {
+    e.stopPropagation();
+    novaToggleStickerPicker();
+  });
+  document.getElementById('sticker-file-input')?.addEventListener('change', async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) await novaUploadSticker(file);
+  });
+  document.getElementById('sticker-picker-grid')?.addEventListener('click', async e => {
+    const sendBtn = e.target.closest('.nova-sticker-send');
+    if (sendBtn) return novaSendSticker(sendBtn.dataset.stickerId);
+    const deleteBtn = e.target.closest('.nova-sticker-delete');
+    if (deleteBtn) return novaDeleteSticker(deleteBtn.dataset.stickerId);
+  });
+  document.addEventListener('click', e => {
+    const picker = document.getElementById('sticker-picker');
+    if (picker && !picker.classList.contains('hidden') && !e.target.closest('#sticker-picker') && !e.target.closest('#btn-sticker')) novaToggleStickerPicker(false);
+  });
+}
+
+function novaStopStickerSystem() {
+  if (novaStickerUnsub) {
+    try { novaStickerUnsub(); } catch (e) {}
+    novaStickerUnsub = null;
+  }
+  stickersData = [];
+  novaRenderStickerPicker?.();
+}
 
 // Voice message recorder.
 // Primary path: Firebase Storage.
@@ -3903,8 +3970,9 @@ novaInitVoicePlayers(document);
 // ===== Nova audio calls (1:1, audio only; no video) =====
 let novaCallState = null;
 let novaIncomingCall = null;
-let novaCallUnsub = null;
+let novaCallUnsubs = [];
 let novaSignalUnsub = null;
+let novaCallUiInitialized = false;
 let novaCallProcessedSignals = new Set();
 let novaCallPendingCandidates = [];
 let novaCallRingtoneTimer = null;
@@ -4183,15 +4251,15 @@ async function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
 }
 
 async function novaVoiceMeshHandleSignal(d) {
-  if (!novaVoiceMesh || d.roomId !== novaVoiceMesh.roomId || d.targetUid !== currentUser.uid || d.fromUid === currentUser.uid) return;
+  if (!novaVoiceMesh || d.roomId !== novaVoiceMesh.roomId || d.targetUid !== currentUser.uid || d.fromUid === currentUser.uid) return false;
   const peer = await novaVoiceMeshEnsurePeer(d.fromUid, d.fromUid);
-  if (!peer) return;
+  if (!peer) return false;
   const pc = peer.pc;
 
   try {
     if (d.sessionId && d.sessionId !== peer.sessionId) {
       if (d.kind === 'offer') peer.sessionId = d.sessionId;
-      else if (d.kind === 'answer' || d.kind === 'ice') return;
+      else if (d.kind === 'answer' || d.kind === 'ice') return true;
     }
 
     if (d.kind === 'offer' && d.offer) {
@@ -4201,7 +4269,7 @@ async function novaVoiceMeshHandleSignal(d) {
 
       const offerCollision = !readyForOffer;
       peer.ignoreOffer = !peer.polite && offerCollision;
-      if (peer.ignoreOffer) return;
+      if (peer.ignoreOffer) return true;
 
       peer.isSettingRemoteAnswerPending = d.offer.type === 'offer';
       await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
@@ -4217,39 +4285,48 @@ async function novaVoiceMeshHandleSignal(d) {
           sdp: pc.localDescription.sdp
         }
       });
-      return;
+      return true;
     }
 
     if (d.kind === 'answer' && d.answer) {
-      if (pc.signalingState !== 'have-local-offer') return;
+      if (pc.signalingState !== 'have-local-offer') return true;
       await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
       await novaVoiceMeshFlushCandidates(peer);
-      return;
+      return true;
     }
 
     if (d.kind === 'ice' && d.candidate) {
       const candidate = new RTCIceCandidate(d.candidate);
       if (pc.remoteDescription) await pc.addIceCandidate(candidate);
       else peer.pendingCandidates.push(candidate);
+      return true;
     }
+    return true;
   } catch (e) {
     peer.isSettingRemoteAnswerPending = false;
     console.warn('Voice mesh signal handling failed:', e);
+    return false;
   }
 }
 
 function novaVoiceMeshListenSignals() {
-  if (!novaVoiceMesh || novaVoiceMesh.signalUnsub || !isCloudEnabled || !COLLECTION_CALL_SIGNALS) return;
-  novaVoiceMesh.signalUnsub = onSnapshot(COLLECTION_CALL_SIGNALS, snapshot => {
+  if (!novaVoiceMesh || novaVoiceMesh.signalUnsub || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !currentUser?.uid) return;
+  const signalQuery = query(COLLECTION_CALL_SIGNALS, where('targetUid', '==', currentUser.uid));
+  novaVoiceMesh.signalUnsub = onSnapshot(signalQuery, snapshot => {
     if (!novaVoiceMesh) return;
     for (const change of snapshot.docChanges()) {
       if (change.type === 'removed') continue;
       const d = change.doc.data();
       if (Number(d.ts || 0) < Number(novaVoiceMesh.startedAt || 0)) continue;
-      if (!novaVoiceMesh.processedSignals.has(change.doc.id)) {
-        novaVoiceMesh.processedSignals.add(change.doc.id);
-        novaVoiceMeshHandleSignal(d);
-      }
+      if (d.roomId !== novaVoiceMesh.roomId || d.targetUid !== currentUser.uid || d.fromUid === currentUser.uid) continue;
+      if (novaVoiceMesh.processedSignals.has(change.doc.id)) continue;
+      novaVoiceMesh.processedSignals.add(change.doc.id);
+      void (async () => {
+        const handled = await novaVoiceMeshHandleSignal(d);
+        if (handled) {
+          try { await deleteDoc(doc(COLLECTION_CALL_SIGNALS, change.doc.id)); } catch (e) {}
+        }
+      })();
     }
   }, err => console.warn('Voice mesh signal listener failed:', err));
 }
@@ -4528,8 +4605,9 @@ function novaCallCreatePeerConnection(callId, role) {
   return pc;
 }
 async function novaCallListenSignals() {
-  if (novaSignalUnsub || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !novaCallState) return;
-  novaSignalUnsub = onSnapshot(COLLECTION_CALL_SIGNALS, async snapshot => {
+  if (novaSignalUnsub || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !novaCallState || !currentUser?.uid) return;
+  const signalQuery = query(COLLECTION_CALL_SIGNALS, where('targetUid', '==', currentUser.uid));
+  novaSignalUnsub = onSnapshot(signalQuery, async snapshot => {
     if (!novaCallState) return;
     for (const change of snapshot.docChanges()) {
       if (change.type === 'removed') continue;
@@ -4538,10 +4616,15 @@ async function novaCallListenSignals() {
       novaCallProcessedSignals.add(change.doc.id);
       if (d.kind !== 'ice' || !d.candidate) continue;
       const candidate = new RTCIceCandidate(d.candidate);
+      let handled = false;
       if (novaCallState.pc?.remoteDescription) {
-        try { await novaCallState.pc.addIceCandidate(candidate); } catch (e) { console.warn('Call ICE candidate rejected:', e); }
+        try { await novaCallState.pc.addIceCandidate(candidate); handled = true; } catch (e) { console.warn('Call ICE candidate rejected:', e); }
       } else {
         novaCallPendingCandidates.push(candidate);
+        handled = true;
+      }
+      if (handled) {
+        try { await deleteDoc(doc(COLLECTION_CALL_SIGNALS, change.doc.id)); } catch (e) {}
       }
     }
   }, err => console.warn('Call signal listener failed:', err));
@@ -4634,8 +4717,10 @@ async function novaCallDecline() {
   const incoming = novaIncomingCall;
   novaCallHideIncoming();
   if (!incoming || !isCloudEnabled) return;
-  try { await setDoc(doc(COLLECTION_CALLS, incoming.id), { status:'ended', updatedAt:Date.now() }, { merge:true }); }
-  catch(e) { console.warn('Call decline failed:', e); }
+  try {
+    await setDoc(doc(COLLECTION_CALLS, incoming.id), { status:'ended', updatedAt:Date.now() }, { merge:true });
+    novaScheduleCallDocumentCleanup(incoming.id);
+  } catch(e) { console.warn('Call decline failed:', e); }
 }
 async function novaCallEnd(silent=false, reason='Звонок завершён') {
   const active = novaCallState;
@@ -4655,6 +4740,7 @@ async function novaCallEnd(silent=false, reason='Звонок завершён')
   if (isCloudEnabled && COLLECTION_CALLS) {
     try { await setDoc(doc(COLLECTION_CALLS, active.callId), { status:'ended', updatedAt:Date.now() }, { merge:true }); }
     catch(e) { console.warn('Call end signal failed:', e); }
+    novaScheduleCallDocumentCleanup(active.callId);
   }
   novaUpdateCallButton();
   if (!silent) showToast(reason);
@@ -4663,12 +4749,24 @@ async function novaHandleCallSnapshot(snapshot) {
   for (const change of snapshot.docChanges()) {
     const call = { id:change.doc.id, ...change.doc.data() };
     if (!call.id || !call.status) continue;
-    if (change.type !== 'removed' && call.status === 'ringing' && call.calleeUid === currentUser.uid && call.createdAt > Date.now() - 60000) {
-      if (!novaCallState && (!novaIncomingCall || novaIncomingCall.id !== call.id)) novaCallShowIncoming(call);
+    if (change.type !== 'removed' && call.status === 'ringing') {
+      const ageMs = Date.now() - Number(call.createdAt || 0);
+      if (ageMs > 60000) {
+        if (isCloudEnabled && COLLECTION_CALLS) {
+          try { await setDoc(doc(COLLECTION_CALLS, call.id), { status:'ended', updatedAt:Date.now() }, { merge:true }); } catch (e) {}
+        }
+        novaScheduleCallDocumentCleanup(call.id);
+        continue;
+      }
+      if (call.calleeUid === currentUser.uid && (!novaCallState && (!novaIncomingCall || novaIncomingCall.id !== call.id))) novaCallShowIncoming(call);
+      continue;
+    }
+    if (call.status === 'ended') {
+      novaScheduleCallDocumentCleanup(call.id);
+      if (novaCallState && call.id === novaCallState.callId) await novaCallEnd(true, 'Звонок завершён');
       continue;
     }
     if (novaCallState && call.id === novaCallState.callId) {
-      if (call.status === 'ended') { await novaCallEnd(true, 'Звонок завершён'); continue; }
       if (novaCallState.role === 'caller' && call.answer && !novaCallState.answerApplied) {
         try {
           await novaCallState.pc.setRemoteDescription(new RTCSessionDescription(call.answer));
@@ -4685,8 +4783,23 @@ async function novaHandleCallSnapshot(snapshot) {
   }
 }
 function novaInitCallSystem() {
-  if (novaCallUnsub || !isCloudEnabled || !COLLECTION_CALLS) return;
-  novaCallUnsub = onSnapshot(COLLECTION_CALLS, novaHandleCallSnapshot, err => console.warn('Call listener failed:', err));
+  if (!isCloudEnabled || !COLLECTION_CALLS || !currentUser?.uid) return;
+
+  if (novaCallUnsubs.length === 0) {
+    const calleeQuery = query(COLLECTION_CALLS, where('calleeUid', '==', currentUser.uid));
+    const callerQuery = query(COLLECTION_CALLS, where('callerUid', '==', currentUser.uid));
+    novaCallUnsubs.push(
+      onSnapshot(calleeQuery, novaHandleCallSnapshot, err => console.warn('Callee call listener failed:', err)),
+      onSnapshot(callerQuery, novaHandleCallSnapshot, err => console.warn('Caller call listener failed:', err))
+    );
+  }
+
+  if (novaCallUiInitialized) {
+    novaUpdateCallButton();
+    return;
+  }
+  novaCallUiInitialized = true;
+
   document.getElementById('btn-start-call')?.addEventListener('click', () => {
     if (currentView === 'dm' && currentDmUserId && !novaCallState) novaCallStart(currentDmUserId);
   });
@@ -4720,6 +4833,23 @@ function novaInitCallSystem() {
   });
   novaUpdateCallButton();
 }
+function novaStopCallSystem() {
+  for (const unsub of novaCallUnsubs.splice(0)) {
+    try { unsub?.(); } catch (e) {}
+  }
+  if (novaCallState) void novaCallEnd(true, '');
+  novaCallHideIncoming();
+  novaCallProcessedSignals = new Set();
+  novaCallPendingCandidates = [];
+}
+
+function novaScheduleCallDocumentCleanup(callId) {
+  if (!callId || !isCloudEnabled || !COLLECTION_CALLS) return;
+  setTimeout(async () => {
+    try { await deleteDoc(doc(COLLECTION_CALLS, callId)); } catch (e) {}
+  }, 30000);
+}
+
 function novaUpdateCallButton() {
   const btn = document.getElementById('btn-start-call');
   if (!btn) return;
@@ -4766,8 +4896,6 @@ const banMember = window.banMember;
 const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
-novaInitCallSystem();
-novaInitVoicePresenceSystem();
 initAuth();
 </script>
 
