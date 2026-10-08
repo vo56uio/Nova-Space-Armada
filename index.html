@@ -4138,7 +4138,7 @@ function novaVoiceMeshCreateAudio(uid, stream) {
 }
 
 async function novaVoiceMeshSendSignal(peerUid, payload) {
-  if (!novaVoiceMesh || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !peerUid) return;
+  if (!novaVoiceMesh || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !peerUid) return false;
   try {
     const id = `vmesh_${novaVoiceMesh.roomId}_${currentUser.uid}_${peerUid}_${payload.kind}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     await setDoc(doc(COLLECTION_CALL_SIGNALS, id), {
@@ -4155,21 +4155,24 @@ async function novaVoiceMeshSendSignal(peerUid, payload) {
       candidate: payload.candidate || null,
       ts: Date.now()
     });
+    return true;
   } catch (e) {
     console.warn('Voice mesh signal failed:', e);
+    return false;
   }
 }
-
 function novaVoiceMeshRandomId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 async function novaVoiceMeshCreateOffer(peer) {
-  if (!novaVoiceMesh || !peer?.pc || peer.makingOffer || peer.pc.signalingState !== 'stable') return;
+  if (!novaVoiceMesh || !peer?.pc || !peer.isInitiator || peer.makingOffer || peer.initialOfferSent || peer.pc.signalingState !== 'stable') return;
   try {
     peer.makingOffer = true;
     await peer.pc.setLocalDescription();
-    await novaVoiceMeshSendSignal(peer.uid, {
+    if (!peer.pc.localDescription || peer.pc.localDescription.type !== 'offer') return;
+
+    const sent = await novaVoiceMeshSendSignal(peer.uid, {
       kind: 'offer',
       sessionId: peer.sessionId,
       offer: {
@@ -4177,6 +4180,7 @@ async function novaVoiceMeshCreateOffer(peer) {
         sdp: peer.pc.localDescription.sdp
       }
     });
+    if (sent) peer.initialOfferSent = true;
   } catch (e) {
     console.warn('Voice mesh offer failed:', e);
   } finally {
@@ -4191,18 +4195,17 @@ async function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
   if (!novaVoiceMesh.localStream) return null;
 
   const pc = new RTCPeerConnection({ iceServers: novaVoiceMeshIceServers() });
-  const polite = String(currentUser.uid) > String(uid);
+  const isInitiator = String(currentUser.uid) < String(uid);
   const peer = {
     uid,
     name,
     pc,
     audio: null,
     pendingCandidates: [],
-    polite,
+    isInitiator,
     makingOffer: false,
-    ignoreOffer: false,
-    isSettingRemoteAnswerPending: false,
-    sessionId: novaVoiceMeshRandomId()
+    initialOfferSent: false,
+    sessionId: isInitiator ? novaVoiceMeshRandomId() : null
   };
   novaVoiceMesh.peers.set(uid, peer);
 
@@ -4221,7 +4224,10 @@ async function novaVoiceMeshEnsurePeer(uid, name='Пользователь') {
   };
 
   pc.onnegotiationneeded = async () => {
-    await novaVoiceMeshCreateOffer(peer);
+    // Only the deterministic initiator starts the initial SDP negotiation.
+    // The responder must not create a competing offer just because addTrack()
+    // fired negotiationneeded on its own RTCPeerConnection.
+    if (peer.isInitiator) await novaVoiceMeshCreateOffer(peer);
   };
 
   pc.ontrack = event => {
@@ -4277,27 +4283,21 @@ async function novaVoiceMeshHandleSignal(d) {
   const pc = peer.pc;
 
   try {
-    if (d.sessionId && d.sessionId !== peer.sessionId) {
-      if (d.kind === 'offer') peer.sessionId = d.sessionId;
-      else if (d.kind === 'answer' || d.kind === 'ice') return true;
-    }
-
     if (d.kind === 'offer' && d.offer) {
-      const readyForOffer =
-        !peer.makingOffer &&
-        (pc.signalingState === 'stable' || peer.isSettingRemoteAnswerPending);
+      // There is exactly one initiator for each pair, chosen from the stable
+      // Firebase UIDs. This removes the A-first/B-first offer glare entirely.
+      if (peer.isInitiator) return true;
+      if (!d.sessionId) return false;
+      if (peer.sessionId && d.sessionId !== peer.sessionId) return true;
+      if (pc.signalingState !== 'stable') return true;
 
-      const offerCollision = !readyForOffer;
-      peer.ignoreOffer = !peer.polite && offerCollision;
-      if (peer.ignoreOffer) return true;
-
-      peer.isSettingRemoteAnswerPending = d.offer.type === 'offer';
+      peer.sessionId = d.sessionId;
       await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
-      peer.isSettingRemoteAnswerPending = false;
       await novaVoiceMeshFlushCandidates(peer);
 
       await pc.setLocalDescription();
-      await novaVoiceMeshSendSignal(peer.uid, {
+      if (!pc.localDescription || pc.localDescription.type !== 'answer') return false;
+      return await novaVoiceMeshSendSignal(peer.uid, {
         kind: 'answer',
         sessionId: peer.sessionId,
         answer: {
@@ -4305,10 +4305,10 @@ async function novaVoiceMeshHandleSignal(d) {
           sdp: pc.localDescription.sdp
         }
       });
-      return true;
     }
 
     if (d.kind === 'answer' && d.answer) {
+      if (!peer.isInitiator || !peer.sessionId || d.sessionId !== peer.sessionId) return true;
       if (pc.signalingState !== 'have-local-offer') return true;
       await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
       await novaVoiceMeshFlushCandidates(peer);
@@ -4316,6 +4316,9 @@ async function novaVoiceMeshHandleSignal(d) {
     }
 
     if (d.kind === 'ice' && d.candidate) {
+      // ICE can arrive before the offer on the responder, so queue it until a
+      // remote description exists. A null sessionId is valid for early ICE.
+      if (d.sessionId && peer.sessionId && d.sessionId !== peer.sessionId) return true;
       const candidate = new RTCIceCandidate(d.candidate);
       if (pc.remoteDescription) await pc.addIceCandidate(candidate);
       else peer.pendingCandidates.push(candidate);
@@ -4323,12 +4326,10 @@ async function novaVoiceMeshHandleSignal(d) {
     }
     return true;
   } catch (e) {
-    peer.isSettingRemoteAnswerPending = false;
     console.warn('Voice mesh signal handling failed:', e);
     return false;
   }
 }
-
 function novaVoiceMeshListenSignals() {
   if (!novaVoiceMesh || novaVoiceMesh.signalUnsub || !isCloudEnabled || !COLLECTION_CALL_SIGNALS || !currentUser?.uid) return;
   const signalQuery = query(COLLECTION_CALL_SIGNALS, where('targetUid', '==', currentUser.uid));
