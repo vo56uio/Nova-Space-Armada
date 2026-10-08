@@ -54,7 +54,7 @@
 <script>
 "use strict";
 (() => {
-  const MAX_RELAY_CHILDREN = 4;
+  const MAX_RELAY_CHILDREN = 6;
   const MAX_HOPS = 2;
   const HEADROOM = 0.75;
   const state = {users: new Map(), nodes: new Map(), nextUser: 1, nextRelay: 1, roots:{A:null,B:null}, seq:0};
@@ -83,7 +83,7 @@
   function makeRelay(kind="relay") {
     const id = kind === "root" ? "ROOT-" + (state.roots.A ? "B" : "A") : "R" + state.nextRelay++;
     const node = {
-      id,type:kind,capacity: kind==="root" ? 6 : MAX_RELAY_CHILDREN,
+      id,type:kind,capacity: kind==="root" ? 24 : MAX_RELAY_CHILDREN,
       children:[],parent:null,status:"healthy",load:0,loss:0,rtt:0
     };
     state.nodes.set(id,node);
