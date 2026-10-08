@@ -1482,7 +1482,7 @@ function subscribeCloudData() {
     });
     renderMembersSidebar();
     renderDirectMessagesList();
-  }, err => console.warn('Users listener failed:', err));
+  }, err => console.warn('Users listener failed:', err)));
 
   novaCloudDataUnsubs.push(onSnapshot(COLLECTION_SERVERS, (snapshot) => {
     serversData = [];
@@ -1501,13 +1501,13 @@ function subscribeCloudData() {
     renderServers();
     renderMembersSidebar();
     if (!document.getElementById('modal-server-settings').classList.contains('hidden')) renderServerSettings();
-  }, err => console.warn('Servers listener failed:', err));
+  }, err => console.warn('Servers listener failed:', err)));
 
   novaCloudDataUnsubs.push(onSnapshot(COLLECTION_CHANNELS, (snapshot) => {
     channelsData = [];
     snapshot.forEach(docSnap => channelsData.push({ id: docSnap.id, ...docSnap.data() }));
     renderChannels();
-  }, err => console.warn('Channels listener failed:', err));
+  }, err => console.warn('Channels listener failed:', err)));
 
   novaCloudDataUnsubs.push(onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
     const nextMessages = [];
@@ -1521,7 +1521,7 @@ function subscribeCloudData() {
     messagesInitialized = true;
     renderMessages();
     if (!document.getElementById('modal-pins').classList.contains('hidden')) renderPinnedMessages();
-  }, err => console.warn('Messages listener failed:', err));
+  }, err => console.warn('Messages listener failed:', err)));
 }
 
 async function handlePendingInvite() {
