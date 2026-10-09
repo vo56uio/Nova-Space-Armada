@@ -5645,18 +5645,18 @@ initAuth();
   if(window.__novaExclusiveIconsV1)return;
   window.__novaExclusiveIconsV1=true;
   const icons={
-    '⚙️':'settings','⚙':'settings','🚪':'log-out','🔍':'search','🔎':'search',
-    '📎':'paperclip','🎙️':'mic','🎙':'mic','🔇':'mic-off','🔊':'volume-2',
-    '✕':'x','×':'x','✖':'x','✏️':'pencil','🗑️':'trash-2','📌':'pin',
-    '🔔':'bell','🎨':'palette','👤':'user-round','🔐':'shield-check','🛠️':'wrench',
-    '👥':'users-round','🔗':'link','🛡️':'shield','📁':'folder','✉️':'mail',
-    '▶':'play','↗':'arrow-up-right','↓':'download','＋':'plus','➕':'plus',
-    '➖':'minus','✓':'check','✔':'check','☑':'check-square','💬':'message-circle',
+    '⚙️':'settings','⚙':'settings','🚪':'logOut','🔍':'search','🔎':'search',
+    '📎':'paperclip','🎙️':'mic','🎙':'mic','🔇':'micOff','🔊':'volume2',
+    '✕':'x','×':'x','✖':'x','✏️':'pencil','🗑️':'trash2','📌':'pin',
+    '🔔':'bell','🎨':'palette','👤':'userRound','🔐':'shieldCheck','🛠️':'wrench',
+    '👥':'usersRound','🔗':'link','🛡️':'shield','📁':'folder','✉️':'mail',
+    '▶':'play','↗':'arrowUpRight','↓':'download','＋':'plus','➕':'plus',
+    '➖':'minus','✓':'check','✔':'check','☑':'checkSquare','💬':'messageCircle',
     '📞':'phone','📷':'image','🖼️':'image','🎧':'headphones','🔒':'lock',
-    '🌙':'moon','☀️':'sun','☀':'sun','📍':'map-pin','🧷':'paperclip',
-    '🟢':'circle-check','🟡':'circle-dot','🔴':'circle-minus','🟣':'circle',
-    '📨':'send','📤':'send','📥':'inbox','📄':'file-text','🗂️':'folder-kanban',
-    '🎮':'gamepad-2','🚀':'rocket','✨':'sparkles'
+    '🌙':'moon','☀️':'sun','☀':'sun','📍':'mapPin','🧷':'paperclip',
+    '🟢':'circleCheck','🟡':'circleDot','🔴':'circleMinus','🟣':'circle',
+    '📨':'send','📤':'send','📥':'inbox','📄':'fileText','🗂️':'folderKanban',
+    '🎮':'gamepad2','🚀':'rocket','✨':'sparkles'
   };
   const protectedButton=b=>b.matches('.emoji-btn,[onclick*="toggleQuickReaction"],[onclick*="toggleReaction"],[data-sticker-id],.reaction-btn');
   function svg(name){
