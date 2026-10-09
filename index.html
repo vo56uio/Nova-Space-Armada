@@ -1527,6 +1527,8 @@ function subscribeCloudData() {
     });
     renderMembersSidebar();
     renderDirectMessagesList();
+    if (typeof renderMessages === 'function') renderMessages();
+    if (typeof novaPaintAvatars === 'function') novaPaintAvatars();
   }, err => console.warn('Users listener failed:', err)));
 
   novaCloudDataUnsubs.push(onSnapshot(COLLECTION_SERVERS, (snapshot) => {
@@ -2158,6 +2160,8 @@ function renderMessages() {
     activeMessages = messagesData.filter(m => m.channelId === currentChannelId);
   }
 
+  activeMessages = novaFilterMessagesV2(activeMessages);
+
   // Search filter query
   if (messageSearchQuery) {
     const q = messageSearchQuery.toLowerCase();
@@ -2253,7 +2257,7 @@ function renderMessages() {
 
           <!-- Attachment image if present -->
           ${(m.attachmentUrl || m.attachmentDataUrl) ? `
-            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md" data-attachment-src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" data-attachment-name="${escapeHtml(m.attachmentName || 'изображение.jpg')}">
+            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md" data-attachment-src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" data-attachment-name="${escapeHtml(m.attachmentName || 'изображение.jpg')}" data-attachment-size="${escapeHtml(m.attachmentSize || '')}">
               <button type="button" class="nova-image-open" data-open-attachment title="Открыть изображение" aria-label="Открыть изображение">
                 <img src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" alt="Изображение" class="max-h-96 w-auto max-w-full object-contain bg-black/10" onerror="this.closest('.nova-image-attachment').style.display='none'">
                 <span class="nova-image-overlay">Открыть</span>
@@ -2546,7 +2550,7 @@ window.handleSendMessage = async function(e) {
       window.novaPendingAttachmentDataUrl = attachmentDataUrl;
       if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${pendingAttachmentFile.name || 'изображение'} готово`;
     }
-    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName });
+    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName, attachmentSize: pendingAttachmentFile?.size || null });
     return false;
   } catch (err) {
     console.error('Attachment upload failed:', err);
@@ -2556,7 +2560,7 @@ window.handleSendMessage = async function(e) {
   }
 };
 
-async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
+async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, attachmentSize = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
   const cleanText = String(text || '').trim();
   if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !stickerDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
@@ -2576,6 +2580,7 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
     attachmentUrl: attachmentUrl || null,
     attachmentDataUrl: attachmentDataUrl || null,
     attachmentName: attachmentName || null,
+    attachmentSize: Number.isFinite(Number(attachmentSize)) ? Number(attachmentSize) : null,
     stickerDataUrl: stickerDataUrl || null,
     stickerName: stickerName || null,
     voiceUrl: voiceUrl || null,
@@ -5092,6 +5097,55 @@ const banMember = window.banMember;
 const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
+function novaPaintAvatars() {
+  document.querySelectorAll('[data-message-id]').forEach(row => {
+    const msg = messagesData.find(m => String(m.id) === String(row.getAttribute('data-message-id')));
+    const box = row.firstElementChild;
+    if (!msg || !box) return;
+    const user = usersData.find(u => u.uid === msg.authorId);
+    const avatar = user && typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
+    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
+    box.style.backgroundSize = avatar ? 'cover' : '';
+    box.style.backgroundPosition = avatar ? 'center' : '';
+    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
+    else { box.style.color = ''; if (!box.textContent.trim()) box.textContent = (msg.authorName || 'U').charAt(0).toUpperCase(); }
+  });
+  document.querySelectorAll('#members-list-content [data-member-uid]').forEach(row => {
+    const user = usersData.find(u => u.uid === row.getAttribute('data-member-uid'));
+    const box = row.querySelector('.relative > div');
+    if (!user || !box) return;
+    const avatar = typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
+    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
+    box.style.backgroundSize = avatar ? 'cover' : '';
+    box.style.backgroundPosition = avatar ? 'center' : '';
+    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
+    else if (!box.textContent.trim()) { box.textContent = (user.nickname || 'U').charAt(0).toUpperCase(); box.style.color = ''; }
+  });
+  document.querySelectorAll('#dm-user-list [data-dm-user-id]').forEach(btn => {
+    const user = usersData.find(u => u.uid === btn.getAttribute('data-dm-user-id'));
+    const box = btn.querySelector('.relative > div');
+    if (!user || !box) return;
+    const avatar = typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
+    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
+    box.style.backgroundSize = avatar ? 'cover' : '';
+    box.style.backgroundPosition = avatar ? 'center' : '';
+    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
+  });
+}
+const NOVA_POLISH_KEYS={appearance:'nova_appearance_v2',mutedUsers:'nova_muted_users_v2',mutedChannels:'nova_muted_channels_v2'};
+let novaSearchType='all';
+function novaPolishSet(key){try{const x=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(x)?x.map(String):[])}catch(_){return new Set()}}
+function novaPolishSaveSet(key,set){localStorage.setItem(key,JSON.stringify(Array.from(set)))}
+function novaApplyAppearanceV2(){let a={};try{a=JSON.parse(localStorage.getItem(NOVA_POLISH_KEYS.appearance)||'{}')||{}}catch(_){}const color=/^#[0-9a-f]{6}$/i.test(a.color||'')?a.color:'#5865F2';let st=document.getElementById('nova-polish-style-v2');if(!st){st=document.createElement('style');st.id='nova-polish-style-v2';document.head.appendChild(st)}st.textContent=':root{--nova-accent-v2:'+color+'} .bg-discord-accent{background-color:var(--nova-accent-v2)!important}.text-discord-accent{color:var(--nova-accent-v2)!important} '+(a.compact?'#message-feed .group{padding-top:3px!important;padding-bottom:3px!important}#dm-user-list button{padding-top:5px!important;padding-bottom:5px!important}':'')+' '+(a.motion==='off'?'*,*::before,*::after{animation-duration:0ms!important;transition-duration:0ms!important}':a.motion==='low'?'*,*::before,*::after{animation-duration:80ms!important;transition-duration:80ms!important}':'')}
+function novaInstallAppearanceV2(){const p=document.getElementById('account-settings-panel-appearance');if(!p||document.getElementById('nova-appearance-v2'))return;const d=document.createElement('div');d.id='nova-appearance-v2';d.className='space-y-3';d.innerHTML='<div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-3"><b class="text-white text-sm">Внешний вид 2.0</b><label class="flex justify-between items-center text-sm">Акцентный цвет<input id="nova-accent-v2" type="color" value="#5865F2"></label><label class="flex gap-2 items-center text-sm"><input id="nova-compact-v2" type="checkbox"> Компактный режим</label><label class="block text-sm">Анимации<select id="nova-motion-v2" class="block mt-1 w-full bg-discord-surface border border-gray-700 rounded-lg p-2"><option value="full">Обычные</option><option value="low">Минимальные</option><option value="off">Выключены</option></select></label></div><div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-2"><b class="text-white text-sm">Скрытие сообщений</b><p class="text-xs text-discord-muted">Скрытия локальные — видны только в этом браузере.</p><button id="nova-mute-user-v2" class="w-full bg-discord-surface rounded-lg p-2 text-sm">Скрыть / показать собеседника</button><button id="nova-mute-channel-v2" class="w-full bg-discord-surface rounded-lg p-2 text-sm">Скрыть / показать канал</button><button id="nova-clear-mutes-v2" class="w-full bg-discord-surface rounded-lg p-2 text-sm">Сбросить скрытия</button></div>';p.appendChild(d);let a={};try{a=JSON.parse(localStorage.getItem(NOVA_POLISH_KEYS.appearance)||'{}')||{}}catch(_){}const c=document.getElementById('nova-accent-v2'),k=document.getElementById('nova-compact-v2'),m=document.getElementById('nova-motion-v2');c.value=a.color||'#5865F2';k.checked=!!a.compact;m.value=a.motion||'full';const save=()=>{localStorage.setItem(NOVA_POLISH_KEYS.appearance,JSON.stringify({color:c.value,compact:k.checked,motion:m.value}));novaApplyAppearanceV2()};c.addEventListener('input',save);k.addEventListener('change',save);m.addEventListener('change',save);
+document.getElementById('nova-mute-user-v2').onclick=()=>{if(currentView!=='dm'||!currentDmUserId){showToast('Сначала откройте личный диалог',true);return}const x=novaPolishSet(NOVA_POLISH_KEYS.mutedUsers),id=String(currentDmUserId);if(x.has(id)){x.delete(id);showToast('Собеседник снова виден')}else{x.add(id);showToast('Сообщения собеседника скрыты')}novaPolishSaveSet(NOVA_POLISH_KEYS.mutedUsers,x);renderMessages()};
+document.getElementById('nova-mute-channel-v2').onclick=()=>{if(currentView==='dm'||!currentChannelId){showToast('Сначала откройте канал',true);return}const x=novaPolishSet(NOVA_POLISH_KEYS.mutedChannels),id=String(currentChannelId);if(x.has(id)){x.delete(id);showToast('Канал снова виден')}else{x.add(id);showToast('Сообщения канала скрыты')}novaPolishSaveSet(NOVA_POLISH_KEYS.mutedChannels,x);renderMessages()};
+document.getElementById('nova-clear-mutes-v2').onclick=()=>{localStorage.removeItem(NOVA_POLISH_KEYS.mutedUsers);localStorage.removeItem(NOVA_POLISH_KEYS.mutedChannels);renderMessages();showToast('Скрытия сброшены')};}
+function novaInstallSearchTypeV2(){const i=document.getElementById('input-search-messages');if(!i||document.getElementById('nova-search-type-v2'))return;const x=document.createElement('select');x.id='nova-search-type-v2';x.className='bg-discord-rail border border-gray-700/50 rounded-lg px-1 py-1.5 text-xs text-white';x.innerHTML='<option value="all">Всё</option><option value="text">Текст</option><option value="media">Медиа</option><option value="files">Файлы</option>';i.parentElement.parentElement.insertBefore(x,i.parentElement.nextSibling);x.onchange=()=>{novaSearchType=x.value;renderMessages()}}
+function novaFilterMessagesV2(list){const mu=novaPolishSet(NOVA_POLISH_KEYS.mutedUsers),mc=novaPolishSet(NOVA_POLISH_KEYS.mutedChannels);return list.filter(m=>{if(currentView==='dm'&&mu.has(String(m.authorId))&&m.authorId!==currentUser.uid)return false;if(currentView!=='dm'&&mc.has(String(m.channelId)))return false;const raw=JSON.stringify(m).toLowerCase(),media=!!(m.attachmentUrl||m.attachmentDataUrl||m.imageUrl||m.mediaUrl||m.fileUrl||m.attachments||m.attachment||m.image||m.audioUrl||m.voiceUrl||m.voiceDataUrl||m.stickerUrl||m.stickerDataUrl);if(novaSearchType==='text')return !!m.text;if(novaSearchType==='media')return media&&/image|photo|media|sticker|audio|voice|video|png|jpe?g|webp|gif/.test(raw);if(novaSearchType==='files')return media&&/file|document|pdf|attachment|filename|\.zip|\.txt|\.docx?|\.xlsx?/.test(raw);return true})}
+novaInstallAppearanceV2();novaInstallSearchTypeV2();novaApplyAppearanceV2();
+const novaAvatarObserver = new MutationObserver(() => { if (typeof novaPaintAvatars === 'function') novaPaintAvatars(); });
+['message-feed','dm-user-list','members-list-content'].forEach(id => { const el = document.getElementById(id); if (el) novaAvatarObserver.observe(el, { childList:true, subtree:true }); });
 initAuth();
 </script>
 
@@ -5479,12 +5533,14 @@ initAuth();
   if(!viewer||!img||!title||!downloadBtn)return;
   let currentSrc='';
   let currentName='image.jpg';
-  function openViewer(src,name){
+  let currentSize=0;
+  function openViewer(src,name,size){
     if(!src)return;
     currentSrc=src;
     currentName=name||'image.jpg';
+    currentSize=Number(size)||0;
     img.src=src;
-    title.textContent=currentName;
+    title.textContent=currentName+(currentSize>0?' · '+(currentSize/1024/1024).toFixed(1)+' МБ':'');
     viewer.classList.add('is-open');
     viewer.setAttribute('aria-hidden','false');
     document.body.style.overflow='hidden';
@@ -5535,7 +5591,7 @@ initAuth();
       if(!card)return;
       e.preventDefault();
       e.stopPropagation();
-      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'));
+      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'),card.getAttribute('data-attachment-size'));
       return;
     }
     const dl=e.target.closest?.('[data-download-attachment]');
@@ -5544,7 +5600,7 @@ initAuth();
       if(!card)return;
       e.preventDefault();
       e.stopPropagation();
-      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'));
+      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'),card.getAttribute('data-attachment-size'));
       setTimeout(downloadCurrent,50);
     }
   }, true);
