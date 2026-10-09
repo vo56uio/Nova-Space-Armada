@@ -5628,35 +5628,41 @@ initAuth();
 <!-- /NOVA_ATTACHMENT_VIEWER_V8 -->
 
 
-<!-- NOVA_EXCLUSIVE_ICON_SYSTEM_V1 -->
+<!-- NOVA_EXCLUSIVE_ICON_SYSTEM_V2 -->
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
-  .nova-ui-icon{width:1.05em;height:1.05em;display:inline-block;vertical-align:-.16em;flex:none;stroke-width:2}
+  .nova-ui-icon{width:1.05em;height:1.05em;display:inline-block;vertical-align:-.16em;flex:none;stroke-width:1.9;pointer-events:none}
   .nova-iconized{display:inline-flex!important;align-items:center;justify-content:center;gap:.48em}
   button .nova-ui-icon{transition:transform .16s ease,filter .16s ease}
   button:hover .nova-ui-icon{transform:translateY(-1px);filter:drop-shadow(0 0 3px currentColor)}
+  button:disabled .nova-ui-icon{opacity:.55}
   .nova-icon-only{display:inline-flex;align-items:center;justify-content:center}
-  .nova-checkmark-icon{color:#45d483}
+  .nova-checkmark-icon{color:#45d483;width:1em;height:1em;stroke-width:2.4}
+  .nova-status-check{display:inline-flex;align-items:center;gap:.4em}
   @media(prefers-reduced-motion:reduce){button .nova-ui-icon{transition:none}button:hover .nova-ui-icon{transform:none}}
 </style>
 <script>
 (function(){
   'use strict';
-  if(window.__novaExclusiveIconsV1)return;
-  window.__novaExclusiveIconsV1=true;
+  if(window.__novaExclusiveIconsV2)return;
+  window.__novaExclusiveIconsV2=true;
   const icons={
     '⚙️':'settings','⚙':'settings','🚪':'logOut','🔍':'search','🔎':'search',
     '📎':'paperclip','🎙️':'mic','🎙':'mic','🔇':'micOff','🔊':'volume2',
     '✕':'x','×':'x','✖':'x','✏️':'pencil','🗑️':'trash2','📌':'pin',
     '🔔':'bell','🎨':'palette','👤':'userRound','🔐':'shieldCheck','🛠️':'wrench',
     '👥':'usersRound','🔗':'link','🛡️':'shield','📁':'folder','✉️':'mail',
-    '▶':'play','↗':'arrowUpRight','↓':'download','＋':'plus','➕':'plus',
-    '➖':'minus','✓':'check','✔':'check','☑':'checkSquare','💬':'messageCircle',
+    '▶':'play','↗':'arrowUpRight','➜':'arrowRight','↓':'download','＋':'plus','➕':'plus',
+    '➖':'minus','✓':'check','✔':'check','☑':'squareCheck','💬':'messageCircle',
     '📞':'phone','📷':'image','🖼️':'image','🎧':'headphones','🔒':'lock',
     '🌙':'moon','☀️':'sun','☀':'sun','📍':'mapPin','🧷':'paperclip',
     '🟢':'circleCheck','🟡':'circleDot','🔴':'circleMinus','🟣':'circle',
     '📨':'send','📤':'send','📥':'inbox','📄':'fileText','🗂️':'folderKanban',
-    '🎮':'gamepad2','🚀':'rocket','✨':'sparkles'
+    '🎮':'gamepad2','🚀':'rocket','✨':'sparkles','🔕':'bellOff','🔈':'volume1',
+    '🔉':'volume1','🔊':'volume2','↩️':'reply','↩':'reply','↪️':'cornerUpRight',
+    '⏸':'pause','⏹':'square','📋':'clipboard','🧹':'brush','🧩':'puzzle',
+    '🛡':'shield','📦':'package','📃':'fileText','🔑':'key','👁️':'eye',
+    '🙈':'eyeOff','❌':'xCircle','✅':'circleCheck','❎':'xSquare'
   };
   const protectedButton=b=>b.matches('.emoji-btn,[onclick*="toggleQuickReaction"],[onclick*="toggleReaction"],[data-sticker-id],.reaction-btn');
   function svg(name){
@@ -5664,6 +5670,7 @@ initAuth();
     const node=lucide.createElement(lucide.icons[name]);
     node.classList.add('nova-ui-icon');
     node.setAttribute('aria-hidden','true');
+    node.setAttribute('focusable','false');
     return node;
   }
   function iconizeButton(button){
@@ -5672,8 +5679,8 @@ initAuth();
     const walker=document.createTreeWalker(button,NodeFilter.SHOW_TEXT);
     const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
     for(const node of nodes){
-      const value=node.nodeValue||'', trimmed=value.trimStart();
-      const leading=Object.keys(icons).find(key=>trimmed.startsWith(key));
+      const trimmed=(node.nodeValue||'').trimStart();
+      const leading=Object.keys(icons).sort((a,b)=>b.length-a.length).find(key=>trimmed.startsWith(key));
       if(!leading)continue;
       const graphic=svg(icons[leading]);if(!graphic)continue;
       const rest=trimmed.slice(leading.length);
@@ -5684,13 +5691,24 @@ initAuth();
       button.dataset.novaIconized='1';return;
     }
   }
+  function iconizeCheckStatus(){
+    const status=document.getElementById('attachment-url-text');
+    if(!status||status.dataset.novaIconized==='1')return;
+    const text=status.textContent||'';
+    const trimmed=text.trimStart();
+    if(!/^(✓|✔|☑|✅)(\s|$)/u.test(trimmed))return;
+    const marker=Object.keys(icons).find(key=>trimmed.startsWith(key));
+    const graphic=marker&&svg(icons[marker]);
+    if(!graphic)return;
+    status.textContent=trimmed.slice(marker.length).trimStart();
+    graphic.classList.add('nova-checkmark-icon');
+    status.prepend(graphic);
+    status.classList.add('nova-iconized');
+    status.dataset.novaIconized='1';
+  }
   function refresh(){
     document.querySelectorAll('button').forEach(iconizeButton);
-    const attachmentStatus=document.getElementById('attachment-url-text');
-    if(attachmentStatus&&!attachmentStatus.dataset.novaIconized&&attachmentStatus.textContent.trimStart().startsWith('✓')){
-      const graphic=svg('check');
-      if(graphic){attachmentStatus.textContent=attachmentStatus.textContent.trimStart().slice(1).trimStart();graphic.classList.add('nova-checkmark-icon');attachmentStatus.prepend(graphic);attachmentStatus.classList.add('nova-iconized');attachmentStatus.dataset.novaIconized='1';}
-    }
+    iconizeCheckStatus();
   }
   function start(){
     refresh();
@@ -5701,7 +5719,7 @@ initAuth();
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>
-<!-- /NOVA_EXCLUSIVE_ICON_SYSTEM_V1 -->
+<!-- /NOVA_EXCLUSIVE_ICON_SYSTEM_V2 -->
 
 </body>
 </html>
