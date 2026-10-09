@@ -2121,6 +2121,40 @@ function renderMessages() {
 
   activeMessages.sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
+  // Nova message pagination: render the newest batch first, then load older messages on demand.
+  if (!window.novaArchive) {
+    window.novaArchive = {
+      visibleCounts: {},
+      isLoading: false,
+      pendingScrollRestore: null
+    };
+  }
+  window.novaArchive.visibleCounts = window.novaArchive.visibleCounts || {};
+  if (typeof window.novaArchive.isLoading !== 'boolean') {
+    window.novaArchive.isLoading = false;
+  }
+
+  const MAX_VISIBLE = 50;
+  const LOAD_MORE = 20;
+  const viewKey = currentView === 'dm'
+    ? `dm_${currentDmUserId}`
+    : `chan_${currentChannelId}`;
+
+  if (!Number.isFinite(window.novaArchive.visibleCounts[viewKey]) ||
+      window.novaArchive.visibleCounts[viewKey] < 1) {
+    window.novaArchive.visibleCounts[viewKey] = MAX_VISIBLE;
+  }
+
+  const totalMessages = activeMessages.length;
+  const visibleCount = Math.min(
+    window.novaArchive.visibleCounts[viewKey],
+    totalMessages
+  );
+  const hasMoreMessages = totalMessages > visibleCount;
+
+  // Keep the most recent N messages in the DOM; older messages are added in batches.
+  activeMessages = activeMessages.slice(-visibleCount);
+
   if (activeMessages.length === 0) {
     feed.innerHTML = `
       <div class="my-auto text-center space-y-2 py-8">
@@ -2243,6 +2277,22 @@ function renderMessages() {
     `;
   }).join('');
 
+  // Add a control above the message list when older messages are available.
+  if (hasMoreMessages) {
+    const loadMoreDiv = document.createElement('div');
+    loadMoreDiv.className = 'text-center py-3 mb-4';
+    loadMoreDiv.innerHTML = `
+      <button type="button" data-nova-load-more
+              class="bg-discord-surface hover:bg-discord-hover text-discord-accent px-4 py-2 rounded-lg text-sm font-semibold transition border border-gray-700/50">
+        📜 Загрузить ещё (${totalMessages - visibleCount} сообщений)
+      </button>
+    `;
+    loadMoreDiv.querySelector('[data-nova-load-more]').addEventListener('click', () => {
+      window.novaLoadMoreMessages(viewKey);
+    });
+    feed.insertBefore(loadMoreDiv, feed.firstChild);
+  }
+
   novaInitVoicePlayers(feed);
 
   feed.querySelectorAll('[data-message-id]').forEach(row => {
@@ -2267,8 +2317,60 @@ function renderMessages() {
     };
   });
 
-  feed.scrollTop = feed.scrollHeight;
+  // Preserve the viewport when older messages are prepended; otherwise follow the newest message.
+  const restore = window.novaArchive && window.novaArchive.pendingScrollRestore;
+  if (restore && restore.viewKey === viewKey) {
+    feed.scrollTop = feed.scrollHeight - restore.scrollHeight + restore.scrollTop;
+    window.novaArchive.pendingScrollRestore = null;
+  } else {
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  // Replace the previous handler to avoid stacking scroll listeners after every render.
+  if (window.novaScrollHandler) {
+    feed.removeEventListener('scroll', window.novaScrollHandler);
+  }
+  window.novaScrollHandler = function(e) {
+    if (e.target.scrollTop < 150 &&
+        hasMoreMessages &&
+        !window.novaArchive.isLoading) {
+      window.novaLoadMoreMessages(viewKey);
+    }
+  };
+  feed.addEventListener('scroll', window.novaScrollHandler);
 }
+
+// Load an older batch without reloading the page or losing the current viewport.
+window.novaLoadMoreMessages = function(viewKey) {
+  const archive = window.novaArchive;
+  const feed = document.getElementById('message-feed');
+  if (!archive || archive.isLoading || !feed) return;
+
+  // Ignore a stale button/scroll callback if the user has switched to another chat.
+  const currentKey = currentView === 'dm'
+    ? `dm_${currentDmUserId}`
+    : `chan_${currentChannelId}`;
+  if (viewKey !== currentKey) return;
+
+  archive.isLoading = true;
+  const indicator = document.createElement('div');
+  indicator.id = 'nova-load-indicator';
+  indicator.className = 'text-center py-2 text-discord-muted text-xs';
+  indicator.textContent = '⏳ Загрузка...';
+  feed.insertBefore(indicator, feed.firstChild);
+
+  archive.pendingScrollRestore = {
+    viewKey,
+    scrollHeight: feed.scrollHeight,
+    scrollTop: feed.scrollTop
+  };
+  archive.visibleCounts[viewKey] =
+    (archive.visibleCounts[viewKey] || 50) + 20;
+
+  // Rendering is synchronous, so no timer or full-page reload is needed.
+  renderMessages();
+  archive.isLoading = false;
+};
 
 // Search input listener
 document.getElementById('input-search-messages').oninput = (e) => {
