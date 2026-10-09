@@ -768,6 +768,25 @@
         <section id="account-settings-panel-appearance" class="account-settings-panel space-y-4 hidden">
           <div><h4 class="font-bold text-white text-lg">Внешний вид</h4><p class="text-xs text-discord-muted mt-1">Небольшие визуальные настройки интерфейса.</p></div>
           <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Тёмная тема</b><span class="block text-xs text-discord-muted mt-1">Переключение основной темы клиента.</span></span><input id="setting-dark-theme" type="checkbox" class="w-5 h-5 accent-discord-accent" checked></label>
+          <section id="nova-appearance-profile-images" class="rounded-xl border border-gray-700/50 bg-discord-rail p-4 space-y-4">
+            <div><h4 class="font-bold text-white">Фото профиля и баннер</h4><p class="text-xs text-discord-muted mt-1">Изменения будут видны другим участникам после сохранения.</p></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="rounded-xl border border-gray-700/60 bg-discord-surface p-3">
+                <div class="text-xs font-semibold text-white mb-2">Аватарка</div>
+                <div id="setting-profile-avatar-preview" class="w-20 h-20 mx-auto rounded-full bg-discord-accent flex items-center justify-center text-white text-2xl font-bold overflow-hidden border-4 border-discord-surface">U</div>
+                <label class="block mt-3 text-center cursor-pointer bg-discord-accent hover:bg-discord-accentHover text-white text-xs font-semibold py-2 rounded-lg">Выбрать фото<input id="setting-profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden"></label>
+                <button type="button" id="setting-profile-avatar-remove" class="w-full mt-2 px-3 py-2 rounded-lg bg-discord-rail hover:bg-discord-hover text-xs text-discord-muted">Убрать аватарку</button>
+              </div>
+              <div class="rounded-xl border border-gray-700/60 bg-discord-surface p-3">
+                <div class="text-xs font-semibold text-white mb-2">Баннер</div>
+                <div id="setting-profile-banner-preview" class="h-20 rounded-lg bg-gradient-to-r from-indigo-500 via-violet-500 to-slate-700 overflow-hidden border border-gray-700/60"></div>
+                <label class="block mt-3 text-center cursor-pointer bg-discord-accent hover:bg-discord-accentHover text-white text-xs font-semibold py-2 rounded-lg">Выбрать баннер<input id="setting-profile-banner-file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden"></label>
+                <button type="button" id="setting-profile-banner-remove" class="w-full mt-2 px-3 py-2 rounded-lg bg-discord-rail hover:bg-discord-hover text-xs text-discord-muted">Убрать баннер</button>
+              </div>
+            </div>
+            <p class="text-[11px] text-discord-muted">PNG, JPG или WebP · до 8 МБ. Изображения обрезаются и сжимаются автоматически.</p>
+            <button type="button" id="setting-profile-images-save" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить фото и баннер</button>
+          </section>
         </section>
       </div>
     </div>
@@ -3465,7 +3484,37 @@ document.getElementById('input-profile-banner-file')?.addEventListener('change',
 });
 document.getElementById('btn-profile-avatar-remove')?.addEventListener('click',()=>{novaProfileDraftAvatar='';novaProfileRenderEditor();});
 document.getElementById('btn-profile-banner-remove')?.addEventListener('click',()=>{novaProfileDraftBanner='';novaProfileRenderEditor();});
+function novaRenderAppearanceProfileImages(){
+  const avatar=document.getElementById('setting-profile-avatar-preview');
+  const banner=document.getElementById('setting-profile-banner-preview');
+  if(avatar){avatar.style.backgroundImage=novaProfileDraftAvatar?\x60url("${novaProfileDraftAvatar}")\x60:'';avatar.style.backgroundSize='cover';avatar.style.backgroundPosition='center';avatar.textContent=novaProfileDraftAvatar?'':(currentUser.nickname||'U').charAt(0).toUpperCase();}
+  if(banner){banner.style.backgroundImage=novaProfileDraftBanner?\x60url("${novaProfileDraftBanner}")\x60:'';banner.style.backgroundSize='cover';banner.style.backgroundPosition='center';}
+}
+document.getElementById('setting-profile-avatar-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{novaProfileDraftAvatar=await novaProcessProfileImage(file,'avatar');novaRenderAppearanceProfileImages();showToast('Аватарка подготовлена — сохраните изменения');}catch(err){showToast(err.message||'Не удалось обработать аватарку',true);}e.target.value='';});
+document.getElementById('setting-profile-banner-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{novaProfileDraftBanner=await novaProcessProfileImage(file,'banner');novaRenderAppearanceProfileImages();showToast('Баннер подготовлен — сохраните изменения');}catch(err){showToast(err.message||'Не удалось обработать баннер',true);}e.target.value='';});
+document.getElementById('setting-profile-avatar-remove')?.addEventListener('click',()=>{novaProfileDraftAvatar='';novaRenderAppearanceProfileImages();});
+document.getElementById('setting-profile-banner-remove')?.addEventListener('click',()=>{novaProfileDraftBanner='';novaRenderAppearanceProfileImages();});
+document.getElementById('setting-profile-images-save')?.addEventListener('click',async()=>{
+  const oldAvatar=currentUser.avatarData||'',oldBanner=currentUser.bannerData||'';
+  currentUser.avatarData=novaProfileDraftAvatar||'';currentUser.bannerData=novaProfileDraftBanner||'';
+  const button=document.getElementById('setting-profile-images-save');button.disabled=true;button.textContent='Сохранение…';
+  try{
+    if(isCloudEnabled&&auth?.currentUser)await saveCloudProfile();
+    localStorage.setItem('chat_avatar',currentUser.avatarData);localStorage.setItem('chat_banner',currentUser.bannerData);
+    updateUserProfileDisplay();
+    const selfIndex=(usersData||[]).findIndex(u=>u.uid===currentUser.uid);
+    if(selfIndex>=0)usersData[selfIndex]={...usersData[selfIndex],...currentUser};
+    if(typeof renderMessages==='function')renderMessages();
+    if(typeof renderMembersSidebar==='function')renderMembersSidebar();
+    if(typeof renderDirectMessagesList==='function')renderDirectMessagesList();
+    if(typeof novaPaintAvatars==='function')novaPaintAvatars();
+    novaProfileRenderEditor();novaRenderAppearanceProfileImages();showToast('Аватарка и баннер сохранены');
+  }catch(err){currentUser.avatarData=oldAvatar;currentUser.bannerData=oldBanner;novaProfileDraftAvatar=oldAvatar;novaProfileDraftBanner=oldBanner;novaRenderAppearanceProfileImages();showToast('Не удалось сохранить изображения. Проверьте соединение и попробуйте ещё раз.',true);}
+  finally{button.disabled=false;button.textContent='Сохранить фото и баннер';}
+});
 document.getElementById('btn-profile-settings')?.addEventListener('click',novaPrepareProfileEditor);
+document.querySelector('[data-account-settings-tab="appearance"]')?.addEventListener('click',()=>{novaProfileDraftAvatar=currentUser.avatarData||'';novaProfileDraftBanner=currentUser.bannerData||'';novaRenderAppearanceProfileImages();});
+
 
 // Profile updates modal handler
 document.getElementById('form-update-profile').onsubmit = async (e) => {
