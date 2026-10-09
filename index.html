@@ -164,6 +164,7 @@
     <aside class="w-[72px] bg-discord-rail flex flex-col items-center py-3 gap-3 flex-shrink-0 border-r border-gray-800/50 h-full">
       <button id="btn-home" title="Личные сообщения" class="w-12 h-12 rounded-2xl bg-discord-surface flex items-center justify-center text-xl text-discord-accent hover:bg-discord-accent hover:text-white transition-all duration-200 group relative">
         <span>💬</span>
+        <span id="dm-unread-total" class="hidden absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg ring-2 ring-discord-rail">0</span>
         <span class="absolute left-16 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-50 shadow-lg">Личные сообщения</span>
       </button>
       
@@ -871,6 +872,8 @@ let activeVoiceChannelId = null;
 let accountNotificationSettings = { inApp: true, dm: true, mentions: true, browser: false, sounds: { calls: true, messages: true, clicks: true } };
 let messagesInitialized = false;
 let previousMessageIds = new Set();
+let dmUnreadCounts = {};
+let dmUnreadStorageUid = '';
 let activeServerSettingsTab = 'general';
 let activeAccountSettingsTab = 'account';
 
@@ -958,6 +961,7 @@ function showContextMenu(x, y, items) {
 function openDirectMessage(uid) {
   if (!uid || uid === currentUser.uid) return;
   currentView='dm'; currentDmUserId=uid;
+  novaMarkDmRead(uid, false);
   document.getElementById('server-channels-container').classList.add('hidden');
   document.getElementById('dm-channels-container').classList.remove('hidden');
   document.getElementById('sidebar-header-title').textContent='Личные сообщения';
@@ -967,6 +971,12 @@ function openDirectMessage(uid) {
   renderDirectMessagesList(); renderMessages();
   if (window.innerWidth < 768) closeDrawer();
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && currentView === 'dm' && currentDmUserId) {
+    novaMarkDmRead(currentDmUserId);
+  }
+});
 
 function copyTextSilently(text) {
   if (!text) return Promise.reject(new Error('empty'));
@@ -1268,6 +1278,7 @@ function checkLoginState() {
 
 function startApp() {
   const firstStart = !novaAppStarted;
+  novaLoadDmUnreadCounts();
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
 
@@ -1929,6 +1940,49 @@ document.getElementById('btn-toggle-deaf').onclick = () => {
   });
 };
 
+function novaLoadDmUnreadCounts() {
+  const uid = String(currentUser?.uid || '');
+  if (!uid) return;
+  if (dmUnreadStorageUid === uid) {
+    novaUpdateUnreadBadges();
+    return;
+  }
+  dmUnreadStorageUid = uid;
+  try {
+    const saved = JSON.parse(localStorage.getItem(`nova_dm_unread_${uid}`) || '{}');
+    dmUnreadCounts = saved && typeof saved === 'object' && !Array.isArray(saved)
+      ? Object.fromEntries(Object.entries(saved).filter(([peerUid, count]) => peerUid && Number.isFinite(Number(count)) && Number(count) > 0).map(([peerUid, count]) => [peerUid, Math.floor(Number(count))]))
+      : {};
+  } catch (e) {
+    dmUnreadCounts = {};
+  }
+  novaUpdateUnreadBadges();
+}
+
+function novaSaveDmUnreadCounts() {
+  const uid = String(currentUser?.uid || '');
+  if (!uid) return;
+  dmUnreadStorageUid = uid;
+  try { localStorage.setItem(`nova_dm_unread_${uid}`, JSON.stringify(dmUnreadCounts)); } catch (e) {}
+}
+
+function novaUpdateUnreadBadges() {
+  const badge = document.getElementById('dm-unread-total');
+  const total = Object.values(dmUnreadCounts || {}).reduce((sum, count) => sum + Math.max(0, Number(count) || 0), 0);
+  if (badge) {
+    badge.textContent = total > 99 ? '99+' : String(total);
+    badge.classList.toggle('hidden', total <= 0);
+  }
+}
+
+function novaMarkDmRead(uid, refreshList = true) {
+  if (!uid || !Number(dmUnreadCounts[uid])) return;
+  delete dmUnreadCounts[uid];
+  novaSaveDmUnreadCounts();
+  novaUpdateUnreadBadges();
+  if (refreshList && document.getElementById('dm-user-list')) renderDirectMessagesList();
+}
+
 function renderDirectMessagesList() {
   const dmContainer = document.getElementById('dm-user-list');
   const otherUsers = usersData.filter(u => u.uid !== currentUser.uid);
@@ -1941,8 +1995,9 @@ function renderDirectMessagesList() {
   dmContainer.innerHTML = otherUsers.map(u => {
     const isActive = currentView === 'dm' && currentDmUserId === u.uid;
     const initial = (u.nickname || 'U').charAt(0).toUpperCase();
+    const unreadCount = Math.max(0, Number(dmUnreadCounts[u.uid]) || 0);
     return `
-      <button data-dm-user-id="${u.uid}" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition ${
+      <button data-dm-user-id="${u.uid}" class="w-full relative flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition ${
         isActive 
           ? 'bg-discord-hover text-white' 
           : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
@@ -1959,6 +2014,7 @@ function renderDirectMessagesList() {
           <div class="font-semibold text-white text-xs truncate">${escapeHtml(u.nickname)}</div>
           <div class="text-[10px] text-discord-muted truncate">${escapeHtml(u.customStatus || u.status || 'В сети')}</div>
         </div>
+        <span data-dm-unread-badge="${u.uid}" class="${unreadCount > 0 ? '' : 'hidden'} absolute right-1 top-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] leading-none font-bold flex items-center justify-center shadow ring-2 ring-discord-surface">${unreadCount > 99 ? '99+' : unreadCount}</span>
       </button>
     `;
   }).join('');
@@ -3883,13 +3939,26 @@ function novaChooseServerMute(srv) {
 function notifyIncomingMessage(msg) {
   if (!msg || msg.authorId === currentUser.uid) return;
   const isDm = !!msg.targetDmId;
+  const isIncomingDm = isDm && msg.targetDmId === currentUser.uid;
+  const activeContext = isIncomingDm && currentView === 'dm' && currentDmUserId === msg.authorId && document.visibilityState === 'visible';
+
+  // Keep unread counters independent from toast/browser notification preferences.
+  if (isIncomingDm) {
+    if (activeContext) {
+      novaMarkDmRead(msg.authorId, false);
+    } else {
+      dmUnreadCounts[msg.authorId] = Math.max(0, Number(dmUnreadCounts[msg.authorId]) || 0) + 1;
+      novaSaveDmUnreadCounts();
+      novaUpdateUnreadBadges();
+      if (currentView === 'dm') renderDirectMessagesList();
+    }
+  }
+
   const msgServer = !isDm && msg.serverId ? (serversData || []).find(s => s.id === msg.serverId) : null;
   if (msgServer && novaServerIsMuted(msgServer)) return;
-  const activeContext = currentView === 'dm' && isDm && msg.targetDmId === currentUser.uid && msg.authorId === currentDmUserId;
   const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase());
   const allowed = accountNotificationSettings.inApp !== false && ((isDm && accountNotificationSettings.dm !== false) || (!isDm && mention && accountNotificationSettings.mentions !== false));
-  if (!allowed) return;
-  if (activeContext) return;
+  if (!allowed || activeContext) return;
   showToast(`${isDm ? 'ЛС' : 'Упоминание'}: ${msg.authorName || 'Пользователь'} — ${(msg.text || '').slice(0,90)}`);
   if (document.visibilityState === 'visible') audioFX.playReceive();
   else audioFX.playBackgroundMessage();
