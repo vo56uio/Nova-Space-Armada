@@ -5532,12 +5532,14 @@ initAuth();
   if(!viewer||!img||!title||!downloadBtn)return;
   let currentSrc='';
   let currentName='image.jpg';
-  function openViewer(src,name){
+  let currentSize=0;
+  function openViewer(src,name,size){
     if(!src)return;
     currentSrc=src;
     currentName=name||'image.jpg';
+    currentSize=Number(size)||0;
     img.src=src;
-    title.textContent=currentName;
+    title.textContent=currentName+(currentSize>0?' · '+(currentSize/1024/1024).toFixed(1)+' МБ':'');
     viewer.classList.add('is-open');
     viewer.setAttribute('aria-hidden','false');
     document.body.style.overflow='hidden';
@@ -5588,7 +5590,7 @@ initAuth();
       if(!card)return;
       e.preventDefault();
       e.stopPropagation();
-      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'));
+      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'),card.getAttribute('data-attachment-size'));
       return;
     }
     const dl=e.target.closest?.('[data-download-attachment]');
