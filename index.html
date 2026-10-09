@@ -2353,17 +2353,17 @@ window.novaLoadMoreMessages = function(viewKey) {
   if (viewKey !== currentKey) return;
 
   archive.isLoading = true;
-  const indicator = document.createElement('div');
-  indicator.id = 'nova-load-indicator';
-  indicator.className = 'text-center py-2 text-discord-muted text-xs';
-  indicator.textContent = '⏳ Загрузка...';
-  feed.insertBefore(indicator, feed.firstChild);
-
   archive.pendingScrollRestore = {
     viewKey,
     scrollHeight: feed.scrollHeight,
     scrollTop: feed.scrollTop
   };
+
+  const indicator = document.createElement('div');
+  indicator.id = 'nova-load-indicator';
+  indicator.className = 'text-center py-2 text-discord-muted text-xs';
+  indicator.textContent = '⏳ Загрузка...';
+  feed.insertBefore(indicator, feed.firstChild);
   archive.visibleCounts[viewKey] =
     (archive.visibleCounts[viewKey] || 50) + 20;
 
