@@ -1527,6 +1527,8 @@ function subscribeCloudData() {
     });
     renderMembersSidebar();
     renderDirectMessagesList();
+    if (typeof renderMessages === 'function') renderMessages();
+    if (typeof novaPaintAvatars === 'function') novaPaintAvatars();
   }, err => console.warn('Users listener failed:', err)));
 
   novaCloudDataUnsubs.push(onSnapshot(COLLECTION_SERVERS, (snapshot) => {
@@ -5092,6 +5094,29 @@ const banMember = window.banMember;
 const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
+function novaPaintAvatars() {
+  document.querySelectorAll('[data-message-id]').forEach(row => {
+    const msg = messagesData.find(m => String(m.id) === String(row.getAttribute('data-message-id')));
+    const box = row.firstElementChild;
+    if (!msg || !box) return;
+    const user = usersData.find(u => u.uid === msg.authorId);
+    const avatar = user && typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
+    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
+    box.style.backgroundSize = avatar ? 'cover' : '';
+    box.style.backgroundPosition = avatar ? 'center' : '';
+    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
+  });
+  document.querySelectorAll('#dm-user-list [data-dm-user-id]').forEach(btn => {
+    const user = usersData.find(u => u.uid === btn.getAttribute('data-dm-user-id'));
+    const box = btn.querySelector('.relative > div');
+    if (!user || !box) return;
+    const avatar = typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
+    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
+    box.style.backgroundSize = avatar ? 'cover' : '';
+    box.style.backgroundPosition = avatar ? 'center' : '';
+    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
+  });
+}
 initAuth();
 </script>
 
