@@ -3939,6 +3939,8 @@ function novaChooseServerMute(srv) {
 function notifyIncomingMessage(msg) {
   if (!msg || msg.authorId === currentUser.uid) return;
   const isDm = !!msg.targetDmId;
+  // The message collection is shared; never notify for a DM addressed to another user.
+  if (isDm && msg.targetDmId !== currentUser.uid) return;
   const isIncomingDm = isDm && msg.targetDmId === currentUser.uid;
   const activeContext = isIncomingDm && currentView === 'dm' && currentDmUserId === msg.authorId && document.visibilityState === 'visible';
 
