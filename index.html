@@ -5108,6 +5108,17 @@ function novaPaintAvatars() {
     box.style.backgroundPosition = avatar ? 'center' : '';
     if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
   });
+  document.querySelectorAll('#members-list-content [data-member-uid]').forEach(row => {
+    const user = usersData.find(u => u.uid === row.getAttribute('data-member-uid'));
+    const box = row.querySelector('.relative > div');
+    if (!user || !box) return;
+    const avatar = typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
+    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
+    box.style.backgroundSize = avatar ? 'cover' : '';
+    box.style.backgroundPosition = avatar ? 'center' : '';
+    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
+    else if (!box.textContent.trim()) { box.textContent = (user.nickname || 'U').charAt(0).toUpperCase(); box.style.color = ''; }
+  });
   document.querySelectorAll('#dm-user-list [data-dm-user-id]').forEach(btn => {
     const user = usersData.find(u => u.uid === btn.getAttribute('data-dm-user-id'));
     const box = btn.querySelector('.relative > div');
@@ -5131,6 +5142,8 @@ document.getElementById('nova-clear-mutes-v2').onclick=()=>{localStorage.removeI
 function novaInstallSearchTypeV2(){const i=document.getElementById('input-search-messages');if(!i||document.getElementById('nova-search-type-v2'))return;const x=document.createElement('select');x.id='nova-search-type-v2';x.className='bg-discord-rail border border-gray-700/50 rounded-lg px-1 py-1.5 text-xs text-white';x.innerHTML='<option value="all">Всё</option><option value="text">Текст</option><option value="media">Медиа</option><option value="files">Файлы</option>';i.parentElement.parentElement.insertBefore(x,i.parentElement.nextSibling);x.onchange=()=>{novaSearchType=x.value;renderMessages()}}
 function novaFilterMessagesV2(list){const mu=novaPolishSet(NOVA_POLISH_KEYS.mutedUsers),mc=novaPolishSet(NOVA_POLISH_KEYS.mutedChannels);return list.filter(m=>{if(currentView==='dm'&&mu.has(String(m.authorId))&&m.authorId!==currentUser.uid)return false;if(currentView!=='dm'&&mc.has(String(m.channelId)))return false;const raw=JSON.stringify(m).toLowerCase(),media=!!(m.attachmentUrl||m.imageUrl||m.mediaUrl||m.fileUrl||m.attachments||m.attachment||m.image||m.audioUrl||m.voiceUrl||m.stickerUrl);if(novaSearchType==='text')return !!m.text;if(novaSearchType==='media')return media&&/image|photo|media|sticker|audio|voice|video|png|jpe?g|webp|gif/.test(raw);if(novaSearchType==='files')return media&&/file|document|pdf|attachment|filename|\.zip|\.txt|\.docx?|\.xlsx?/.test(raw);return true})}
 novaInstallAppearanceV2();novaInstallSearchTypeV2();novaApplyAppearanceV2();
+const novaAvatarObserver = new MutationObserver(() => { if (typeof novaPaintAvatars === 'function') novaPaintAvatars(); });
+['message-feed','dm-user-list','members-list-content'].forEach(id => { const el = document.getElementById(id); if (el) novaAvatarObserver.observe(el, { childList:true, subtree:true }); });
 initAuth();
 </script>
 
