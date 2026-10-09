@@ -5128,7 +5128,10 @@ Object.assign(window, {
   renderServers, renderChannels, renderMembersSidebar, renderDirectMessagesList,
   showToast, connectVoiceChannel, vcNameById, getMemberRole,
   hasServerPermission, isServerManager, isServerOwner,
-  setReplyMessage, updateUserProfileDisplay, syncUserProfileCloud
+  setReplyMessage, updateUserProfileDisplay, syncUserProfileCloud,
+  // Helpers used by the classic context-menu script below this module.
+  // Module-scoped declarations are not automatically available to that script.
+  novaServerIsMuted, novaChooseServerMute, novaSetServerMute
 });
 
 // Module-scope aliases for handlers exposed on window.
@@ -5306,7 +5309,7 @@ initAuth();
       {icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},
       {icon:'👤',label:'Открыть участников',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}},
       {icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode||'').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))},
-      {icon:novaServerIsMuted(srv)?'🔔':'🔕',label:novaServerIsMuted(srv)?'Включить уведомления':'Заглушить сервер…',action:()=>{if(novaServerIsMuted(srv))novaSetServerMute(srv,0);else novaChooseServerMute(srv);}}
+      {icon:window.novaServerIsMuted(srv)?'🔔':'🔕',label:window.novaServerIsMuted(srv)?'Включить уведомления':'Заглушить сервер…',action:()=>{if(window.novaServerIsMuted(srv))window.novaSetServerMute(srv,0);else window.novaChooseServerMute(srv);}}
     ];
     if(hasServerPermission(srv,'create_invites'))items.push({icon:'📨',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite')?.click();}});
     if(hasServerPermission(srv,'manage_channels'))items.push({icon:'➕',label:'Создать канал',action:()=>openModal('modal-channel')});
@@ -5688,5 +5691,88 @@ scan(document.body);
 }catch(e){console.warn('icon pack:',e)}})();
 </script>
 <!-- /NOVA_ICON_PACK -->
+
+
+<!-- NOVA_CONTEXT_MENU_BRIDGE_MOBILE_SETTINGS_FIX_V1 -->
+<style id="NOVA_CONTEXT_MENU_BRIDGE_MOBILE_SETTINGS_FIX_V1">
+  /* Settings dialogs use compact, swipeable tabs on phones instead of a wide sidebar. */
+  @media (max-width: 767px) {
+    #modal-account-settings,
+    #modal-server-settings {
+      padding: 8px !important;
+      align-items: center !important;
+    }
+
+    #modal-account-settings > div,
+    #modal-server-settings > div {
+      width: 100% !important;
+      max-width: none !important;
+      max-height: calc(100dvh - 16px) !important;
+      border-radius: 16px !important;
+    }
+
+    #modal-account-settings > div > .flex.min-h-0.flex-1,
+    #modal-server-settings > div > .flex.min-h-0.flex-1 {
+      flex-direction: column !important;
+      min-height: 0 !important;
+    }
+
+    #modal-account-settings > div > .flex.min-h-0.flex-1 > nav,
+    #modal-server-settings > div > .flex.min-h-0.flex-1 > nav {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: stretch !important;
+      gap: 4px !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: 0 0 auto !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      padding: 7px !important;
+      border-right: 0 !important;
+      border-bottom: 1px solid rgba(148,155,164,.2) !important;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #modal-account-settings nav button,
+    #modal-server-settings nav button {
+      flex: 0 0 auto !important;
+      width: auto !important;
+      min-width: max-content !important;
+      white-space: nowrap !important;
+      padding: 8px 10px !important;
+      font-size: 12px !important;
+      line-height: 1.25 !important;
+    }
+
+    #modal-account-settings > div > .flex.min-h-0.flex-1 > .flex-1.overflow-y-auto.p-6,
+    #modal-server-settings > div > .flex.min-h-0.flex-1 > .flex-1.overflow-y-auto.p-6 {
+      width: 100% !important;
+      min-height: 0 !important;
+      padding: 12px !important;
+      overscroll-behavior: contain;
+    }
+
+    #modal-account-settings > div > .flex.items-center.justify-between,
+    #modal-server-settings > div > .flex.items-center.justify-between {
+      padding: 12px 14px !important;
+      gap: 10px !important;
+    }
+
+    #modal-account-settings h3,
+    #modal-server-settings h3 {
+      font-size: 17px !important;
+      line-height: 1.3 !important;
+    }
+
+    #modal-account-settings .rounded-xl.border.p-4,
+    #modal-server-settings .rounded-xl.border.p-4 {
+      padding: 12px !important;
+    }
+  }
+</style>
+<!-- /NOVA_CONTEXT_MENU_BRIDGE_MOBILE_SETTINGS_FIX_V1 -->
+
 </body>
 </html>
