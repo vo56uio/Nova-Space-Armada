@@ -2257,7 +2257,7 @@ function renderMessages() {
 
           <!-- Attachment image if present -->
           ${(m.attachmentUrl || m.attachmentDataUrl) ? `
-            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md" data-attachment-src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" data-attachment-name="${escapeHtml(m.attachmentName || 'изображение.jpg')}">
+            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md" data-attachment-src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" data-attachment-name="${escapeHtml(m.attachmentName || 'изображение.jpg')}" data-attachment-size="${escapeHtml(m.attachmentSize || '')}">
               <button type="button" class="nova-image-open" data-open-attachment title="Открыть изображение" aria-label="Открыть изображение">
                 <img src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" alt="Изображение" class="max-h-96 w-auto max-w-full object-contain bg-black/10" onerror="this.closest('.nova-image-attachment').style.display='none'">
                 <span class="nova-image-overlay">Открыть</span>
@@ -2550,7 +2550,7 @@ window.handleSendMessage = async function(e) {
       window.novaPendingAttachmentDataUrl = attachmentDataUrl;
       if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${pendingAttachmentFile.name || 'изображение'} готово`;
     }
-    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName });
+    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName, attachmentSize: pendingAttachmentFile?.size || null });
     return false;
   } catch (err) {
     console.error('Attachment upload failed:', err);
@@ -2560,7 +2560,7 @@ window.handleSendMessage = async function(e) {
   }
 };
 
-async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
+async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, attachmentSize = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
   const cleanText = String(text || '').trim();
   if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !stickerDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
@@ -2580,6 +2580,7 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
     attachmentUrl: attachmentUrl || null,
     attachmentDataUrl: attachmentDataUrl || null,
     attachmentName: attachmentName || null,
+    attachmentSize: Number.isFinite(Number(attachmentSize)) ? Number(attachmentSize) : null,
     stickerDataUrl: stickerDataUrl || null,
     stickerName: stickerName || null,
     voiceUrl: voiceUrl || null,
