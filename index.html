@@ -250,7 +250,7 @@
 
       <!-- Current User Profile Widget Footer -->
       <div class="bg-discord-rail/90 p-2.5 border-t border-gray-800/60 flex items-center justify-between flex-shrink-0">
-        <div class="flex items-center gap-2 overflow-hidden cursor-pointer group" onclick="novaPrepareProfileEditor(); openModal('modal-profile')">
+        <div class="flex items-center gap-2 overflow-hidden cursor-pointer group" onclick="openModal('modal-profile')">
           <div class="relative">
             <div id="user-avatar" class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
               U
@@ -742,25 +742,6 @@
         <section id="account-settings-panel-appearance" class="account-settings-panel space-y-4 hidden">
           <div><h4 class="font-bold text-white text-lg">Внешний вид</h4><p class="text-xs text-discord-muted mt-1">Небольшие визуальные настройки интерфейса.</p></div>
           <label class="flex items-center justify-between gap-4 bg-discord-rail rounded-xl border border-gray-700/50 p-4"><span><b class="text-white text-sm">Тёмная тема</b><span class="block text-xs text-discord-muted mt-1">Переключение основной темы клиента.</span></span><input id="setting-dark-theme" type="checkbox" class="w-5 h-5 accent-discord-accent" checked></label>
-          <section id="nova-appearance-profile-images" class="rounded-xl border border-gray-700/50 bg-discord-rail p-4 space-y-4">
-            <div><h4 class="font-bold text-white">Фото профиля и баннер</h4><p class="text-xs text-discord-muted mt-1">Изменения будут видны другим участникам после сохранения.</p></div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div class="rounded-xl border border-gray-700/60 bg-discord-surface p-3">
-                <div class="text-xs font-semibold text-white mb-2">Аватарка</div>
-                <div id="setting-profile-avatar-preview" class="w-20 h-20 mx-auto rounded-full bg-discord-accent flex items-center justify-center text-white text-2xl font-bold overflow-hidden border-4 border-discord-surface">U</div>
-                <label class="block mt-3 text-center cursor-pointer bg-discord-accent hover:bg-discord-accentHover text-white text-xs font-semibold py-2 rounded-lg">Выбрать фото<input id="setting-profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden"></label>
-                <button type="button" id="setting-profile-avatar-remove" class="w-full mt-2 px-3 py-2 rounded-lg bg-discord-rail hover:bg-discord-hover text-xs text-discord-muted">Убрать аватарку</button>
-              </div>
-              <div class="rounded-xl border border-gray-700/60 bg-discord-surface p-3">
-                <div class="text-xs font-semibold text-white mb-2">Баннер</div>
-                <div id="setting-profile-banner-preview" class="h-20 rounded-lg bg-gradient-to-r from-indigo-500 via-violet-500 to-slate-700 overflow-hidden border border-gray-700/60"></div>
-                <label class="block mt-3 text-center cursor-pointer bg-discord-accent hover:bg-discord-accentHover text-white text-xs font-semibold py-2 rounded-lg">Выбрать баннер<input id="setting-profile-banner-file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden"></label>
-                <button type="button" id="setting-profile-banner-remove" class="w-full mt-2 px-3 py-2 rounded-lg bg-discord-rail hover:bg-discord-hover text-xs text-discord-muted">Убрать баннер</button>
-              </div>
-            </div>
-            <p class="text-[11px] text-discord-muted">PNG, JPG или WebP · до 8 МБ. Изображения обрезаются и сжимаются автоматически.</p>
-            <button type="button" id="setting-profile-images-save" class="w-full bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить фото и баннер</button>
-          </section>
         </section>
       </div>
     </div>
@@ -878,9 +859,7 @@ let currentUser = {
   uid: localStorage.getItem('chat_uid') || ('u_' + Math.random().toString(36).substring(2, 8)),
   nickname: localStorage.getItem('chat_nickname') || '',
   status: localStorage.getItem('chat_status') || 'online',
-  customStatus: localStorage.getItem('chat_custom_status') || '',
-  avatarData: localStorage.getItem('chat_avatar') || '',
-  bannerData: localStorage.getItem('chat_banner') || ''
+  customStatus: localStorage.getItem('chat_custom_status') || ''
 };
 localStorage.setItem('chat_uid', currentUser.uid);
 
@@ -1113,10 +1092,6 @@ async function loadCloudProfile(uid) {
     currentUser.nickname = data.nickname;
     currentUser.status = data.status || 'online';
     currentUser.customStatus = data.customStatus || '';
-    currentUser.avatarData = data.avatarData || '';
-    currentUser.bannerData = data.bannerData || '';
-    if (currentUser.avatarData) localStorage.setItem('chat_avatar', currentUser.avatarData); else localStorage.removeItem('chat_avatar');
-    if (currentUser.bannerData) localStorage.setItem('chat_banner', currentUser.bannerData); else localStorage.removeItem('chat_banner');
     accountNotificationSettings = { inApp: true, dm: true, mentions: true, browser: false, ...(data.notificationSettings || {}) };
     localStorage.setItem('chat_uid', uid);
     localStorage.setItem('chat_nickname', currentUser.nickname);
@@ -1137,8 +1112,6 @@ async function saveCloudProfile() {
     status: currentUser.status || 'online',
     customStatus: currentUser.customStatus || '',
     notificationSettings: accountNotificationSettings,
-    avatarData: currentUser.avatarData || '',
-    bannerData: currentUser.bannerData || '',
     lastSeen: Date.now()
   }, { merge: true });
 }
@@ -1395,16 +1368,7 @@ function getStatusLabel(status) {
 
 function updateUserProfileDisplay() {
   document.getElementById('user-display-name').textContent = currentUser.nickname;
-  const avatarEl = document.getElementById('user-avatar');
-  if (currentUser.avatarData) {
-    avatarEl.textContent = '';
-    avatarEl.style.backgroundImage = `url("${currentUser.avatarData}")`;
-    avatarEl.style.backgroundSize = 'cover';
-    avatarEl.style.backgroundPosition = 'center';
-  } else {
-    avatarEl.textContent = (currentUser.nickname || 'U').charAt(0).toUpperCase();
-    avatarEl.style.backgroundImage = '';
-  }
+  document.getElementById('user-avatar').textContent = (currentUser.nickname || 'U').charAt(0).toUpperCase();
   document.getElementById('status-text').textContent = currentUser.customStatus || getStatusLabel(currentUser.status);
 
   const dot = document.getElementById('user-status-dot');
@@ -1422,8 +1386,6 @@ async function syncUserProfileCloud() {
       status: currentUser.status,
       customStatus: currentUser.customStatus,
       notificationSettings: accountNotificationSettings,
-      avatarData: currentUser.avatarData || '',
-      bannerData: currentUser.bannerData || '',
       lastSeen: Date.now()
     }, { merge: true });
   } catch(e) {}
@@ -1520,8 +1482,6 @@ function subscribeCloudData() {
     });
     renderMembersSidebar();
     renderDirectMessagesList();
-    if (typeof renderMessages === 'function') renderMessages();
-    if (typeof novaPaintAvatars === 'function') novaPaintAvatars();
   }, err => console.warn('Users listener failed:', err)));
 
   novaCloudDataUnsubs.push(onSnapshot(COLLECTION_SERVERS, (snapshot) => {
@@ -2153,8 +2113,6 @@ function renderMessages() {
     activeMessages = messagesData.filter(m => m.channelId === currentChannelId);
   }
 
-  activeMessages = novaFilterMessagesV2(activeMessages);
-
   // Search filter query
   if (messageSearchQuery) {
     const q = messageSearchQuery.toLowerCase();
@@ -2250,7 +2208,7 @@ function renderMessages() {
 
           <!-- Attachment image if present -->
           ${(m.attachmentUrl || m.attachmentDataUrl) ? `
-            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md" data-attachment-src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" data-attachment-name="${escapeHtml(m.attachmentName || 'изображение.jpg')}" data-attachment-size="${escapeHtml(m.attachmentSize || '')}">
+            <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md" data-attachment-src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" data-attachment-name="${escapeHtml(m.attachmentName || 'изображение.jpg')}">
               <button type="button" class="nova-image-open" data-open-attachment title="Открыть изображение" aria-label="Открыть изображение">
                 <img src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" alt="Изображение" class="max-h-96 w-auto max-w-full object-contain bg-black/10" onerror="this.closest('.nova-image-attachment').style.display='none'">
                 <span class="nova-image-overlay">Открыть</span>
@@ -2543,7 +2501,7 @@ window.handleSendMessage = async function(e) {
       window.novaPendingAttachmentDataUrl = attachmentDataUrl;
       if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${pendingAttachmentFile.name || 'изображение'} готово`;
     }
-    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName, attachmentSize: pendingAttachmentFile?.size || null });
+    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName });
     return false;
   } catch (err) {
     console.error('Attachment upload failed:', err);
@@ -2553,7 +2511,7 @@ window.handleSendMessage = async function(e) {
   }
 };
 
-async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, attachmentSize = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
+async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
   const cleanText = String(text || '').trim();
   if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !stickerDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
@@ -2573,7 +2531,6 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
     attachmentUrl: attachmentUrl || null,
     attachmentDataUrl: attachmentDataUrl || null,
     attachmentName: attachmentName || null,
-    attachmentSize: Number.isFinite(Number(attachmentSize)) ? Number(attachmentSize) : null,
     stickerDataUrl: stickerDataUrl || null,
     stickerName: stickerName || null,
     voiceUrl: voiceUrl || null,
@@ -3373,109 +3330,6 @@ document.getElementById('form-create-channel').onsubmit = async (e) => {
   showToast(`Канал #${name} создан!`);
 };
 
-// Profile media editor (2.1)
-let novaProfileDraftAvatar = currentUser.avatarData || '';
-let novaProfileDraftBanner = currentUser.bannerData || '';
-
-function novaProfileRenderEditor() {
-  const avatar = document.getElementById('profile-avatar-preview');
-  const banner = document.getElementById('profile-banner-preview');
-  if (avatar) {
-    avatar.textContent = novaProfileDraftAvatar ? '' : (currentUser.nickname || 'U').charAt(0).toUpperCase();
-    avatar.style.backgroundImage = novaProfileDraftAvatar ? `url("${novaProfileDraftAvatar}")` : '';
-    avatar.style.backgroundSize = 'cover';
-    avatar.style.backgroundPosition = 'center';
-  }
-  if (banner) {
-    banner.style.backgroundImage = novaProfileDraftBanner ? `url("${novaProfileDraftBanner}")` : '';
-    banner.style.backgroundSize = 'cover';
-    banner.style.backgroundPosition = 'center';
-  }
-}
-
-function novaPrepareProfileEditor() {
-  novaProfileDraftAvatar = currentUser.avatarData || '';
-  novaProfileDraftBanner = currentUser.bannerData || '';
-  const status = document.getElementById('select-profile-status');
-  const custom = document.getElementById('input-profile-custom-status');
-  if (status) status.value = currentUser.status || 'online';
-  if (custom) custom.value = currentUser.customStatus || '';
-  novaProfileRenderEditor();
-}
-
-function novaProcessProfileImage(file, kind) {
-  return new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith('image/')) return reject(new Error('Выберите изображение.'));
-    if (file.size > 8 * 1024 * 1024) return reject(new Error('Файл слишком большой. Максимум 8 МБ.'));
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const targetW = kind === 'avatar' ? 256 : 1200;
-        const targetH = kind === 'avatar' ? 256 : 300;
-        const targetRatio = targetW / targetH;
-        const sourceRatio = img.width / img.height;
-        let sx=0, sy=0, sw=img.width, sh=img.height;
-        if (sourceRatio > targetRatio) {
-          sw = Math.round(img.height * targetRatio);
-          sx = Math.round((img.width - sw) / 2);
-        } else {
-          sh = Math.round(img.width / targetRatio);
-          sy = Math.round((img.height - sh) / 2);
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = targetW; canvas.height = targetH;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error('Браузер не поддерживает обработку изображения.'));
-        ctx.drawImage(img,sx,sy,sw,sh,0,0,targetW,targetH);
-        let quality = 0.82;
-        let data = canvas.toDataURL('image/webp',quality);
-        while (data.length > (kind === 'avatar' ? 180000 : 360000) && quality > 0.48) {
-          quality -= 0.08;
-          data = canvas.toDataURL('image/webp',quality);
-        }
-        resolve(data);
-      };
-      img.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
-      img.src = reader.result;
-    };
-    reader.onerror = () => reject(new Error('Не удалось прочитать файл.'));
-    reader.readAsDataURL(file);
-  });
-}
-
-function novaRenderAppearanceProfileImages(){
-  const avatar=document.getElementById('setting-profile-avatar-preview');
-  const banner=document.getElementById('setting-profile-banner-preview');
-  if(avatar){avatar.style.backgroundImage=novaProfileDraftAvatar ? ('url("' + novaProfileDraftAvatar + '")') : '';avatar.style.backgroundSize='cover';avatar.style.backgroundPosition='center';avatar.textContent=novaProfileDraftAvatar?'':(currentUser.nickname||'U').charAt(0).toUpperCase();}
-  if(banner){banner.style.backgroundImage=novaProfileDraftBanner ? ('url("' + novaProfileDraftBanner + '")') : '';banner.style.backgroundSize='cover';banner.style.backgroundPosition='center';}
-}
-document.getElementById('setting-profile-avatar-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{novaProfileDraftAvatar=await novaProcessProfileImage(file,'avatar');novaRenderAppearanceProfileImages();showToast('Аватарка подготовлена — сохраните изменения');}catch(err){showToast(err.message||'Не удалось обработать аватарку',true);}e.target.value='';});
-document.getElementById('setting-profile-banner-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{novaProfileDraftBanner=await novaProcessProfileImage(file,'banner');novaRenderAppearanceProfileImages();showToast('Баннер подготовлен — сохраните изменения');}catch(err){showToast(err.message||'Не удалось обработать баннер',true);}e.target.value='';});
-document.getElementById('setting-profile-avatar-remove')?.addEventListener('click',()=>{novaProfileDraftAvatar='';novaRenderAppearanceProfileImages();});
-document.getElementById('setting-profile-banner-remove')?.addEventListener('click',()=>{novaProfileDraftBanner='';novaRenderAppearanceProfileImages();});
-document.getElementById('setting-profile-images-save')?.addEventListener('click',async()=>{
-  const oldAvatar=currentUser.avatarData||'',oldBanner=currentUser.bannerData||'';
-  currentUser.avatarData=novaProfileDraftAvatar||'';currentUser.bannerData=novaProfileDraftBanner||'';
-  const button=document.getElementById('setting-profile-images-save');button.disabled=true;button.textContent='Сохранение…';
-  try{
-    if(isCloudEnabled&&auth?.currentUser)await saveCloudProfile();
-    localStorage.setItem('chat_avatar',currentUser.avatarData);localStorage.setItem('chat_banner',currentUser.bannerData);
-    updateUserProfileDisplay();
-    const selfIndex=(usersData||[]).findIndex(u=>u.uid===currentUser.uid);
-    if(selfIndex>=0)usersData[selfIndex]={...usersData[selfIndex],...currentUser};
-    if(typeof renderMessages==='function')renderMessages();
-    if(typeof renderMembersSidebar==='function')renderMembersSidebar();
-    if(typeof renderDirectMessagesList==='function')renderDirectMessagesList();
-    if(typeof novaPaintAvatars==='function')novaPaintAvatars();
-    novaProfileRenderEditor();novaRenderAppearanceProfileImages();showToast('Аватарка и баннер сохранены');
-  }catch(err){currentUser.avatarData=oldAvatar;currentUser.bannerData=oldBanner;novaProfileDraftAvatar=oldAvatar;novaProfileDraftBanner=oldBanner;novaRenderAppearanceProfileImages();showToast('Не удалось сохранить изображения. Проверьте соединение и попробуйте ещё раз.',true);}
-  finally{button.disabled=false;button.textContent='Сохранить фото и баннер';}
-});
-document.getElementById('btn-profile-settings')?.addEventListener('click',novaPrepareProfileEditor);
-document.querySelector('[data-account-settings-tab="appearance"]')?.addEventListener('click',()=>{novaProfileDraftAvatar=currentUser.avatarData||'';novaProfileDraftBanner=currentUser.bannerData||'';novaRenderAppearanceProfileImages();});
-
-
 // Profile updates modal handler
 document.getElementById('form-update-profile').onsubmit = async (e) => {
   e.preventDefault();
@@ -3484,18 +3338,12 @@ document.getElementById('form-update-profile').onsubmit = async (e) => {
 
   currentUser.status = newStatus;
   currentUser.customStatus = newCustomStatus;
-  currentUser.avatarData = novaProfileDraftAvatar || '';
-  currentUser.bannerData = novaProfileDraftBanner || '';
 
   localStorage.setItem('chat_status', currentUser.status);
   localStorage.setItem('chat_custom_status', currentUser.customStatus);
-  localStorage.setItem('chat_avatar', currentUser.avatarData || '');
-  localStorage.setItem('chat_banner', currentUser.bannerData || '');
 
   updateUserProfileDisplay();
   await syncUserProfileCloud();
-  const selfIndex=(usersData||[]).findIndex(u=>u.uid===currentUser.uid);
-  if(selfIndex>=0) usersData[selfIndex]={...usersData[selfIndex],...currentUser};
   closeModals();
   showToast("Профиль обновлен!");
 };
@@ -5106,59 +4954,6 @@ const banMember = window.banMember;
 const toggleAdmin = window.toggleAdmin;
 const deleteCurrentServer = window.deleteCurrentServer;
 
-function novaPaintAvatars() {
-  document.querySelectorAll('[data-message-id]').forEach(row => {
-    const msg = messagesData.find(m => String(m.id) === String(row.getAttribute('data-message-id')));
-    const box = row.firstElementChild;
-    if (!msg || !box) return;
-    const user = usersData.find(u => u.uid === msg.authorId);
-    const avatar = user && typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
-    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
-    box.style.backgroundSize = avatar ? 'cover' : '';
-    box.style.backgroundPosition = avatar ? 'center' : '';
-    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
-    else { box.style.color = ''; if (!box.textContent.trim()) box.textContent = (msg.authorName || 'U').charAt(0).toUpperCase(); }
-  });
-  document.querySelectorAll('#members-list-content [data-member-uid]').forEach(row => {
-    const user = usersData.find(u => u.uid === row.getAttribute('data-member-uid'));
-    const box = row.querySelector('.relative > div');
-    if (!user || !box) return;
-    const avatar = typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
-    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
-    box.style.backgroundSize = avatar ? 'cover' : '';
-    box.style.backgroundPosition = avatar ? 'center' : '';
-    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
-    else if (!box.textContent.trim()) { box.textContent = (user.nickname || 'U').charAt(0).toUpperCase(); box.style.color = ''; }
-  });
-  document.querySelectorAll('#dm-user-list [data-dm-user-id]').forEach(btn => {
-    const user = usersData.find(u => u.uid === btn.getAttribute('data-dm-user-id'));
-    const box = btn.querySelector('.relative > div');
-    if (!user || !box) return;
-    const avatar = typeof user.avatarData === 'string' && /^data:image\/(webp|png|jpeg);base64,/i.test(user.avatarData) ? user.avatarData : '';
-    box.style.backgroundImage = avatar ? 'url("' + avatar + '")' : '';
-    box.style.backgroundSize = avatar ? 'cover' : '';
-    box.style.backgroundPosition = avatar ? 'center' : '';
-    if (avatar) { box.textContent = ''; box.style.color = 'transparent'; }
-  });
-}
-const NOVA_POLISH_KEYS={appearance:'nova_appearance_v2',mutedUsers:'nova_muted_users_v2',mutedChannels:'nova_muted_channels_v2'};
-let novaSearchType='all';
-function novaPolishSet(key){try{const x=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(x)?x.map(String):[])}catch(_){return new Set()}}
-function novaPolishSaveSet(key,set){localStorage.setItem(key,JSON.stringify(Array.from(set)))}
-function novaApplyAppearanceV2(){let a={};try{a=JSON.parse(localStorage.getItem(NOVA_POLISH_KEYS.appearance)||'{}')||{}}catch(_){}const color=/^#[0-9a-f]{6}$/i.test(a.color||'')?a.color:'#5865F2';let st=document.getElementById('nova-polish-style-v2');if(!st){st=document.createElement('style');st.id='nova-polish-style-v2';document.head.appendChild(st)}st.textContent=':root{--nova-accent-v2:'+color+'} .bg-discord-accent{background-color:var(--nova-accent-v2)!important}.text-discord-accent{color:var(--nova-accent-v2)!important} '+(a.compact?'#message-feed .group{padding-top:3px!important;padding-bottom:3px!important}#dm-user-list button{padding-top:5px!important;padding-bottom:5px!important}':'')+' '+(a.motion==='off'?'*,*::before,*::after{animation-duration:0ms!important;transition-duration:0ms!important}':a.motion==='low'?'*,*::before,*::after{animation-duration:80ms!important;transition-duration:80ms!important}':'')}
-function novaInstallAppearanceV2(){const p=document.getElementById('account-settings-panel-appearance');if(!p||document.getElementById('nova-appearance-v2'))return;const d=document.createElement('div');d.id='nova-appearance-v2';d.className='space-y-3';d.innerHTML='<div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-3"><b class="text-white text-sm">Внешний вид 2.0</b><label class="flex justify-between items-center text-sm">Акцентный цвет<input id="nova-accent-v2" type="color" value="#5865F2"></label><label class="flex gap-2 items-center text-sm"><input id="nova-compact-v2" type="checkbox"> Компактный режим</label><label class="block text-sm">Анимации<select id="nova-motion-v2" class="block mt-1 w-full bg-discord-surface border border-gray-700 rounded-lg p-2"><option value="full">Обычные</option><option value="low">Минимальные</option><option value="off">Выключены</option></select></label></div><div class="bg-discord-rail rounded-xl border border-gray-700/50 p-4 space-y-2"><b class="text-white text-sm">Скрытие сообщений</b><p class="text-xs text-discord-muted">Скрытия локальные — видны только в этом браузере.</p><button id="nova-mute-user-v2" class="w-full bg-discord-surface rounded-lg p-2 text-sm">Скрыть / показать собеседника</button><button id="nova-mute-channel-v2" class="w-full bg-discord-surface rounded-lg p-2 text-sm">Скрыть / показать канал</button><button id="nova-clear-mutes-v2" class="w-full bg-discord-surface rounded-lg p-2 text-sm">Сбросить скрытия</button></div>';p.appendChild(d);let a={};try{a=JSON.parse(localStorage.getItem(NOVA_POLISH_KEYS.appearance)||'{}')||{}}catch(_){}const c=document.getElementById('nova-accent-v2'),k=document.getElementById('nova-compact-v2'),m=document.getElementById('nova-motion-v2');c.value=a.color||'#5865F2';k.checked=!!a.compact;m.value=a.motion||'full';const save=()=>{localStorage.setItem(NOVA_POLISH_KEYS.appearance,JSON.stringify({color:c.value,compact:k.checked,motion:m.value}));novaApplyAppearanceV2()};c.addEventListener('input',save);k.addEventListener('change',save);m.addEventListener('change',save);
-document.getElementById('nova-mute-user-v2').onclick=()=>{if(currentView!=='dm'||!currentDmUserId){showToast('Сначала откройте личный диалог',true);return}const x=novaPolishSet(NOVA_POLISH_KEYS.mutedUsers),id=String(currentDmUserId);if(x.has(id)){x.delete(id);showToast('Собеседник снова виден')}else{x.add(id);showToast('Сообщения собеседника скрыты')}novaPolishSaveSet(NOVA_POLISH_KEYS.mutedUsers,x);renderMessages()};
-document.getElementById('nova-mute-channel-v2').onclick=()=>{if(currentView==='dm'||!currentChannelId){showToast('Сначала откройте канал',true);return}const x=novaPolishSet(NOVA_POLISH_KEYS.mutedChannels),id=String(currentChannelId);if(x.has(id)){x.delete(id);showToast('Канал снова виден')}else{x.add(id);showToast('Сообщения канала скрыты')}novaPolishSaveSet(NOVA_POLISH_KEYS.mutedChannels,x);renderMessages()};
-document.getElementById('nova-clear-mutes-v2').onclick=()=>{localStorage.removeItem(NOVA_POLISH_KEYS.mutedUsers);localStorage.removeItem(NOVA_POLISH_KEYS.mutedChannels);renderMessages();showToast('Скрытия сброшены')};}
-function novaInstallSearchTypeV2(){const i=document.getElementById('input-search-messages');if(!i||document.getElementById('nova-search-type-v2'))return;const x=document.createElement('select');x.id='nova-search-type-v2';x.className='bg-discord-rail border border-gray-700/50 rounded-lg px-1 py-1.5 text-xs text-white';x.innerHTML='<option value="all">Всё</option><option value="text">Текст</option><option value="media">Медиа</option><option value="files">Файлы</option>';i.parentElement.parentElement.insertBefore(x,i.parentElement.nextSibling);x.onchange=()=>{novaSearchType=x.value;renderMessages()}}
-function novaFilterMessagesV2(list){const mu=novaPolishSet(NOVA_POLISH_KEYS.mutedUsers),mc=novaPolishSet(NOVA_POLISH_KEYS.mutedChannels);return list.filter(m=>{if(currentView==='dm'&&mu.has(String(m.authorId))&&m.authorId!==currentUser.uid)return false;if(currentView!=='dm'&&mc.has(String(m.channelId)))return false;const raw=JSON.stringify(m).toLowerCase(),media=!!(m.attachmentUrl||m.attachmentDataUrl||m.imageUrl||m.mediaUrl||m.fileUrl||m.attachments||m.attachment||m.image||m.audioUrl||m.voiceUrl||m.voiceDataUrl||m.stickerUrl||m.stickerDataUrl);if(novaSearchType==='text')return !!m.text;if(novaSearchType==='media')return media&&/image|photo|media|sticker|audio|voice|video|png|jpe?g|webp|gif/.test(raw);if(novaSearchType==='files')return media&&/file|document|pdf|attachment|filename|\.zip|\.txt|\.docx?|\.xlsx?/.test(raw);return true})}
-novaInstallAppearanceV2();novaInstallSearchTypeV2();novaApplyAppearanceV2();
-const novaAvatarObserver = new MutationObserver(() => { if (typeof novaPaintAvatars === 'function') novaPaintAvatars(); });
-['message-feed','dm-user-list','members-list-content'].forEach(id => { const el = document.getElementById(id); if (el) novaAvatarObserver.observe(el, { childList:true, subtree:true }); });
-function novaCurrentMediaMessages(){if(currentView==='dm')return messagesData.filter(m=>(m.authorId===currentUser.uid&&m.targetDmId===currentDmUserId)||(m.authorId===currentDmUserId&&m.targetDmId===currentUser.uid));return messagesData.filter(m=>m.channelId===currentChannelId)}
-function novaOpenMediaGallery(){let modal=document.getElementById('nova-media-gallery');if(!modal){modal=document.createElement('div');modal.id='nova-media-gallery';modal.className='fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-6';modal.innerHTML='<section class="w-full max-w-5xl max-h-[92vh] bg-discord-surface border border-gray-700 rounded-2xl overflow-hidden flex flex-col"><header class="flex items-center justify-between gap-3 p-4 border-b border-gray-700"><div><h2 class="font-bold text-white text-lg">Медиа и вложения</h2><p class="text-xs text-discord-muted">Файлы текущего канала или личного диалога</p></div><button type="button" id="nova-media-close" class="bg-discord-rail rounded-lg px-3 py-2 text-sm">Закрыть</button></header><div id="nova-media-gallery-content" class="overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div></section>';document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.add('hidden')});modal.querySelector('#nova-media-close').addEventListener('click',()=>modal.classList.add('hidden'))}const list=novaCurrentMediaMessages().filter(m=>m.attachmentUrl||m.attachmentDataUrl||m.stickerDataUrl||m.voiceUrl||m.voiceDataUrl);const content=modal.querySelector('#nova-media-gallery-content');if(!list.length){content.innerHTML='<p class="col-span-full text-center text-sm text-discord-muted py-12">В этом диалоге пока нет медиа и вложений.</p>'}else{content.innerHTML=list.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).map(m=>{const src=m.attachmentUrl||m.attachmentDataUrl||m.stickerDataUrl;const name=m.attachmentName||m.stickerName||(m.voiceUrl||m.voiceDataUrl?'Голосовое сообщение':'Изображение');const size=Number(m.attachmentSize)||0;if(src)return '<div class="nova-image-attachment rounded-xl border border-gray-700 overflow-hidden bg-discord-rail" data-attachment-src="'+escapeHtml(src)+'" data-attachment-name="'+escapeHtml(name)+'" data-attachment-size="'+size+'"><button type="button" data-open-attachment class="w-full h-36 flex items-center justify-center bg-black/10"><img src="'+escapeHtml(src)+'" alt="'+escapeHtml(name)+'" loading="lazy" class="max-w-full max-h-36 object-contain"></button><div class="p-2 text-xs text-gray-200 truncate" title="'+escapeHtml(name)+'">'+escapeHtml(name)+'</div><div class="px-2 pb-2 text-[10px] text-discord-muted">'+(size?(size/1048576).toFixed(1)+' МБ':'Изображение')+'</div></div>';return '<div class="rounded-xl border border-gray-700 bg-discord-rail p-3 flex flex-col justify-between min-h-36"><div class="text-2xl">🎙️</div><div class="text-xs text-white break-words">'+escapeHtml(name)+'</div><div class="text-[10px] text-discord-muted">'+(m.voiceDuration?m.voiceDuration+' сек.':'Голосовое сообщение')+'</div></div>'}).join('')}modal.classList.remove('hidden');modal.classList.add('flex')}
-function novaInstallMediaGallery(){const anchor=document.getElementById('btn-copy-channel-link');if(!anchor||document.getElementById('nova-open-media-gallery'))return;const button=document.createElement('button');button.id='nova-open-media-gallery';button.type='button';button.className='text-xs bg-discord-surface hover:bg-discord-hover text-discord-muted hover:text-white px-2.5 py-1.5 rounded-lg border border-gray-700/50 transition';button.textContent='▦ Медиа';button.title='Медиа текущего канала или диалога';button.addEventListener('click',novaOpenMediaGallery);anchor.parentElement.insertBefore(button,anchor);let st=document.getElementById('nova-mobile-polish-style');if(!st){st=document.createElement('style');st.id='nova-mobile-polish-style';document.head.appendChild(st)}st.textContent='@media(max-width:640px){div:has(>#input-search-messages){display:block!important}#input-search-messages{width:5.5rem!important}#input-search-messages:focus{width:7rem!important}#nova-search-type-v2{max-width:4.5rem}#btn-copy-channel-link{display:none!important}#nova-open-media-gallery{padding-left:.45rem;padding-right:.45rem;font-size:11px}#message-feed{padding-left:10px;padding-right:10px}.nova-image-attachment{max-width:100%}#nova-media-gallery{padding:10px}}'}
-novaInstallMediaGallery();
 initAuth();
 </script>
 
@@ -5291,20 +5086,10 @@ initAuth();
   window.novaOpenUserProfile=function(uid){
     const u=novaUser(uid),modal=document.getElementById('nova-user-profile-modal');if(!u||!modal)return;
     const initial=(u.nickname||'U').charAt(0).toUpperCase();
-    const profileAvatar=document.getElementById('nova-profile-avatar');
-    profileAvatar.textContent=u.avatarData?'':initial;
-    profileAvatar.style.backgroundImage=u.avatarData?`url("${u.avatarData}")`:'';
-    profileAvatar.style.backgroundSize='cover';
-    profileAvatar.style.backgroundPosition='center';
+    document.getElementById('nova-profile-avatar').textContent=initial;
     document.getElementById('nova-profile-name').textContent=u.nickname||'Пользователь';
     document.getElementById('nova-profile-status').textContent=`${STATUS_DOTS[u.status]||'⚪'} ${STATUS_LABELS[u.status]||'Неизвестно'}`;
     document.getElementById('nova-profile-custom-status').textContent=u.customStatus||'Пользовательский статус не установлен';
-    const profileBanner=modal.querySelector('.nova-user-banner');
-    if(profileBanner){
-      profileBanner.style.backgroundImage=u.bannerData?`url("${u.bannerData}")`:'';
-      profileBanner.style.backgroundSize='cover';
-      profileBanner.style.backgroundPosition='center';
-    }
     const srv=novaCurrentServer(),role=srv?novaMemberRole(srv,u.uid):null,roleEl=document.getElementById('nova-profile-role'),ownerEl=document.getElementById('nova-profile-owner');
     ownerEl.classList.toggle('hidden',!(srv&&srv.ownerId===u.uid));
     if(role&&role.id!=='everyone'){roleEl.textContent=`Роль: ${role.name}`;roleEl.style.color=role.color||'#99AAB5';roleEl.classList.remove('hidden');}else roleEl.classList.add('hidden');
@@ -5321,7 +5106,7 @@ initAuth();
     if(action==='close')return novaCloseProfile();
     if(action==='dm'){novaCloseProfile();if(u?.uid)openDirectMessage(u.uid);}
     if(action==='copy'&&u?.uid)copyTextSilently(u.uid).then(()=>showToast('ID скопирован'));
-    if(action==='edit'){novaCloseProfile();novaPrepareProfileEditor();openModal('modal-profile');}
+    if(action==='edit'){novaCloseProfile();openModal('modal-profile');}
     if(action==='account'){novaCloseProfile();openModal('modal-account-settings');}
   });
   async function novaSetStatus(status){if(!currentUser)return;currentUser.status=status;localStorage.setItem('chat_status',status);updateUserProfileDisplay?.();try{await syncUserProfileCloud?.();}catch(e){}try{renderMembersSidebar?.();renderDirectMessagesList?.();}catch(e){}showToast(`Статус: ${STATUS_LABELS[status]||status}`);}
@@ -5546,14 +5331,12 @@ initAuth();
   if(!viewer||!img||!title||!downloadBtn)return;
   let currentSrc='';
   let currentName='image.jpg';
-  let currentSize=0;
-  function openViewer(src,name,size){
+  function openViewer(src,name){
     if(!src)return;
     currentSrc=src;
     currentName=name||'image.jpg';
-    currentSize=Number(size)||0;
     img.src=src;
-    title.textContent=currentName+(currentSize>0?' · '+(currentSize/1024/1024).toFixed(1)+' МБ':'');
+    title.textContent=currentName;
     viewer.classList.add('is-open');
     viewer.setAttribute('aria-hidden','false');
     document.body.style.overflow='hidden';
@@ -5604,7 +5387,7 @@ initAuth();
       if(!card)return;
       e.preventDefault();
       e.stopPropagation();
-      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'),card.getAttribute('data-attachment-size'));
+      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'));
       return;
     }
     const dl=e.target.closest?.('[data-download-attachment]');
@@ -5613,7 +5396,7 @@ initAuth();
       if(!card)return;
       e.preventDefault();
       e.stopPropagation();
-      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'),card.getAttribute('data-attachment-size'));
+      openViewer(card.getAttribute('data-attachment-src'),card.getAttribute('data-attachment-name'));
       setTimeout(downloadCurrent,50);
     }
   }, true);
@@ -5626,106 +5409,6 @@ initAuth();
 })();
 </script>
 <!-- /NOVA_ATTACHMENT_VIEWER_V8 -->
-
-
-<!-- NOVA_EXCLUSIVE_ICON_SYSTEM_V3 -->
-<script src="https://unpkg.com/lucide@latest"></script>
-<style>
-  .nova-ui-icon{width:1.05em;height:1.05em;display:inline-block;vertical-align:-.16em;flex:none;stroke-width:1.9;pointer-events:none}
-  .nova-iconized{display:inline-flex!important;align-items:center;justify-content:center;gap:.48em}
-  button .nova-ui-icon{transition:transform .16s ease,filter .16s ease}
-  button:hover .nova-ui-icon{transform:translateY(-1px);filter:drop-shadow(0 0 3px currentColor)}
-  button:disabled .nova-ui-icon{opacity:.55}
-  .nova-checkmark-icon{color:#45d483;width:1em;height:1em;stroke-width:2.4}
-  @media(prefers-reduced-motion:reduce){button .nova-ui-icon{transition:none}button:hover .nova-ui-icon{transform:none}}
-</style>
-<script>
-(function(){
-  'use strict';
-  if(window.__novaExclusiveIconsV3)return;
-  window.__novaExclusiveIconsV3=true;
-  const icons={
-    '⚙️':'settings','⚙':'settings','🚪':'log-out','🔍':'search','🔎':'search',
-    '📎':'paperclip','🎙️':'mic','🎙':'mic','🔇':'volume-x','🔊':'volume-2',
-    '✕':'x','×':'x','✖':'x','✏️':'pencil','🗑️':'trash-2','📌':'pin',
-    '🔔':'bell','🎨':'palette','👤':'user-round','🔐':'shield-check','🛠️':'wrench',
-    '👥':'users-round','🔗':'link','🛡️':'shield','📁':'folder','✉️':'mail',
-    '▶':'play','↗':'arrow-up-right','➜':'arrow-right','↓':'download','＋':'plus','➕':'plus',
-    '➖':'minus','✓':'check','✔':'check','☑':'square-check','💬':'message-circle',
-    '📞':'phone','📷':'image','🖼️':'image','🎧':'headphones','🔒':'lock',
-    '🌙':'moon','☀️':'sun','☀':'sun','📍':'map-pin','🧷':'paperclip',
-    '🟢':'circle-check','🟡':'circle-dot','🔴':'circle-minus','🟣':'circle',
-    '📨':'send','📤':'send','📥':'inbox','📄':'file-text','🗂️':'folder-kanban',
-    '🎮':'gamepad-2','🚀':'rocket','✨':'sparkles','🔕':'bell-off','🔈':'volume-1',
-    '🔉':'volume-1','↩️':'reply','↩':'reply','↪️':'corner-up-right',
-    '⏸':'pause','⏹':'square','📋':'clipboard','🧹':'brush','🧩':'puzzle',
-    '🛡':'shield','📦':'package','📃':'file-text','🔑':'key','👁️':'eye',
-    '🙈':'eye-off','❌':'circle-x','✅':'circle-check','❎':'square-x'
-  };
-  const protectedButton=b=>b.matches('.emoji-btn,[onclick*="toggleQuickReaction"],[onclick*="toggleReaction"],[data-sticker-id],.reaction-btn');
-  function iconPlaceholder(name,check){
-    const node=document.createElement('i');
-    node.setAttribute('data-lucide',name);
-    node.className='nova-ui-icon'+(check?' nova-checkmark-icon':'');
-    node.setAttribute('aria-hidden','true');
-    return node;
-  }
-  function refresh(){
-    if(!window.lucide||typeof window.lucide.createIcons!=='function')return;
-    document.querySelectorAll('button').forEach(button=>{
-      if(!button||protectedButton(button)||button.dataset.novaIconized==='1')return;
-      if(button.closest('.msg-content,.emoji-picker,.emoji-btn,[data-user-generated="true"]'))return;
-      const walker=document.createTreeWalker(button,NodeFilter.SHOW_TEXT);
-      const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
-      for(const node of nodes){
-        const trimmed=(node.nodeValue||'').trimStart();
-        const leading=Object.keys(icons).sort((a,b)=>b.length-a.length).find(key=>trimmed.startsWith(key));
-        if(!leading)continue;
-        const holder=document.createElement('span');holder.className='nova-iconized';
-        holder.appendChild(iconPlaceholder(icons[leading],false));
-        const rest=trimmed.slice(leading.length);
-        if(rest)holder.appendChild(document.createTextNode(rest));
-        node.parentNode.insertBefore(holder,node);node.remove();
-        button.dataset.novaIconized='1';break;
-      }
-    });
-    const status=document.getElementById('attachment-url-text');
-    if(status&&status.dataset.novaIconized!=='1'){
-      const trimmed=(status.textContent||'').trimStart();
-      const marker=Object.keys(icons).find(key=>trimmed.startsWith(key)&&/^(✓|✔|☑|✅)$/.test(key));
-      if(marker){
-        const holder=document.createElement('span');holder.className='nova-iconized';
-        holder.appendChild(iconPlaceholder(icons[marker],true));
-        holder.appendChild(document.createTextNode(trimmed.slice(marker.length).trimStart()));
-        status.replaceChildren(holder);status.dataset.novaIconized='1';
-      }
-    }
-    if(document.querySelector('[data-lucide]'))window.lucide.createIcons({attrs:{'stroke-width':'1.9'}});
-  }
-  function start(){
-    refresh();
-    // Observe only newly inserted buttons, not every DOM mutation.
-    // This prevents Lucide's own SVG replacement from retriggering refresh indefinitely.
-    let scheduled=false;
-    const observer=new MutationObserver(records=>{
-      const needsRefresh=records.some(record=>{
-        if(record.type!=='childList')return false;
-        return Array.from(record.addedNodes).some(node=>
-          node.nodeType===1 && (node.matches?.('button') || node.querySelector?.('button'))
-        );
-      });
-      if(needsRefresh&&!scheduled){
-        scheduled=true;
-        window.setTimeout(()=>{scheduled=false;refresh();},80);
-      }
-    });
-    observer.observe(document.body,{subtree:true,childList:true});
-    document.addEventListener('click',()=>window.setTimeout(refresh,0),true);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
-})();
-</script>
-<!-- /NOVA_EXCLUSIVE_ICON_SYSTEM_V3 -->
 
 </body>
 </html>
