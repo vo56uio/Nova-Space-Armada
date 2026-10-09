@@ -5700,14 +5700,26 @@ initAuth();
         status.replaceChildren(holder);status.dataset.novaIconized='1';
       }
     }
-    window.lucide.createIcons({attrs:{'stroke-width':'1.9'}});
+    if(document.querySelector('[data-lucide]'))window.lucide.createIcons({attrs:{'stroke-width':'1.9'}});
   }
   function start(){
     refresh();
+    // Observe only newly inserted buttons, not every DOM mutation.
+    // This prevents Lucide's own SVG replacement from retriggering refresh indefinitely.
+    let scheduled=false;
     const observer=new MutationObserver(records=>{
-      if(records.some(record=>record.type==='childList'||record.type==='characterData'))refresh();
+      const needsRefresh=records.some(record=>{
+        if(record.type!=='childList')return false;
+        return Array.from(record.addedNodes).some(node=>
+          node.nodeType===1 && (node.matches?.('button') || node.querySelector?.('button'))
+        );
+      });
+      if(needsRefresh&&!scheduled){
+        scheduled=true;
+        window.setTimeout(()=>{scheduled=false;refresh();},80);
+      }
     });
-    observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+    observer.observe(document.body,{subtree:true,childList:true});
     document.addEventListener('click',()=>window.setTimeout(refresh,0),true);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
