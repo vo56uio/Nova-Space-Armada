@@ -3487,8 +3487,8 @@ document.getElementById('btn-profile-banner-remove')?.addEventListener('click',(
 function novaRenderAppearanceProfileImages(){
   const avatar=document.getElementById('setting-profile-avatar-preview');
   const banner=document.getElementById('setting-profile-banner-preview');
-  if(avatar){avatar.style.backgroundImage=novaProfileDraftAvatar?\x60url("${novaProfileDraftAvatar}")\x60:'';avatar.style.backgroundSize='cover';avatar.style.backgroundPosition='center';avatar.textContent=novaProfileDraftAvatar?'':(currentUser.nickname||'U').charAt(0).toUpperCase();}
-  if(banner){banner.style.backgroundImage=novaProfileDraftBanner?\x60url("${novaProfileDraftBanner}")\x60:'';banner.style.backgroundSize='cover';banner.style.backgroundPosition='center';}
+  if(avatar){avatar.style.backgroundImage=novaProfileDraftAvatar ? ('url("' + novaProfileDraftAvatar + '")') : '';avatar.style.backgroundSize='cover';avatar.style.backgroundPosition='center';avatar.textContent=novaProfileDraftAvatar?'':(currentUser.nickname||'U').charAt(0).toUpperCase();}
+  if(banner){banner.style.backgroundImage=novaProfileDraftBanner ? ('url("' + novaProfileDraftBanner + '")') : '';banner.style.backgroundSize='cover';banner.style.backgroundPosition='center';}
 }
 document.getElementById('setting-profile-avatar-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{novaProfileDraftAvatar=await novaProcessProfileImage(file,'avatar');novaRenderAppearanceProfileImages();showToast('Аватарка подготовлена — сохраните изменения');}catch(err){showToast(err.message||'Не удалось обработать аватарку',true);}e.target.value='';});
 document.getElementById('setting-profile-banner-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{novaProfileDraftBanner=await novaProcessProfileImage(file,'banner');novaRenderAppearanceProfileImages();showToast('Баннер подготовлен — сохраните изменения');}catch(err){showToast(err.message||'Не удалось обработать баннер',true);}e.target.value='';});
