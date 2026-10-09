@@ -189,6 +189,7 @@
         <h2 id="sidebar-header-title" class="font-bold text-white truncate text-base">Загрузка...</h2>
         <div class="flex items-center gap-1">
           <button id="btn-server-settings" title="Настройки сервера" class="hidden text-discord-muted hover:text-white hover:bg-discord-hover px-1.5 py-1 rounded-md transition">⚙️</button>
+          <button id="btn-server-actions" type="button" title="Действия сервера" aria-label="Действия сервера" class="hidden text-xl leading-none text-discord-muted hover:text-white hover:bg-discord-hover px-1.5 py-1 rounded-md transition">⋯</button>
           <button id="btn-server-invite" title="Пригласить друзей" class="hidden text-xs bg-discord-accent/20 text-discord-accent hover:bg-discord-accent hover:text-white px-2 py-1 rounded-md font-semibold transition">
             + Пригласить
           </button>
@@ -412,8 +413,8 @@
         </button>
       </div>
 
-      <button type="button" onclick="handleSendMessage(event)" class="bg-discord-accent hover:bg-discord-accentHover text-white px-4 sm:px-5 py-3 rounded-xl font-semibold transition active:scale-95 flex items-center gap-1 flex-shrink-0 text-sm">
-        <span>Отправить</span>
+      <button type="button" onclick="handleSendMessage(event)" aria-label="Отправить сообщение" title="Отправить сообщение" class="bg-discord-accent hover:bg-discord-accentHover text-white px-4 sm:px-5 py-3 rounded-xl font-semibold transition active:scale-95 flex items-center justify-center gap-1 flex-shrink-0 text-sm">
+        <span id="chat-send-label">Отправить</span><span id="chat-send-icon" class="hidden" aria-hidden="true">➤</span>
       </button>
     </form>
   </main>
@@ -423,6 +424,7 @@
   <aside id="members-sidebar" class="w-60 bg-discord-surface border-l border-gray-800/40 flex flex-col flex-shrink-0 hidden lg:flex">
     <div class="h-14 border-b border-gray-800/60 px-4 flex items-center shadow-sm">
       <h4 class="font-bold text-discord-muted text-xs uppercase tracking-wider">Участники</h4>
+      <button id="btn-close-members-mobile" type="button" class="hidden text-discord-muted hover:text-white p-2 rounded-lg hover:bg-discord-hover" aria-label="Закрыть список участников">✕</button>
     </div>
     <div id="members-list-content" class="flex-1 overflow-y-auto p-3 space-y-3">
       <!-- Members will be rendered here dynamically -->
@@ -925,6 +927,9 @@ document.getElementById('btn-toggle-members').onclick = () => {
   const side = document.getElementById('members-sidebar');
   side.classList.toggle('hidden');
 };
+document.getElementById('btn-close-members-mobile')?.addEventListener('click', () => {
+  document.getElementById('members-sidebar')?.classList.add('hidden');
+});
 
 function showToast(msg, isError = false) {
   const toast = document.getElementById('toast');
@@ -967,6 +972,7 @@ function openDirectMessage(uid) {
   document.getElementById('sidebar-header-title').textContent='Личные сообщения';
   document.getElementById('btn-server-invite').classList.add('hidden');
   document.getElementById('btn-server-settings').classList.add('hidden');
+  document.getElementById('btn-server-actions')?.classList.add('hidden');
   document.getElementById('server-invite-badge').classList.add('hidden');
   renderDirectMessagesList(); renderMessages();
   if (window.innerWidth < 768) closeDrawer();
@@ -1617,6 +1623,7 @@ document.getElementById('btn-home').onclick = () => {
   document.getElementById('sidebar-header-title').textContent = "Личные сообщения";
   document.getElementById('btn-server-invite').classList.add('hidden');
   document.getElementById('btn-server-settings').classList.add('hidden');
+  document.getElementById('btn-server-actions')?.classList.add('hidden');
   document.getElementById('server-invite-badge').classList.add('hidden');
   renderServers();
   renderDirectMessagesList();
@@ -1629,6 +1636,7 @@ function renderChannels() {
   const headerTitle = document.getElementById('sidebar-header-title');
   const inviteBtn = document.getElementById('btn-server-invite');
   const addChanBtn = document.getElementById('btn-add-channel');
+  const serverActionsBtn = document.getElementById('btn-server-actions');
   const chanList = document.getElementById('channel-list');
   const voiceList = document.getElementById('voice-channel-list');
   const inviteBadge = document.getElementById('server-invite-badge');
@@ -1639,6 +1647,7 @@ function renderChannels() {
     inviteBtn.classList.add('hidden');
     addChanBtn.classList.add('hidden');
     document.getElementById('btn-server-settings').classList.add('hidden');
+    serverActionsBtn?.classList.add('hidden');
     inviteBadge.classList.add('hidden');
     chanList.innerHTML = `<p class="text-xs text-discord-muted p-2">Создайте сервер (+), чтобы начать!</p>`;
     voiceList.innerHTML = '';
@@ -1651,6 +1660,7 @@ function renderChannels() {
   inviteBtn.classList.toggle('hidden', !hasServerPermission(currentServer, 'create_invites'));
   addChanBtn.classList.toggle('hidden', !hasServerPermission(currentServer, 'manage_channels'));
   document.getElementById('btn-server-settings').classList.toggle('hidden', !hasServerPermission(currentServer, 'manage_server') && !hasServerPermission(currentServer, 'manage_roles') && !hasServerPermission(currentServer, 'manage_members'));
+  serverActionsBtn?.classList.remove('hidden');
   inviteBadge.classList.remove('hidden');
   inviteCodeSpan.textContent = currentServer.inviteCode || '...';
 
@@ -1911,6 +1921,7 @@ async function connectVoiceChannel(voiceId, name) {
   }
 
   renderChannels();
+  if (window.innerWidth < 768) closeDrawer();
 }
 
 document.getElementById('btn-disconnect-voice').onclick = async () => {
@@ -3916,10 +3927,17 @@ function novaServerIsMuted(srv) { return !!novaServerMuteUntil(srv); }
 
 async function novaSetServerMute(srv, until) {
   if (!srv) return;
-  const mutedUntil = { ...(srv.mutedUntil || {}) };
+  const previousMutedUntil = srv.mutedUntil;
+  const mutedUntil = { ...(previousMutedUntil || {}) };
   if (until) mutedUntil[currentUser.uid] = until;
   else delete mutedUntil[currentUser.uid];
-  await updateServerFields(srv, { mutedUntil });
+  const saved = await updateServerFields(srv, { mutedUntil });
+  if (!saved) {
+    srv.mutedUntil = previousMutedUntil;
+    renderServers();
+    renderChannels();
+    return;
+  }
   renderServers();
   renderChannels();
   showToast(until ? 'Сервер заглушён' : 'Уведомления сервера включены');
@@ -3929,9 +3947,9 @@ function novaChooseServerMute(srv) {
     { label:'1 час', ms:60*60*1000 },
     { label:'8 часов', ms:8*60*60*1000 },
     { label:'24 часа', ms:24*60*60*1000 },
-    { label:'Навсегда', ms:0 }
+    { label:'Навсегда', ms:null }
   ];
-  const items = options.map(o => ({ icon:'🔕', label:o.label, action:()=>novaSetServerMute(srv, o.ms ? Date.now()+o.ms : 0) }));
+  const items = options.map(o => ({ icon:'🔕', label:o.label, action:()=>novaSetServerMute(srv, o.ms === null ? Number.MAX_SAFE_INTEGER : Date.now()+o.ms) }));
   if (novaServerIsMuted(srv)) items.push('separator',{icon:'🔔',label:'Снять заглушение',action:()=>novaSetServerMute(srv,0)});
   showContextMenu(window._novaMuteX || 120, window._novaMuteY || 120, items);
 }
@@ -5284,12 +5302,30 @@ initAuth();
   });
   async function novaSetStatus(status){if(!currentUser)return;currentUser.status=status;localStorage.setItem('chat_status',status);updateUserProfileDisplay?.();try{await syncUserProfileCloud?.();}catch(e){}try{renderMembersSidebar?.();renderDirectMessagesList?.();}catch(e){}showToast(`Статус: ${STATUS_LABELS[status]||status}`);}
   function novaItemsForServer(srv){
-    const items=[{icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},{icon:'👤',label:'Открыть участников',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}},{icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode||'').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))}];
+    const items=[
+      {icon:'➜',label:'Открыть сервер',action:()=>{currentView='server';currentServerId=srv.id;currentChannelId=null;document.getElementById('server-channels-container').classList.remove('hidden');document.getElementById('dm-channels-container').classList.add('hidden');renderServers();}},
+      {icon:'👤',label:'Открыть участников',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('members');}},
+      {icon:'🔗',label:'Скопировать код приглашения',action:()=>copyTextSilently(srv.inviteCode||'').then(()=>showToast('Код приглашения скопирован')).catch(()=>showToast('Код приглашения отсутствует',true))},
+      {icon:novaServerIsMuted(srv)?'🔔':'🔕',label:novaServerIsMuted(srv)?'Включить уведомления':'Заглушить сервер…',action:()=>{if(novaServerIsMuted(srv))novaSetServerMute(srv,0);else novaChooseServerMute(srv);}}
+    ];
     if(hasServerPermission(srv,'create_invites'))items.push({icon:'📨',label:'Пригласить людей',action:()=>{currentView='server';currentServerId=srv.id;renderServers();document.getElementById('btn-server-invite')?.click();}});
     if(hasServerPermission(srv,'manage_channels'))items.push({icon:'➕',label:'Создать канал',action:()=>openModal('modal-channel')});
-    if(isServerManager(srv))items.push({icon:'⚙️',label:'Настройки сервера',action:()=>openServerSettings('general')});
-    if(isServerOwner(srv))items.push('separator',{icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>window.deleteCurrentServer()});return items;
+    if(isServerManager(srv))items.push({icon:'⚙️',label:'Настройки сервера',action:()=>{currentView='server';currentServerId=srv.id;renderServers();openServerSettings('general');}});
+    if(isServerOwner(srv))items.push('separator',{icon:'🗑️',label:'Удалить сервер',danger:true,action:()=>{currentView='server';currentServerId=srv.id;renderServers();window.deleteCurrentServer();}});
+    else items.push('separator',{icon:'🚪',label:'Выйти из сервера',danger:true,action:()=>window.leaveCurrentServer(srv.id)});
+    return items;
   }
+
+  // A real button exposes the same actions on touch devices where right-click is unavailable.
+  document.getElementById('btn-server-actions')?.addEventListener('click',e=>{
+    e.preventDefault();e.stopPropagation();
+    const srv=(serversData||[]).find(x=>x.id===currentServerId);
+    if(!srv)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    window._novaMuteX=Math.max(6,rect.left);
+    window._novaMuteY=rect.bottom+4;
+    showContextMenu(rect.left,rect.bottom+4,novaItemsForServer(srv));
+  });
   function novaItemsForMember(member,srv){
     const self=member.uid===currentUser.uid,owner=srv&&srv.ownerId===member.uid,items=[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(member.uid)}];
     if(!self)items.push({icon:'✉️',label:'Написать сообщение',action:()=>openDirectMessage(member.uid)});
@@ -5310,6 +5346,7 @@ initAuth();
   function novaItemsForDM(u){return[{icon:'👤',label:'Открыть профиль',action:()=>novaOpenUserProfile(u.uid)},{icon:'✉️',label:'Открыть личный чат',action:()=>openDirectMessage(u.uid)},{icon:'📋',label:'Скопировать ID',action:()=>copyTextSilently(u.uid).then(()=>showToast('ID скопирован'))}];}
   document.addEventListener('contextmenu',e=>{
     const target=e.target.closest?.('[data-server-id],[data-chan-id],[data-voice-id],[data-dm-user-id],[data-member-uid],[data-message-id],#user-avatar,#user-status-dot');if(!target)return;e.preventDefault();e.stopPropagation();
+    window._novaMuteX=e.clientX;window._novaMuteY=e.clientY;
     if(target.matches('#user-avatar,#user-status-dot')){showContextMenu(e.clientX,e.clientY,novaItemsForMember(currentUser,novaCurrentServer()));return;}
     if(target.dataset.serverId){const s=serversData.find(x=>x.id===target.dataset.serverId);if(s)showContextMenu(e.clientX,e.clientY,novaItemsForServer(s));return;}
     if(target.dataset.chanId){const c=channelsData.find(x=>x.id===target.dataset.chanId),s=c&&serversData.find(x=>x.id===c.serverId);if(c)showContextMenu(e.clientX,e.clientY,novaItemsForChannel(c,s));return;}
@@ -5434,12 +5471,40 @@ initAuth();
     *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   }
 
-  @media (max-width:640px){
+  @media (max-width:767px){
+    #navigation-drawer{max-width:100vw}
+    #navigation-drawer>aside:first-child{width:56px!important;padding-left:.35rem!important;padding-right:.35rem!important;gap:.5rem!important}
+    #navigation-drawer>aside:nth-child(2){width:min(224px,calc(100vw - 56px))!important;min-width:0}
+    #navigation-drawer>aside:first-child button{width:40px!important;height:40px!important}
+    #navigation-drawer>aside:first-child #btn-theme-toggle{width:36px!important;height:36px!important}
+    #app-shell main{min-width:0;width:100%}
+    #app-shell header{padding-left:.5rem!important;padding-right:.5rem!important;gap:.2rem!important}
+    #app-shell header>div{min-width:0;gap:.25rem!important}
+    #current-channel-name{max-width:38vw;font-size:.9rem}
+    #btn-open-pins,#btn-toggle-members{padding:.4rem!important}
+    #chat-form{gap:.3rem!important;padding:8px!important}
+    #chat-form>#btn-attach-file,#chat-form>#btn-voice-record{width:36px;min-width:36px;height:38px;padding:.45rem!important;display:flex;align-items:center;justify-content:center}
+    #chat-form>button[onclick="handleSendMessage(event)"]{width:40px;min-width:40px;height:38px;padding:.35rem!important;justify-content:center}
+    #chat-send-label{display:none!important}
+    #chat-send-icon{display:inline-flex!important}
+    #chat-input{min-width:0;padding-left:.7rem!important;padding-right:4.15rem!important;font-size:16px!important}
+    #btn-emoji{right:2.35rem!important;font-size:1rem!important;padding:.2rem}
+    #btn-sticker{right:.25rem!important;font-size:1rem!important;padding:.2rem}
+    #members-sidebar:not(.hidden){display:flex!important;position:fixed!important;z-index:80!important;inset:0 0 0 auto!important;width:min(280px,86vw)!important;height:100dvh!important;max-height:100dvh!important;box-shadow:-18px 0 48px rgba(0,0,0,.35)}
+    #members-sidebar>div:first-child{justify-content:space-between;padding-left:1rem!important;padding-right:.6rem!important}
+    #btn-close-members-mobile{display:inline-flex!important;align-items:center;justify-content:center}
     #message-feed{padding:12px}
-    #chat-form{padding:10px}
     #attachment-url-text{max-width:58vw}
     .nova-voice-message{max-width:100%}
   }
+  @media (max-width:420px){
+    #navigation-drawer>aside:first-child{width:52px!important}
+    #navigation-drawer>aside:nth-child(2){width:min(220px,calc(100vw - 52px))!important}
+    #navigation-drawer>aside:first-child button{width:38px!important;height:38px!important}
+    #current-channel-name{max-width:32vw}
+    #btn-start-call{padding:.35rem!important}
+  }
+  @media (min-width:768px){#btn-close-members-mobile{display:none!important}}
 </style>
 <!-- /NOVA_UI_POLISH_V6 -->
 
