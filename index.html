@@ -937,17 +937,18 @@ function showToast(msg, isError = false) {
   const toastMsg = document.getElementById('toast-msg');
   if (!toast || !toastMsg) return;
   if (novaToastTimer) clearTimeout(novaToastTimer);
+
   toastMsg.textContent = msg;
-  toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 transform opacity-100 transition-all duration-200 pointer-events-none px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2 ${
+  // Avoid transform-based hiding: on narrow mobile screens the toast can remain
+  // partially visible. Explicitly control display so it disappears completely.
+  toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2 ${
     isError ? 'bg-discord-red text-white' : 'bg-discord-accent text-white'
   }`;
+  toast.style.display = 'flex';
+
   novaToastTimer = setTimeout(() => {
-    toast.classList.add('-translate-y-3', 'opacity-0');
-    novaToastTimer = setTimeout(() => {
-      toast.classList.add('hidden');
-      toast.classList.remove('-translate-y-3', 'opacity-0');
-      novaToastTimer = null;
-    }, 220);
+    toast.style.display = 'none';
+    novaToastTimer = null;
   }, 1000);
 }
 
