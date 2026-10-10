@@ -1402,7 +1402,7 @@ function hasServerPermission(srv, permission, uid = currentUser.uid) {
 function getMemberRole(srv, uid) {
   ensureServerRoleSchema(srv);
   const roleIds = getMemberRoleIds(srv, uid);
-  const custom = srv.roles.find(r => r.id !== 'everyone' && roleIds.includes(r.id));
+  const custom = getRolesByHierarchy(srv).find(r => r.id !== 'everyone' && roleIds.includes(r.id));
   return custom || srv.roles.find(r => r.id === 'everyone') || null;
 }
 
@@ -2110,7 +2110,19 @@ function renderMembersSidebar() {
     });
   }
 
-  const manager = isServerManager(srv);  const owner = isServerOwner(srv);
+  ensureServerRoleSchema(srv);
+  const manager = isServerManager(srv);
+  const owner = isServerOwner(srv);
+  const memberRank = uid => Math.max(0, ...getMemberRoleIds(srv, uid).map(id => {
+    const role = srv.roles.find(r => r.id === id);
+    return Number(role?.position) || 0;
+  }));
+  members.sort((a, b) => {
+    if (a.uid === srv.ownerId) return -1;
+    if (b.uid === srv.ownerId) return 1;
+    return memberRank(b.uid) - memberRank(a.uid)
+      || String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru');
+  });
 
   const rows = members.map(m => {
     const isOwner = m.uid === srv.ownerId;
