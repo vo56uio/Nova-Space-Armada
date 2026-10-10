@@ -1664,13 +1664,18 @@ function renderChannels() {
   inviteBadge.classList.remove('hidden');
   inviteCodeSpan.textContent = currentServer.inviteCode || '...';
 
+  const channelOrder = (a, b) => {
+    const ao = Number.isFinite(Number(a.orderIndex)) ? Number(a.orderIndex) : (a.createdAt || 0);
+    const bo = Number.isFinite(Number(b.orderIndex)) ? Number(b.orderIndex) : (b.createdAt || 0);
+    return ao - bo || (a.createdAt || 0) - (b.createdAt || 0);
+  };
   const textChannels = channelsData
     .filter(c => c.serverId === currentServerId && (c.type || 'text') === 'text')
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    .sort(channelOrder);
 
   const voiceChannels = channelsData
     .filter(c => c.serverId === currentServerId && c.type === 'voice')
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    .sort(channelOrder);
 
   if (textChannels.length > 0 && (!currentChannelId || !textChannels.some(c => c.id === currentChannelId))) {
     currentChannelId = textChannels[0].id;
@@ -3653,8 +3658,66 @@ function renderServerChannelsSettings() {
   const list = document.getElementById('server-channels-settings-list');
   if (!srv) { list.innerHTML=''; return; }
   const canManage = hasServerPermission(srv, 'manage_channels');
-  const chans = channelsData.filter(c => c.serverId === srv.id).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
-  list.innerHTML = chans.map(c => `<div class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3"><span>${c.type === 'voice' ? '🔊' : '#'}</span><span class="text-sm text-white flex-1">${escapeHtml(c.name)}</span><span class="text-[10px] text-discord-muted">${c.type === 'voice' ? 'голосовой' : 'текстовый'}</span>${canManage ? `<button type="button" onclick="renameChannelPrompt('${c.id}')" class="text-xs text-discord-muted hover:text-white">Переименовать</button><button type="button" onclick="deleteChannel('${c.id}')" class="text-xs text-discord-red hover:underline">Удалить</button>` : ''}</div>`).join('');
+  const channelOrder = (a, b) => {
+    const ao = Number.isFinite(Number(a.orderIndex)) ? Number(a.orderIndex) : (a.createdAt || 0);
+    const bo = Number.isFinite(Number(b.orderIndex)) ? Number(b.orderIndex) : (b.createdAt || 0);
+    return ao - bo || (a.createdAt || 0) - (b.createdAt || 0);
+  };
+  const chans = channelsData.filter(c => c.serverId === srv.id)
+    .sort((a,b) => ((a.type || 'text') === 'text' ? 0 : 1) - ((b.type || 'text') === 'text' ? 0 : 1) || channelOrder(a,b));
+  list.innerHTML = chans.map(c => `<div data-sort-channel="${escapeHtml(c.id)}" data-sort-type="${c.type === 'voice' ? 'voice' : 'text'}" draggable="${canManage ? 'true' : 'false'}" class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3 ${canManage ? 'cursor-grab active:cursor-grabbing' : ''}"><span class="text-discord-muted" title="Перетащите, чтобы изменить порядок">${canManage ? '⠿' : ''}</span><span>${c.type === 'voice' ? '🔊' : '#'}</span><span class="text-sm text-white flex-1">${escapeHtml(c.name)}</span><span class="text-[10px] text-discord-muted">${c.type === 'voice' ? 'голосовой' : 'текстовый'}</span>${canManage ? `<button type="button" onclick="renameChannelPrompt('${c.id}')" class="text-xs text-discord-muted hover:text-white">Переименовать</button><button type="button" onclick="deleteChannel('${c.id}')" class="text-xs text-discord-red hover:underline">Удалить</button>` : ''}</div>`).join('');
+  if (canManage) {
+    let draggedId = null;
+    list.querySelectorAll('[data-sort-channel]').forEach(row => {
+      row.addEventListener('dragstart', e => {
+        draggedId = row.dataset.sortChannel;
+        row.classList.add('opacity-40');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedId);
+      });
+      row.addEventListener('dragend', () => {
+        row.classList.remove('opacity-40');
+        list.querySelectorAll('.border-discord-accent').forEach(el => el.classList.remove('border-discord-accent'));
+      });
+      row.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (draggedId && draggedId !== row.dataset.sortChannel && row.dataset.sortType === list.querySelector(`[data-sort-channel="${draggedId}"]`)?.dataset.sortType) {
+          e.dataTransfer.dropEffect = 'move';
+          row.classList.add('border-discord-accent');
+        }
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('border-discord-accent'));
+      row.addEventListener('drop', async e => {
+        e.preventDefault();
+        row.classList.remove('border-discord-accent');
+        const fromId = e.dataTransfer.getData('text/plain') || draggedId;
+        const toId = row.dataset.sortChannel;
+        const fromRow = list.querySelector(`[data-sort-channel="${fromId}"]`);
+        if (!fromRow || fromId === toId || fromRow.dataset.sortType !== row.dataset.sortType) return;
+        const sameTypeRows = Array.from(list.querySelectorAll(`[data-sort-type="${row.dataset.sortType}"]`));
+        const ids = sameTypeRows.map(el => el.dataset.sortChannel);
+        const fromIndex = ids.indexOf(fromId), toIndex = ids.indexOf(toId);
+        if (fromIndex < 0 || toIndex < 0) return;
+        ids.splice(fromIndex, 1);
+        ids.splice(toIndex, 0, fromId);
+        const updates = ids.map((id, index) => ({ id, orderIndex: index }));
+        try {
+          if (isCloudEnabled) {
+            for (const item of updates) await updateDoc(doc(COLLECTION_CHANNELS, item.id), { orderIndex: item.orderIndex });
+          } else {
+            updates.forEach(item => { const channel = channelsData.find(c => c.id === item.id); if (channel) channel.orderIndex = item.orderIndex; });
+            saveLocalStore();
+          }
+          renderChannels();
+          renderServerSettings();
+          showToast('Порядок каналов сохранён');
+        } catch (err) {
+          showToast('Не удалось сохранить порядок каналов', true);
+          renderServerSettings();
+        }
+      });
+    });
+  }
 }
 
 window.renameChannelPrompt = async function(chanId) {
