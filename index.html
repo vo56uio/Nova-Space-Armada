@@ -4237,7 +4237,9 @@ function notifyIncomingMessage(msg) {
 
   const msgServer = !isDm && msg.serverId ? (serversData || []).find(s => s.id === msg.serverId) : null;
   if (msgServer && novaServerIsMuted(msgServer)) return;
-  const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase());
+  const msgChannel = !isDm ? (channelsData || []).find(c => c.id === msg.channelId) : null;
+  const hasRoleMention = !!(msgServer && (msg.mentionedRoleIds || []).some(roleId => getMemberRoleIds(msgServer, currentUser.uid).includes(roleId)) && (!msgChannel?.isPrivate || (msgChannel.allowedRoleIds || []).some(roleId => getMemberRoleIds(msgServer, currentUser.uid).includes(roleId))));
+  const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase()) || hasRoleMention;
   const allowed = accountNotificationSettings.inApp !== false && ((isDm && accountNotificationSettings.dm !== false) || (!isDm && mention && accountNotificationSettings.mentions !== false));
   if (!allowed || activeContext) return;
   showToast(`${isDm ? 'ЛС' : 'Упоминание'}: ${msg.authorName || 'Пользователь'} — ${(msg.text || '').slice(0,90)}`);
