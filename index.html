@@ -445,7 +445,7 @@
 </div>
 
 <!-- Emoji Picker Popup -->
-<div id="emoji-picker" class="fixed bottom-16 right-4 z-50 bg-discord-surface border border-gray-700 rounded-xl p-2 hidden grid grid-cols-6 gap-2 shadow-2xl max-h-72 overflow-y-auto">
+<div id="emoji-picker" class="fixed bottom-16 right-4 z-50 bg-discord-surface border border-gray-700 rounded-xl p-2 hidden grid grid-cols-5 gap-2 shadow-2xl">
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👍</button>
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">❤️</button>
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🔥</button>
@@ -456,34 +456,6 @@
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💯</button>
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🎮</button>
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">✨</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😀</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😎</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🥳</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😭</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🤣</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🤔</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👏</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🙏</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💀</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💖</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💪</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🤝</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">✅</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">❌</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">⭐</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🌟</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🌈</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">☀️</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🌙</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🍀</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🍕</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">☕</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🐱</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🐶</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🎯</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🏆</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">⚡</button>
-  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💎</button>
 </div>
 
 
@@ -541,14 +513,7 @@
             <input type="radio" name="channel-type" value="voice" class="text-discord-accent">
             <span class="text-xs font-bold text-white">🔊 Голосовой</span>
           </label>
-          <label class="flex items-center gap-2 p-2.5 bg-discord-rail rounded-xl border border-gray-700/60 cursor-pointer">
-            <input type="radio" name="channel-type" value="announcement" class="text-discord-accent">
-            <span class="text-xs font-bold text-white">📢 Объявления</span>
-          </label>
         </div>
-        <label class="flex items-center gap-2 text-sm text-gray-200"><input id="input-channel-private" type="checkbox" class="accent-discord-accent"> Приватный канал</label>
-        <div id="channel-private-roles-wrap" class="hidden rounded-xl border border-gray-700/50 p-3"><div class="text-xs text-discord-muted mb-2">Разрешённые роли</div><div id="channel-private-roles" class="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto"></div></div>
-        <p class="text-[11px] text-discord-muted mb-2">В канале объявлений писать могут только участники с разрешением «Публиковать объявления».</p>
         <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название канала</label>
         <input id="input-channel-name" type="text" maxlength="32" placeholder="новости" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
       </div>
@@ -1382,7 +1347,6 @@ function stopApp() {
 const ROLE_PERMISSIONS = [
   ['view_channels', 'Просматривать каналы'],
   ['send_messages', 'Отправлять сообщения'],
-  ['send_announcements', 'Публиковать объявления'],
   ['delete_messages', 'Удалять свои сообщения'],
   ['manage_messages', 'Управлять сообщениями'],
   ['pin_messages', 'Закреплять сообщения'],
@@ -1433,14 +1397,6 @@ function hasServerPermission(srv, permission, uid = currentUser.uid) {
     const role = srv.roles.find(r => r.id === roleId);
     return !!(role && (role.permissions?.administrator || role.permissions?.[permission]));
   });
-}
-
-function canManageSpecificRole(srv, targetRole, uid = currentUser.uid) {
-  if (!srv || !targetRole) return false;
-  if (srv.ownerId === uid || (srv.admins || []).includes(uid)) return true;
-  ensureServerRoleSchema(srv);
-  const myTop = Math.max(0, ...getMemberRoleIds(srv, uid).map(id => Number(srv.roles.find(r => r.id === id)?.position) || 0));
-  return myTop > (Number(targetRole.position) || 0);
 }
 
 function getMemberRole(srv, uid) {
@@ -1630,8 +1586,6 @@ async function handlePendingInvite() {
   pendingInviteCode = null;
 
   const matchedServer = serversData.find(s => s.inviteCode && s.inviteCode.trim().toUpperCase() === code);
-  if (matchedServer && matchedServer.inviteExpiresAt && Date.now() > matchedServer.inviteExpiresAt) { showToast('Срок действия приглашения истёк', true); return; }
-  if (matchedServer && matchedServer.inviteMaxUses > 0 && (matchedServer.inviteUses || 0) >= matchedServer.inviteMaxUses) { showToast('Лимит использований приглашения исчерпан', true); return; }
   if (matchedServer) {
     await joinServerByDoc(matchedServer);
   } else {
@@ -1755,13 +1709,12 @@ function renderChannels() {
     const bo = Number.isFinite(Number(b.orderIndex)) ? Number(b.orderIndex) : (b.createdAt || 0);
     return ao - bo || (a.createdAt || 0) - (b.createdAt || 0);
   };
-  const canViewChannel = c => !c.isPrivate || currentServer.ownerId === currentUser.uid || hasServerPermission(currentServer, 'administrator') || (c.allowedRoleIds || []).some(id => getMemberRoleIds(currentServer, currentUser.uid).includes(id));
   const textChannels = channelsData
-    .filter(c => c.serverId === currentServerId && ['text','announcement'].includes(c.type || 'text') && canViewChannel(c))
+    .filter(c => c.serverId === currentServerId && (c.type || 'text') === 'text')
     .sort(channelOrder);
 
   const voiceChannels = channelsData
-    .filter(c => c.serverId === currentServerId && c.type === 'voice' && canViewChannel(c))
+    .filter(c => c.serverId === currentServerId && c.type === 'voice')
     .sort(channelOrder);
 
   if (textChannels.length > 0 && (!currentChannelId || !textChannels.some(c => c.id === currentChannelId))) {
@@ -1776,7 +1729,7 @@ function renderChannels() {
           ? 'bg-discord-hover text-white font-semibold' 
           : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
       }">
-        <span class="text-lg text-discord-muted">${c.type === 'announcement' ? '📢' : (c.isPrivate ? '🔒' : '#')}</span>
+        <span class="text-lg text-discord-muted">#</span>
         <span class="truncate">${escapeHtml(c.name)}</span>
       </button>
     `;
@@ -2277,14 +2230,9 @@ function renderMessages() {
       return;
     }
 
-    const serverForChannel = serversData.find(s => s.id === currentChan.serverId);
-    const allowedToView = !currentChan.isPrivate || (serverForChannel && (serverForChannel.ownerId === currentUser.uid || hasServerPermission(serverForChannel, 'administrator') || (currentChan.allowedRoleIds || []).some(id => getMemberRoleIds(serverForChannel, currentUser.uid).includes(id))));
-    if (!allowedToView) { chatInput.disabled = true; chanNameElem.textContent = 'Приватный канал'; chatInput.placeholder = 'У вас нет доступа'; feed.innerHTML = '<div class="p-6 text-center text-discord-muted">У вас нет доступа к этому каналу.</div>'; return; }
-    chanIconElem.textContent = currentChan.type === 'announcement' ? '📢' : (currentChan.isPrivate ? '🔒' : '#');
     chanNameElem.textContent = currentChan.name;
-    const canPostAnnouncement = currentChan.type !== 'announcement' || (serverForChannel && hasServerPermission(serverForChannel, 'send_announcements'));
-    chatInput.placeholder = currentChan.type === 'announcement' ? (canPostAnnouncement ? 'Опубликовать объявление…' : 'Только чтение: нет права публиковать') : `Написать в #${currentChan.name}...`;
-    chatInput.disabled = !canPostAnnouncement;
+    chatInput.placeholder = `Написать в #${currentChan.name}...`;
+    chatInput.disabled = false;
 
     activeMessages = messagesData.filter(m => m.channelId === currentChannelId);
   }
@@ -2354,7 +2302,6 @@ function renderMessages() {
 
     // Reaction markup
     const reactions = m.reactions || {};
-    const roleMentionNames = currentView === 'server' ? (serversData.find(s => s.id === currentServerId)?.roles || []).filter(role => (m.mentionedRoleIds || []).includes(role.id)).map(role => '@' + role.name) : [];
     const reactionKeys = Object.keys(reactions);
     const reactionsHtml = reactionKeys.map(emoji => {
       const count = reactions[emoji].length;
@@ -2441,7 +2388,7 @@ function renderMessages() {
 
         <!-- Quick Action Toolbar on Hover -->
         <div class="absolute right-2 top-1 hidden group-hover:flex items-center gap-1 bg-discord-surface border border-gray-700/60 rounded-lg p-1 shadow-md text-xs">
-          <button onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text).replace(/(@[^\s]+)/g, token => roleMentionNames.includes(token) ? `<span class="text-discord-accent bg-discord-accent/10 rounded px-1 font-semibold">${token}</span>` : token)}')" title="Ответить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">↩️</button>
+          <button onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text)}')" title="Ответить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">↩️</button>
           <button onclick="toggleQuickReaction('${m.id}', '❤️')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">❤️</button>
           <button onclick="toggleQuickReaction('${m.id}', '👍')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">👍</button>
           ${canManageMessage ? `<button onclick="editMessage('${m.id}')" title="Изменить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">✏️</button>` : ''}
@@ -2817,8 +2764,6 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
   const input = document.getElementById('chat-input');
   if (!voiceUrl && input) input.value = '';
 
-  const mentionServer = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
-  const mentionedRoleIds = mentionServer ? getServerRoles(mentionServer).filter(role => role.id !== 'everyone' && cleanText.toLowerCase().includes('@' + String(role.name).toLowerCase())).map(role => role.id) : [];
   const newMsg = {
     id: 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     serverId: currentView === 'server' ? currentServerId : null,
@@ -2827,7 +2772,6 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
     authorId: currentUser.uid,
     authorName: currentUser.nickname,
     text: cleanText,
-    mentionedRoleIds,
     attachmentUrl: attachmentUrl || null,
     attachmentDataUrl: attachmentDataUrl || null,
     attachmentName: attachmentName || null,
@@ -3469,27 +3413,19 @@ document.getElementById('btn-server-invite').onclick = () => {
 
   const inviteCode = currentServer.inviteCode || 'INVITE';
   const fullLink = `${window.location.origin}${window.location.pathname}?invite=${inviteCode}`;
+
   document.getElementById('invite-code-input').value = inviteCode;
   document.getElementById('invite-link-input').value = fullLink;
-  document.getElementById('invite-expiry-select').value = String(currentServer.inviteExpiryDuration || 0);
-  document.getElementById('invite-max-uses-select').value = String(currentServer.inviteMaxUses || 0);
+
   openModal('modal-invite');
 };
 
-document.getElementById('btn-save-invite-settings').onclick = async () => {
-  const srv = serversData.find(s => s.id === currentServerId);
-  if (!srv || !hasServerPermission(srv, 'create_invites')) { showToast('Недостаточно прав', true); return; }
-  const duration = Number(document.getElementById('invite-expiry-select').value) || 0, maxUses = Number(document.getElementById('invite-max-uses-select').value) || 0;
-  srv.inviteExpiryDuration = duration; srv.inviteExpiresAt = duration ? Date.now() + duration : 0; srv.inviteMaxUses = maxUses; srv.inviteUses = 0;
-  try { if (isCloudEnabled) await updateDoc(doc(COLLECTION_SERVERS, srv.id), { inviteExpiryDuration: duration, inviteExpiresAt: srv.inviteExpiresAt, inviteMaxUses: maxUses, inviteUses: 0 }); else saveLocalStore(); showToast('Параметры приглашения сохранены'); } catch(e) { showToast('Не удалось сохранить параметры приглашения', true); }
-};
 document.getElementById('btn-copy-code').onclick = () => copyTextToClipboard(document.getElementById('invite-code-input').value);
 document.getElementById('btn-copy-link').onclick = () => copyTextToClipboard(document.getElementById('invite-link-input').value);
 
 // Modals Trigger Handlers
 document.getElementById('btn-add-server').onclick = () => openModal('modal-server');
 document.getElementById('btn-add-channel').onclick = () => currentServerId && openModal('modal-channel');
-document.getElementById('input-channel-private').addEventListener('change', () => document.getElementById('channel-private-roles-wrap').classList.toggle('hidden', !document.getElementById('input-channel-private').checked));
 
 document.getElementById('form-create-server').onsubmit = async (e) => {
   e.preventDefault();
@@ -3570,9 +3506,11 @@ document.getElementById('form-join-server').onsubmit = async (e) => {
   if (!code) return;
 
   const targetServer = serversData.find(s => s.inviteCode && s.inviteCode.toUpperCase() === code);
-  if (!targetServer) { showToast("Сервер с таким кодом не найден", true); return; }
-  if (targetServer.inviteExpiresAt && Date.now() > targetServer.inviteExpiresAt) { showToast('Срок действия приглашения истёк', true); return; }
-  if (targetServer.inviteMaxUses > 0 && (targetServer.inviteUses || 0) >= targetServer.inviteMaxUses) { showToast('Лимит использований приглашения исчерпан', true); return; }
+  if (!targetServer) {
+    showToast("Сервер с таким кодом не найден", true);
+    return;
+  }
+
   await joinServerByDoc(targetServer);
   closeModals();
 };
@@ -3590,9 +3528,8 @@ async function joinServerByDoc(serverDocObj) {
     return;
   }
   const existingMembers = Array.isArray(serverDocObj.members) ? serverDocObj.members : [];
-  const wasAlreadyMember = existingMembers.includes(currentUser.uid);
 
-  if (!wasAlreadyMember) {
+  if (!existingMembers.includes(currentUser.uid)) {
     existingMembers.push(currentUser.uid);
 
     if (isCloudEnabled) {
@@ -3604,10 +3541,6 @@ async function joinServerByDoc(serverDocObj) {
     }
   }
 
-  if (!wasAlreadyMember && serverDocObj.inviteMaxUses > 0) {
-    serverDocObj.inviteUses = (serverDocObj.inviteUses || 0) + 1;
-    if (isCloudEnabled) { try { await updateDoc(doc(COLLECTION_SERVERS, serverDocObj.id), { inviteUses: serverDocObj.inviteUses }); } catch(e) {} } else saveLocalStore();
-  }
   currentServerId = serverDocObj.id;
   currentChannelId = null;
   showToast(`Вы вошли на сервер "${serverDocObj.name}"!`);
@@ -3620,13 +3553,15 @@ document.getElementById('form-create-channel').onsubmit = async (e) => {
   const type = document.querySelector('input[name="channel-type"]:checked').value;
   const name = input.value.trim().toLowerCase().replace(/\s+/g, '-');
   if (!name || !currentServerId) return;
-  const srv = serversData.find(s => s.id === currentServerId);
-  if (!srv || !hasServerPermission(srv, 'manage_channels')) { showToast('Недостаточно прав', true); return; }
-  const isPrivate = document.getElementById('input-channel-private').checked;
-  const allowedRoleIds = isPrivate ? Array.from(document.querySelectorAll('[data-private-channel-role]:checked')).map(el => el.value) : [];
-  if (isPrivate && !allowedRoleIds.length) { showToast('Выберите хотя бы одну разрешённую роль', true); return; }
+
   const chanId = (type === 'voice' ? 'v_' : 'c_') + Date.now();
-  const newChan = { id: chanId, serverId: currentServerId, name, type, isPrivate, allowedRoleIds, createdAt: Date.now() };
+  const newChan = {
+    id: chanId,
+    serverId: currentServerId,
+    name: name,
+    type: type,
+    createdAt: Date.now()
+  };
 
   if (isCloudEnabled) {
     try {
@@ -3640,11 +3575,10 @@ document.getElementById('form-create-channel').onsubmit = async (e) => {
     saveLocalStore();
   }
 
-  if (type === 'text' || type === 'announcement') currentChannelId = chanId;
+  if (type === 'text') currentChannelId = chanId;
   input.value = '';
-  document.getElementById('input-channel-private').checked = false;
-  closeModals(); renderServers();
-  showToast(`${type === 'announcement' ? 'Канал объявлений' : 'Канал'} #${name} создан!`);
+  closeModals();
+  showToast(`Канал #${name} создан!`);
 };
 
 // Profile updates modal handler
@@ -3732,7 +3666,6 @@ window.openRoleEditor = function(roleId = null) {
   if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
   ensureServerRoleSchema(srv);
   const role = roleId ? srv.roles.find(r => r.id === roleId) : null;
-  if (role && !canManageSpecificRole(srv, role)) { showToast('Нельзя управлять ролью равного или более высокого уровня', true); return; }
   document.getElementById('role-editor').classList.remove('hidden');
   document.getElementById('role-editor-title').textContent = role ? `Роль: ${role.name}` : 'Новая роль';
   document.getElementById('input-role-id').value = role?.id || '';
@@ -3937,10 +3870,6 @@ window.openModal = function(id) {
   if (id === 'modal-profile') {
     document.getElementById('select-profile-status').value = currentUser.status;
     document.getElementById('input-profile-custom-status').value = currentUser.customStatus || '';
-  }
-  if (id === 'modal-channel') {
-    const srv = serversData.find(s => s.id === currentServerId), roleBox = document.getElementById('channel-private-roles');
-    if (srv && roleBox) { ensureServerRoleSchema(srv); roleBox.innerHTML = getRolesByHierarchy(srv).map(role => `<label class="flex items-center gap-2 text-xs text-gray-200"><input type="checkbox" data-private-channel-role value="${escapeHtml(role.id)}" class="accent-discord-accent"><span>${escapeHtml(role.name)}</span></label>`).join(''); document.getElementById('input-channel-private').checked = false; document.getElementById('channel-private-roles-wrap').classList.add('hidden'); document.querySelectorAll('input[name="channel-type"]').forEach(el => el.checked = el.value === 'text'); }
   }
   if (id === 'modal-server-settings') renderServerSettings();
   if (id === 'modal-account-settings') {
@@ -4237,9 +4166,7 @@ function notifyIncomingMessage(msg) {
 
   const msgServer = !isDm && msg.serverId ? (serversData || []).find(s => s.id === msg.serverId) : null;
   if (msgServer && novaServerIsMuted(msgServer)) return;
-  const msgChannel = !isDm ? (channelsData || []).find(c => c.id === msg.channelId) : null;
-  const hasRoleMention = !!(msgServer && (msg.mentionedRoleIds || []).some(roleId => getMemberRoleIds(msgServer, currentUser.uid).includes(roleId)) && (!msgChannel?.isPrivate || (msgChannel.allowedRoleIds || []).some(roleId => getMemberRoleIds(msgServer, currentUser.uid).includes(roleId))));
-  const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase()) || hasRoleMention;
+  const mention = (msg.text || '').toLowerCase().includes((currentUser.nickname || '').toLowerCase());
   const allowed = accountNotificationSettings.inApp !== false && ((isDm && accountNotificationSettings.dm !== false) || (!isDm && mention && accountNotificationSettings.mentions !== false));
   if (!allowed || activeContext) return;
   showToast(`${isDm ? 'ЛС' : 'Упоминание'}: ${msg.authorName || 'Пользователь'} — ${(msg.text || '').slice(0,90)}`);
