@@ -2389,13 +2389,21 @@ function renderMessages() {
     };
   });
 
-  // Preserve the viewport when older messages are prepended; otherwise follow the newest message.
+  // Restore after layout so images/fonts and the freshly rendered message list
+  // cannot leave the user stranded in the middle of the conversation.
   const restore = window.novaArchive && window.novaArchive.pendingScrollRestore;
   if (restore && restore.viewKey === viewKey) {
     feed.scrollTop = feed.scrollHeight - restore.scrollHeight + restore.scrollTop;
     window.novaArchive.pendingScrollRestore = null;
   } else {
-    feed.scrollTop = feed.scrollHeight;
+    const scrollToLatest = () => {
+      // Ignore this deferred scroll if the user switched to another chat meanwhile.
+      const liveKey = currentView === 'dm' ? `dm_${currentDmUserId}` : `chan_${currentChannelId}`;
+      if (liveKey === viewKey && !window.novaArchive?.pendingScrollRestore) {
+        feed.scrollTop = feed.scrollHeight;
+      }
+    };
+    requestAnimationFrame(() => requestAnimationFrame(scrollToLatest));
   }
 
   // Replace the previous handler to avoid stacking scroll listeners after every render.
@@ -3701,19 +3709,19 @@ function renderServerChannelsSettings() {
         ids.splice(fromIndex, 1);
         ids.splice(toIndex, 0, fromId);
         const updates = ids.map((id, index) => ({ id, orderIndex: index }));
+        // Update the local view immediately; persist changes to cloud in parallel.
+        updates.forEach(item => { const channel = channelsData.find(c => c.id === item.id); if (channel) channel.orderIndex = item.orderIndex; });
+        renderChannels();
+        renderServerSettings();
+        showToast('Порядок каналов обновлён');
         try {
           if (isCloudEnabled) {
-            for (const item of updates) await updateDoc(doc(COLLECTION_CHANNELS, item.id), { orderIndex: item.orderIndex });
+            await Promise.all(updates.map(item => updateDoc(doc(COLLECTION_CHANNELS, item.id), { orderIndex: item.orderIndex })));
           } else {
-            updates.forEach(item => { const channel = channelsData.find(c => c.id === item.id); if (channel) channel.orderIndex = item.orderIndex; });
             saveLocalStore();
           }
-          renderChannels();
-          renderServerSettings();
-          showToast('Порядок каналов сохранён');
         } catch (err) {
-          showToast('Не удалось сохранить порядок каналов', true);
-          renderServerSettings();
+          showToast('Не удалось сохранить порядок в облаке', true);
         }
       });
     });
