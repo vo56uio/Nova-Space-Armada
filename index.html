@@ -445,7 +445,7 @@
 </div>
 
 <!-- Emoji Picker Popup -->
-<div id="emoji-picker" class="fixed bottom-16 right-4 z-50 bg-discord-surface border border-gray-700 rounded-xl p-2 hidden grid grid-cols-5 gap-2 shadow-2xl">
+<div id="emoji-picker" class="fixed bottom-16 right-4 z-50 bg-discord-surface border border-gray-700 rounded-xl p-2 hidden grid grid-cols-5 gap-2 shadow-2xl max-h-72 overflow-y-auto">
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👍</button>
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">❤️</button>
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🔥</button>
@@ -456,6 +456,46 @@
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💯</button>
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🎮</button>
   <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">✨</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😀</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😎</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🤔</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😭</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🤣</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🥳</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">😡</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🙏</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👏</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🤝</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💀</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💎</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">⚡</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🌌</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🛡️</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">⚔️</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🏆</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">📢</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">✅</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">❌</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💬</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">📌</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">❤️‍🔥</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🐱</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🐸</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🍕</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">☕</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🎯</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🧠</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🫡</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🫠</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🥹</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👑</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🛰️</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🪐</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">👽</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🌠</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">💥</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🧩</button>
+  <button type="button" class="emoji-btn text-xl hover:bg-discord-hover p-1 rounded">🫶</button>
 </div>
 
 
@@ -513,6 +553,16 @@
             <input type="radio" name="channel-type" value="voice" class="text-discord-accent">
             <span class="text-xs font-bold text-white">🔊 Голосовой</span>
           </label>
+          <label class="flex items-center gap-2 p-2.5 bg-discord-rail rounded-xl border border-gray-700/60 cursor-pointer">
+            <input type="radio" name="channel-type" value="announcement" class="text-discord-accent">
+            <span class="text-xs font-bold text-white">📢 Объявления</span>
+          </label>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-gray-200"><input id="channel-private-toggle" type="checkbox" class="accent-discord-accent"> Приватный канал (доступ по ролям)</label>
+        <div id="channel-private-roles-wrap" class="hidden">
+          <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Разрешённые роли</label>
+          <select id="channel-private-roles" multiple size="4" class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-3 py-2 text-white text-sm"></select>
+          <p class="text-[11px] text-discord-muted mt-1">Участники с любой выбранной ролью смогут видеть канал. Владельцы и администраторы тоже имеют доступ.</p>
         </div>
         <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название канала</label>
         <input id="input-channel-name" type="text" maxlength="32" placeholder="новости" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
@@ -540,6 +590,16 @@
           <button id="btn-copy-code" type="button" class="bg-discord-accent hover:bg-discord-accentHover text-white px-4 py-2 rounded-xl text-sm font-semibold transition">Скопировать</button>
         </div>
       </div>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-xs font-semibold text-discord-muted uppercase">Срок действия
+          <select id="invite-expiry-select" class="mt-1 w-full bg-discord-rail border border-gray-700/60 rounded-xl px-3 py-2 text-white text-sm"><option value="0">Без срока</option><option value="3600000">1 час</option><option value="86400000">24 часа</option><option value="604800000">7 дней</option><option value="2592000000">30 дней</option></select>
+        </label>
+        <label class="block text-xs font-semibold text-discord-muted uppercase">Макс. использований
+          <select id="invite-max-uses" class="mt-1 w-full bg-discord-rail border border-gray-700/60 rounded-xl px-3 py-2 text-white text-sm"><option value="0">Без лимита</option><option value="1">1 раз</option><option value="5">5 раз</option><option value="10">10 раз</option><option value="25">25 раз</option><option value="100">100 раз</option></select>
+        </label>
+      </div>
+      <button id="btn-save-invite-settings" type="button" class="w-full bg-discord-rail hover:bg-discord-hover text-white px-4 py-2 rounded-xl text-sm font-semibold">Применить срок и лимит</button>
+      <p id="invite-settings-status" class="text-xs text-discord-muted"></p>
       <div>
         <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Прямая ссылка</label>
         <div class="flex gap-2">
@@ -621,17 +681,6 @@
             <p class="text-xs text-discord-muted mt-1">Название и описание, которые увидят участники.</p>
           </div>
           <form id="form-server-general" class="space-y-4">
-            <div class="bg-discord-rail border border-gray-700/50 rounded-xl p-4 space-y-3">
-              <div class="font-semibold text-white">Аватар сервера</div>
-              <div class="flex items-center gap-4">
-                <img id="server-avatar-preview" alt="Предпросмотр аватара сервера" class="w-16 h-16 rounded-2xl object-cover bg-discord-surface border border-gray-700/60 hidden" />
-                <div class="flex-1 space-y-2 min-w-0">
-                  <input id="input-server-avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="block w-full text-xs text-discord-muted file:mr-3 file:rounded-lg file:border-0 file:bg-discord-accent file:px-3 file:py-2 file:text-white" />
-                  <button id="btn-remove-server-avatar" type="button" class="text-xs text-discord-red hover:underline">Удалить аватар</button>
-                  <p class="text-[11px] text-discord-muted">PNG, JPG, WEBP или GIF. Изображение будет уменьшено для быстрой загрузки.</p>
-                </div>
-              </div>
-            </div>
             <div>
               <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название сервера</label>
               <input id="input-settings-server-name" maxlength="32" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
@@ -657,10 +706,9 @@
             <div class="flex items-center justify-between"><h5 id="role-editor-title" class="font-bold text-white">Новая роль</h5><button type="button" id="btn-close-role-editor" class="text-discord-muted hover:text-white">✕</button></div>
             <form id="form-role-editor" class="space-y-4">
               <input type="hidden" id="input-role-id">
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название</label><input id="input-role-name" maxlength="32" required class="w-full bg-discord-surface border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent"></div>
                 <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Цвет</label><input id="input-role-color" type="color" value="#5865F2" class="w-full h-11 bg-discord-surface border border-gray-700/60 rounded-xl p-1"></div>
-                <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Уровень иерархии</label><input id="input-role-position" type="number" min="0" max="9999" step="1" value="1" required class="w-full bg-discord-surface border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent"><p class="text-[10px] text-discord-muted mt-1">Чем больше число, тем выше роль.</p></div>
               </div>
               <div><div class="text-xs font-semibold text-discord-muted uppercase mb-2">Разрешения</div><div id="role-permissions-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div></div>
               <div class="flex gap-2"><button class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить роль</button><button id="btn-delete-role" type="button" class="hidden px-4 bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white rounded-xl font-semibold">Удалить</button></div>
@@ -943,25 +991,16 @@ document.getElementById('btn-close-members-mobile')?.addEventListener('click', (
   document.getElementById('members-sidebar')?.classList.add('hidden');
 });
 
-let novaToastTimer = null;
 function showToast(msg, isError = false) {
   const toast = document.getElementById('toast');
   const toastMsg = document.getElementById('toast-msg');
-  if (!toast || !toastMsg) return;
-  if (novaToastTimer) clearTimeout(novaToastTimer);
-
   toastMsg.textContent = msg;
-  // Avoid transform-based hiding: on narrow mobile screens the toast can remain
-  // partially visible. Explicitly control display so it disappears completely.
-  toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2 ${
+  toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 transform opacity-100 transition-all duration-300 pointer-events-none px-4 py-2 rounded-lg shadow-xl font-medium text-sm flex items-center gap-2 ${
     isError ? 'bg-discord-red text-white' : 'bg-discord-accent text-white'
   }`;
-  toast.style.display = 'flex';
-
-  novaToastTimer = setTimeout(() => {
-    toast.style.display = 'none';
-    novaToastTimer = null;
-  }, 1000);
+  setTimeout(() => {
+    toast.classList.add('-translate-y-12', 'opacity-0');
+  }, 3000);
 }
 
 function hideContextMenu() {
@@ -1347,17 +1386,10 @@ function stopApp() {
 const ROLE_PERMISSIONS = [
   ['view_channels', 'Просматривать каналы'],
   ['send_messages', 'Отправлять сообщения'],
+  ['post_announcements', 'Публиковать объявления'],
   ['delete_messages', 'Удалять свои сообщения'],
   ['manage_messages', 'Управлять сообщениями'],
   ['pin_messages', 'Закреплять сообщения'],
-  ['attach_files', 'Прикреплять файлы'],
-  ['embed_links', 'Вставлять ссылки с предпросмотром'],
-  ['mention_everyone', 'Упоминать @everyone'],
-  ['use_voice', 'Подключаться к голосовым каналам'],
-  ['mute_members', 'Отключать звук участникам'],
-  ['kick_members', 'Исключать участников'],
-  ['ban_members', 'Блокировать участников'],
-  ['manage_nicknames', 'Изменять никнеймы участников'],
   ['create_invites', 'Создавать приглашения'],
   ['manage_channels', 'Управлять каналами'],
   ['manage_members', 'Управлять участниками'],
@@ -1373,16 +1405,9 @@ function defaultRolePermissions() {
 function ensureServerRoleSchema(srv) {
   if (!srv) return;
   if (!Array.isArray(srv.roles) || srv.roles.length === 0) {
-    srv.roles = [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true, position: 0 }];
+    srv.roles = [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true }];
   }
   if (!srv.memberRoles || typeof srv.memberRoles !== 'object') srv.memberRoles = {};
-  srv.roles.forEach((role, index) => {
-    if (!Number.isFinite(Number(role.position))) role.position = role.id === 'everyone' ? 0 : srv.roles.length - index;
-  });
-}
-
-function getRolesByHierarchy(srv) {
-  return getServerRoles(srv).slice().sort((a, b) => (Number(b.position) || 0) - (Number(a.position) || 0));
 }
 
 function getServerRoles(srv) { ensureServerRoleSchema(srv); return srv.roles || []; }
@@ -1399,10 +1424,34 @@ function hasServerPermission(srv, permission, uid = currentUser.uid) {
   });
 }
 
+function novaRolePosition(role) { return Number.isFinite(Number(role?.position)) ? Number(role.position) : 0; }
+function novaActorTopRolePosition(srv, uid = currentUser.uid) {
+  if (!srv || srv.ownerId === uid || (srv.admins || []).includes(uid)) return Infinity;
+  ensureServerRoleSchema(srv);
+  return Math.max(0, ...getMemberRoleIds(srv, uid).map(id => novaRolePosition(srv.roles.find(r => r.id === id))));
+}
+function novaCanManageRole(srv, role, uid = currentUser.uid) {
+  if (!srv || !role || role.managed || !hasServerPermission(srv, 'manage_roles', uid)) return false;
+  if (srv.ownerId === uid || (srv.admins || []).includes(uid)) return true;
+  return novaRolePosition(role) < novaActorTopRolePosition(srv, uid);
+}
+function novaCanViewChannel(srv, channel, uid = currentUser.uid) {
+  if (!srv || !channel) return false;
+  if (srv.ownerId === uid || (srv.admins || []).includes(uid) || hasServerPermission(srv, 'administrator', uid)) return true;
+  if (!channel.isPrivate) return true;
+  const allowed = Array.isArray(channel.allowedRoleIds) ? channel.allowedRoleIds : [];
+  return getMemberRoleIds(srv, uid).some(id => allowed.includes(id));
+}
+function novaCanPostInChannel(srv, channel, uid = currentUser.uid) {
+  if (!srv || !channel || !novaCanViewChannel(srv, channel, uid)) return false;
+  if (channel.type === 'announcement') return hasServerPermission(srv, 'post_announcements', uid) || srv.ownerId === uid || (srv.admins || []).includes(uid);
+  return hasServerPermission(srv, 'send_messages', uid);
+}
+
 function getMemberRole(srv, uid) {
   ensureServerRoleSchema(srv);
   const roleIds = getMemberRoleIds(srv, uid);
-  const custom = getRolesByHierarchy(srv).find(r => r.id !== 'everyone' && roleIds.includes(r.id));
+  const custom = srv.roles.find(r => r.id !== 'everyone' && roleIds.includes(r.id));
   return custom || srv.roles.find(r => r.id === 'everyone') || null;
 }
 
@@ -1546,11 +1595,7 @@ function subscribeCloudData() {
       if (serversData.length === 0) {
         createDefaultStarterServer();
       } else {
-        // Do not repeatedly attempt to auto-join a server that has banned this user.
-        const availableServer = serversData.find(server => !(server.bans || []).includes(currentUser.uid));
-        if (availableServer) joinServerByDoc(availableServer);
-        // A banned server is not auto-joined, so its warning is only shown when
-        // the user explicitly attempts to join via an invite.
+        joinServerByDoc(serversData[0]);
       }
     }
     
@@ -1587,6 +1632,10 @@ async function handlePendingInvite() {
 
   const matchedServer = serversData.find(s => s.inviteCode && s.inviteCode.trim().toUpperCase() === code);
   if (matchedServer) {
+    const expiry = Number(matchedServer.inviteExpiresAt || 0);
+    const maxUses = Number(matchedServer.inviteMaxUses || 0);
+    const uses = Number(matchedServer.inviteUses || 0);
+    if ((expiry && Date.now() > expiry) || (maxUses && uses >= maxUses)) { showToast('Приглашение истекло или достигло лимита использований', true); return; }
     await joinServerByDoc(matchedServer);
   } else {
     showToast(`Сервер с кодом ${code} не найден`, true);
@@ -1618,7 +1667,7 @@ function renderServers() {
             ? 'bg-discord-accent text-white shadow-lg shadow-discord-accent/30 rounded-2xl' 
             : 'bg-discord-surface text-gray-200 hover:bg-discord-accent hover:text-white rounded-3xl hover:rounded-2xl'
         }">
-          ${s.iconUrl ? `<img src="${escapeHtml(s.iconUrl)}" alt="" class="w-full h-full object-cover rounded-[inherit]" />` : (muted ? '🔕' : escapeHtml(initial))}
+          ${muted ? '🔕' : escapeHtml(initial)}
         </button>
       </div>
     `;
@@ -1704,18 +1753,13 @@ function renderChannels() {
   inviteBadge.classList.remove('hidden');
   inviteCodeSpan.textContent = currentServer.inviteCode || '...';
 
-  const channelOrder = (a, b) => {
-    const ao = Number.isFinite(Number(a.orderIndex)) ? Number(a.orderIndex) : (a.createdAt || 0);
-    const bo = Number.isFinite(Number(b.orderIndex)) ? Number(b.orderIndex) : (b.createdAt || 0);
-    return ao - bo || (a.createdAt || 0) - (b.createdAt || 0);
-  };
   const textChannels = channelsData
-    .filter(c => c.serverId === currentServerId && (c.type || 'text') === 'text')
-    .sort(channelOrder);
+    .filter(c => c.serverId === currentServerId && ['text','announcement'].includes(c.type || 'text') && novaCanViewChannel(currentServer, c))
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
   const voiceChannels = channelsData
-    .filter(c => c.serverId === currentServerId && c.type === 'voice')
-    .sort(channelOrder);
+    .filter(c => c.serverId === currentServerId && c.type === 'voice' && novaCanViewChannel(currentServer, c))
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
   if (textChannels.length > 0 && (!currentChannelId || !textChannels.some(c => c.id === currentChannelId))) {
     currentChannelId = textChannels[0].id;
@@ -1729,7 +1773,7 @@ function renderChannels() {
           ? 'bg-discord-hover text-white font-semibold' 
           : 'text-discord-muted hover:bg-discord-surface hover:text-gray-200'
       }">
-        <span class="text-lg text-discord-muted">#</span>
+        <span class="text-lg text-discord-muted">${c.type === 'announcement' ? '📢' : '#'}</span>
         <span class="truncate">${escapeHtml(c.name)}</span>
       </button>
     `;
@@ -2110,19 +2154,7 @@ function renderMembersSidebar() {
     });
   }
 
-  ensureServerRoleSchema(srv);
-  const manager = isServerManager(srv);
-  const owner = isServerOwner(srv);
-  const memberRank = uid => Math.max(0, ...getMemberRoleIds(srv, uid).map(id => {
-    const role = srv.roles.find(r => r.id === id);
-    return Number(role?.position) || 0;
-  }));
-  members.sort((a, b) => {
-    if (a.uid === srv.ownerId) return -1;
-    if (b.uid === srv.ownerId) return 1;
-    return memberRank(b.uid) - memberRank(a.uid)
-      || String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru');
-  });
+  const manager = isServerManager(srv);  const owner = isServerOwner(srv);
 
   const rows = members.map(m => {
     const isOwner = m.uid === srv.ownerId;
@@ -2131,7 +2163,7 @@ function renderMembersSidebar() {
     const isSelf = m.uid === currentUser.uid;
     const initial = (m.nickname || 'U').charAt(0).toUpperCase();
     const canBan = hasServerPermission(srv, 'manage_members') && !isOwner && !isSelf;
-    const canRole = hasServerPermission(srv, 'manage_roles');
+    const canRole = hasServerPermission(srv, 'manage_roles') && !isOwner && !isSelf;
 
     return `
       <div data-member-uid="${escapeHtml(m.uid)}" class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-discord-hover/50 transition group">
@@ -2143,12 +2175,12 @@ function renderMembersSidebar() {
             m.status === 'online' ? 'bg-discord-green' : m.status === 'idle' ? 'bg-discord-yellow' : 'bg-discord-red'
           }"></span>
         </div>
-        <div class="min-w-0 flex-1">
-          ${memberRole && memberRole.id !== 'everyone' ? `<div class="text-[10px] font-semibold leading-tight truncate mb-0.5" style="color:${escapeHtml(memberRole.color || '#99AAB5')}" title="${escapeHtml(memberRole.name)}">${escapeHtml(memberRole.name)}</div>` : ''}
-          <div class="flex items-center gap-1 min-w-0">
+        <div class="truncate min-w-0 flex-1">
+          <div class="flex items-center gap-1">
             <span class="text-xs font-semibold text-gray-200 group-hover:text-white truncate">${escapeHtml(m.nickname)}</span>
             ${isOwner ? '<span title="Владелец сервера">👑</span>' : ''}
             ${isAdmin ? '<span title="Админ сервера">🛡️</span>' : ''}
+            ${memberRole && memberRole.id !== 'everyone' ? `<span class="text-[10px] font-semibold" style="color:${escapeHtml(memberRole.color || '#99AAB5')}">${escapeHtml(memberRole.name)}</span>` : ''}
           </div>
           <div class="text-[10px] text-discord-muted truncate">${escapeHtml(m.customStatus || m.status || 'В сети')}</div>
         </div>
@@ -2171,7 +2203,7 @@ function renderMembersSidebar() {
       if (!member) return;
       const isSelf = uid === currentUser.uid;
       const isOwner = uid === srv.ownerId;
-      const canRoles = hasServerPermission(srv, 'manage_roles');
+      const canRoles = hasServerPermission(srv, 'manage_roles') && !isOwner && !isSelf;
       const canBan = hasServerPermission(srv, 'manage_members') && !isOwner && !isSelf;
       const items = [
         {icon:'✉️', label:'Написать сообщение', action:()=>openDirectMessage(uid)},
@@ -2220,7 +2252,6 @@ function renderMessages() {
       (m.authorId === targetUser.uid && m.targetDmId === currentUser.uid)
     );
   } else {
-    chanIconElem.textContent = "#";
     const currentChan = channelsData.find(c => c.id === currentChannelId);
     if (!currentChan) {
       chanNameElem.textContent = "выберите-канал";
@@ -2232,7 +2263,11 @@ function renderMessages() {
 
     chanNameElem.textContent = currentChan.name;
     chatInput.placeholder = `Написать в #${currentChan.name}...`;
-    chatInput.disabled = false;
+    const canView = novaCanViewChannel(serversData.find(s => s.id === currentServerId), currentChan);
+    const canPost = novaCanPostInChannel(serversData.find(s => s.id === currentServerId), currentChan);
+    chatInput.disabled = !canView || !canPost;
+    chatInput.placeholder = currentChan.type === 'announcement' ? (canPost ? 'Опубликовать объявление...' : 'Только чтение: нет права публиковать') : (canPost ? `Написать в #${currentChan.name}...` : 'Нет права отправлять сообщения');
+    if (!canView) { feed.innerHTML = `<div class="h-full flex items-center justify-center text-discord-muted text-sm">У вас нет доступа к этому каналу.</div>`; return; }
 
     activeMessages = messagesData.filter(m => m.channelId === currentChannelId);
   }
@@ -2441,31 +2476,13 @@ function renderMessages() {
     };
   });
 
-  // On opening a conversation, jump instantly to the newest message.
-  // Smooth scrolling can be interrupted by repeated renders while cloud data arrives,
-  // leaving the feed halfway down; temporarily force instant scrolling here.
+  // Preserve the viewport when older messages are prepended; otherwise follow the newest message.
   const restore = window.novaArchive && window.novaArchive.pendingScrollRestore;
   if (restore && restore.viewKey === viewKey) {
-    feed.style.scrollBehavior = 'auto';
     feed.scrollTop = feed.scrollHeight - restore.scrollHeight + restore.scrollTop;
     window.novaArchive.pendingScrollRestore = null;
   } else {
-    const scrollToLatest = () => {
-      const liveKey = currentView === 'dm' ? `dm_${currentDmUserId}` : `chan_${currentChannelId}`;
-      if (liveKey !== viewKey || window.novaArchive?.pendingScrollRestore) return;
-      feed.style.scrollBehavior = 'auto';
-      feed.scrollTop = feed.scrollHeight;
-      const lastMessage = feed.lastElementChild;
-      if (lastMessage) feed.scrollTop = Math.max(0, feed.scrollHeight - feed.clientHeight);
-    };
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        scrollToLatest();
-        // Images and async message content can increase feed height after initial layout.
-        setTimeout(scrollToLatest, 60);
-        setTimeout(scrollToLatest, 220);
-      });
-    });
+    feed.scrollTop = feed.scrollHeight;
   }
 
   // Replace the previous handler to avoid stacking scroll listeners after every render.
@@ -2757,6 +2774,11 @@ window.handleSendMessage = async function(e) {
 
 async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
   const cleanText = String(text || '').trim();
+  if (currentView === 'server') {
+    const srv = serversData.find(s => s.id === currentServerId);
+    const chan = channelsData.find(c => c.id === currentChannelId);
+    if (!novaCanPostInChannel(srv, chan)) { showToast(chan?.type === 'announcement' ? 'У вас нет права публиковать объявления' : 'У вас нет права отправлять сообщения в этот канал', true); return false; }
+  }
   if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !stickerDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
   }
@@ -2772,6 +2794,7 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
     authorId: currentUser.uid,
     authorName: currentUser.nickname,
     text: cleanText,
+    mentionedRoleIds: currentView === 'server' ? (() => { const srv=serversData.find(s=>s.id===currentServerId); if(!srv)return []; return (srv.roles||[]).filter(r => r.id !== 'everyone' && new RegExp('(^|\\s)@'+String(r.name||'').replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&')+'(?=\\s|$)', 'i').test(cleanText)).map(r=>r.id); })() : [],
     attachmentUrl: attachmentUrl || null,
     attachmentDataUrl: attachmentDataUrl || null,
     attachmentName: attachmentName || null,
@@ -3416,8 +3439,26 @@ document.getElementById('btn-server-invite').onclick = () => {
 
   document.getElementById('invite-code-input').value = inviteCode;
   document.getElementById('invite-link-input').value = fullLink;
-
+  document.getElementById('invite-expiry-select').value = String(currentServer.inviteExpiryDuration || 0);
+  document.getElementById('invite-max-uses').value = String(currentServer.inviteMaxUses || 0);
+  const exp = Number(currentServer.inviteExpiresAt || 0);
+  const max = Number(currentServer.inviteMaxUses || 0);
+  const uses = Number(currentServer.inviteUses || 0);
+  document.getElementById('invite-settings-status').textContent = `${exp ? (exp > Date.now() ? 'Действует до ' + new Date(exp).toLocaleString() : 'Срок истёк') : 'Без срока действия'} · Использований: ${uses}${max ? '/' + max : ' (без лимита)'}`;
   openModal('modal-invite');
+};
+
+document.getElementById('btn-save-invite-settings').onclick = async () => {
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv, 'create_invites')) { showToast('Недостаточно прав', true); return; }
+  const duration = Number(document.getElementById('invite-expiry-select').value || 0);
+  const maxUses = Number(document.getElementById('invite-max-uses').value || 0);
+  const fields = { inviteExpiryDuration: duration, inviteExpiresAt: duration ? Date.now() + duration : 0, inviteMaxUses: maxUses, inviteUses: 0 };
+  if (isCloudEnabled) { try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), fields); } catch(e) { showToast('Не удалось сохранить настройки приглашения', true); return; } }
+  Object.assign(srv, fields);
+  if (!isCloudEnabled) saveLocalStore();
+  document.getElementById('invite-settings-status').textContent = `${duration ? 'Действует до ' + new Date(srv.inviteExpiresAt).toLocaleString() : 'Без срока действия'} · Лимит: ${maxUses || 'без лимита'}`;
+  showToast('Настройки приглашения сохранены');
 };
 
 document.getElementById('btn-copy-code').onclick = () => copyTextToClipboard(document.getElementById('invite-code-input').value);
@@ -3425,7 +3466,15 @@ document.getElementById('btn-copy-link').onclick = () => copyTextToClipboard(doc
 
 // Modals Trigger Handlers
 document.getElementById('btn-add-server').onclick = () => openModal('modal-server');
-document.getElementById('btn-add-channel').onclick = () => currentServerId && openModal('modal-channel');
+document.getElementById('btn-add-channel').onclick = () => { if (!currentServerId) return; const srv=serversData.find(s=>s.id===currentServerId); const sel=document.getElementById('channel-private-roles'); if(sel&&srv)sel.innerHTML=getServerRoles(srv).map(r=>`<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`).join(''); document.getElementById('channel-private-toggle').checked=false; document.getElementById('channel-private-roles-wrap').classList.add('hidden'); openModal('modal-channel'); };
+
+document.getElementById('channel-private-toggle')?.addEventListener('change', () => {
+  const wrap = document.getElementById('channel-private-roles-wrap');
+  const select = document.getElementById('channel-private-roles');
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (wrap) wrap.classList.toggle('hidden', !document.getElementById('channel-private-toggle').checked);
+  if (select && srv) select.innerHTML = getServerRoles(srv).map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`).join('');
+});
 
 document.getElementById('form-create-server').onsubmit = async (e) => {
   e.preventDefault();
@@ -3515,16 +3564,9 @@ document.getElementById('form-join-server').onsubmit = async (e) => {
   closeModals();
 };
 
-// Keep a ban warning from being re-triggered repeatedly during the same session.
-const novaBanWarningsShown = new Set();
-
 async function joinServerByDoc(serverDocObj) {
   if ((serverDocObj.bans || []).includes(currentUser.uid)) {
-    const banWarningKey = serverDocObj.id || serverDocObj.name;
-    if (!novaBanWarningsShown.has(banWarningKey)) {
-      novaBanWarningsShown.add(banWarningKey);
-      showToast(`Вы забанены на сервере "${serverDocObj.name}"`, true);
-    }
+    showToast(`Вы забанены на сервере "${serverDocObj.name}"`, true);
     return;
   }
   const existingMembers = Array.isArray(serverDocObj.members) ? serverDocObj.members : [];
@@ -3541,6 +3583,11 @@ async function joinServerByDoc(serverDocObj) {
     }
   }
 
+  if (!existingMembers.includes(currentUser.uid)) {
+    serverDocObj.inviteUses = Number(serverDocObj.inviteUses || 0) + 1;
+    if (isCloudEnabled) { try { await updateDoc(doc(COLLECTION_SERVERS, serverDocObj.id), { inviteUses: serverDocObj.inviteUses }); } catch(e) {} }
+    else saveLocalStore();
+  }
   currentServerId = serverDocObj.id;
   currentChannelId = null;
   showToast(`Вы вошли на сервер "${serverDocObj.name}"!`);
@@ -3551,6 +3598,11 @@ document.getElementById('form-create-channel').onsubmit = async (e) => {
   e.preventDefault();
   const input = document.getElementById('input-channel-name');
   const type = document.querySelector('input[name="channel-type"]:checked').value;
+  const srv = serversData.find(s => s.id === currentServerId);
+  if (!srv || !hasServerPermission(srv, 'manage_channels')) return;
+  const isPrivate = document.getElementById('channel-private-toggle')?.checked || false;
+  const allowedRoleIds = isPrivate ? Array.from(document.getElementById('channel-private-roles')?.selectedOptions || []).map(o => o.value) : [];
+  if (isPrivate && !allowedRoleIds.length) { showToast('Выберите хотя бы одну роль для приватного канала', true); return; }
   const name = input.value.trim().toLowerCase().replace(/\s+/g, '-');
   if (!name || !currentServerId) return;
 
@@ -3560,6 +3612,8 @@ document.getElementById('form-create-channel').onsubmit = async (e) => {
     serverId: currentServerId,
     name: name,
     type: type,
+    isPrivate,
+    allowedRoleIds,
     createdAt: Date.now()
   };
 
@@ -3575,7 +3629,7 @@ document.getElementById('form-create-channel').onsubmit = async (e) => {
     saveLocalStore();
   }
 
-  if (type === 'text') currentChannelId = chanId;
+  if (type === 'text' || type === 'announcement') currentChannelId = chanId;
   input.value = '';
   closeModals();
   showToast(`Канал #${name} создан!`);
@@ -3666,12 +3720,12 @@ window.openRoleEditor = function(roleId = null) {
   if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
   ensureServerRoleSchema(srv);
   const role = roleId ? srv.roles.find(r => r.id === roleId) : null;
+  if (role && !novaCanManageRole(srv, role)) { showToast('Нельзя управлять ролью равного или более высокого уровня', true); return; }
   document.getElementById('role-editor').classList.remove('hidden');
   document.getElementById('role-editor-title').textContent = role ? `Роль: ${role.name}` : 'Новая роль';
   document.getElementById('input-role-id').value = role?.id || '';
   document.getElementById('input-role-name').value = role?.name || '';
   document.getElementById('input-role-color').value = role?.color || '#5865F2';
-  document.getElementById('input-role-position').value = role ? (Number(role.position) || 0) : Math.max(1, ...srv.roles.map(r => (Number(r.position) || 0) + 1));
   renderRolePermissions(role || { permissions: defaultRolePermissions() });
   document.getElementById('btn-delete-role').classList.toggle('hidden', !role || role.managed);
 }
@@ -3683,7 +3737,7 @@ function renderRolesSettings() {
   ensureServerRoleSchema(srv);
   const canManage = hasServerPermission(srv, 'manage_roles');
   document.getElementById('btn-create-role').classList.toggle('hidden', !canManage);
-  list.innerHTML = getRolesByHierarchy(srv).map(role => {
+  list.innerHTML = srv.roles.map(role => {
     const count = Object.values(srv.memberRoles || {}).filter(ids => (ids || []).includes(role.id)).length;
     const perms = Object.entries(role.permissions || {}).filter(([,v]) => v).map(([k]) => getPermissionLabel(k)).slice(0,3);
     return `<button type="button" ${canManage ? `onclick="openRoleEditor('${role.id}')"` : ''} class="w-full text-left bg-discord-rail border border-gray-700/50 rounded-xl p-3 hover:bg-discord-hover transition ${!canManage ? 'cursor-default' : ''}">
@@ -3700,24 +3754,16 @@ function renderServerMembersSettings() {
   ensureServerRoleSchema(srv);
   const members = usersData.filter(u => (srv.members || []).includes(u.uid));
   if (!members.some(m => m.uid === currentUser.uid)) members.push({uid:currentUser.uid,nickname:currentUser.nickname,status:currentUser.status});
-  members.sort((a, b) => {
-    if (a.uid === srv.ownerId) return -1;
-    if (b.uid === srv.ownerId) return 1;
-    const rank = uid => Math.max(0, ...getMemberRoleIds(srv, uid).map(id => Number(srv.roles.find(role => role.id === id)?.position) || 0));
-    return rank(b.uid) - rank(a.uid) || String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru');
-  });
   const canRoles = hasServerPermission(srv, 'manage_roles');
   list.innerHTML = members.map(m => {
     const roleIds = getMemberRoleIds(srv, m.uid);
     const isOwner = m.uid === srv.ownerId;
-    const roleOptions = getRolesByHierarchy(srv).filter(role => role.id !== 'everyone').map(role => `<label class="flex items-center gap-2 rounded-lg bg-discord-surface/80 border border-gray-700/50 px-2 py-1.5 text-xs text-gray-200 ${canRoles ? 'cursor-pointer hover:border-discord-accent/60' : 'opacity-60'}"><input type="checkbox" data-member-role-choice="${escapeHtml(m.uid)}" value="${escapeHtml(role.id)}" ${roleIds.includes(role.id) ? 'checked' : ''} ${!canRoles ? 'disabled' : ''} class="w-3.5 h-3.5 accent-discord-accent"><span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${escapeHtml(role.color || '#99AAB5')}"></span><span class="truncate">${escapeHtml(role.name)}</span></label>`).join('');
-    return `<div data-member-uid="${escapeHtml(m.uid)}" class="flex flex-col sm:flex-row sm:items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
-      <div class="flex items-center gap-2 min-w-0 sm:w-44 sm:flex-shrink-0">
-        <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">${escapeHtml((m.nickname || 'U').charAt(0).toUpperCase())}</div>
-        <div class="min-w-0"><div class="font-semibold text-white text-sm truncate">${escapeHtml(m.nickname || 'Пользователь')} ${isOwner ? '👑' : ''} ${m.uid === currentUser.uid ? '<span class="text-discord-accent text-[10px]">(вы)</span>' : ''}</div><div class="text-[10px] text-discord-muted truncate">${escapeHtml(m.uid)}</div></div>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 min-w-0 flex-1 max-h-36 overflow-y-auto">${roleOptions || '<span class="text-xs text-discord-muted">Нет пользовательских ролей</span>'}</div>
-      ${canRoles ? `<button type="button" onclick="saveMemberRoles('${m.uid}')" class="self-end sm:self-center text-xs bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg flex-shrink-0">Сохранить</button>` : ''}
+    const roleOptions = srv.roles.map(role => `<option value="${role.id}" ${roleIds.includes(role.id) ? 'selected' : ''} ${(!isOwner && !novaCanManageRole(srv, role)) ? 'disabled' : ''}>${escapeHtml(role.name)}</option>`).join('');
+    return `<div data-member-uid="${escapeHtml(m.uid)}" class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
+      <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm">${escapeHtml((m.nickname || 'U').charAt(0).toUpperCase())}</div>
+      <div class="min-w-0 flex-1"><div class="font-semibold text-white text-sm truncate">${escapeHtml(m.nickname || 'Пользователь')} ${isOwner ? '👑' : ''}</div><div class="text-[10px] text-discord-muted">${escapeHtml(m.uid)}</div></div>
+      <select data-member-role="${m.uid}" multiple size="1" ${(!canRoles || isOwner) ? 'disabled' : ''} class="min-w-40 max-w-48 bg-discord-surface border border-gray-700/60 rounded-lg px-2 py-1.5 text-xs text-white">${roleOptions}</select>
+      ${canRoles && !isOwner ? `<button type="button" onclick="saveMemberRoles('${m.uid}')" class="text-xs bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg">Сохранить</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -3726,9 +3772,9 @@ window.saveMemberRoles = async function(uid) {
   const srv = serversData.find(s => s.id === currentServerId);
   if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
   ensureServerRoleSchema(srv);
-  const choices = document.querySelectorAll(`[data-member-role-choice="${uid}"]`);
-  if (!choices.length && !srv.roles.some(r => r.id !== 'everyone')) return;
-  const selected = Array.from(choices).filter(input => input.checked).map(input => input.value);
+  const sel = document.querySelector(`[data-member-role="${uid}"]`);
+  if (!sel) return;
+  const selected = Array.from(sel.selectedOptions).map(o => o.value).filter(id => { const role = srv.roles.find(r => r.id === id); return role && (role.id === 'everyone' || novaCanManageRole(srv, role)); });
   const roles = selected.includes('everyone') ? selected : ['everyone', ...selected];
   const memberRoles = { ...(srv.memberRoles || {}), [uid]: roles };
   if (isCloudEnabled) {
@@ -3742,66 +3788,8 @@ function renderServerChannelsSettings() {
   const list = document.getElementById('server-channels-settings-list');
   if (!srv) { list.innerHTML=''; return; }
   const canManage = hasServerPermission(srv, 'manage_channels');
-  const channelOrder = (a, b) => {
-    const ao = Number.isFinite(Number(a.orderIndex)) ? Number(a.orderIndex) : (a.createdAt || 0);
-    const bo = Number.isFinite(Number(b.orderIndex)) ? Number(b.orderIndex) : (b.createdAt || 0);
-    return ao - bo || (a.createdAt || 0) - (b.createdAt || 0);
-  };
-  const chans = channelsData.filter(c => c.serverId === srv.id)
-    .sort((a,b) => ((a.type || 'text') === 'text' ? 0 : 1) - ((b.type || 'text') === 'text' ? 0 : 1) || channelOrder(a,b));
-  list.innerHTML = chans.map(c => `<div data-sort-channel="${escapeHtml(c.id)}" data-sort-type="${c.type === 'voice' ? 'voice' : 'text'}" draggable="${canManage ? 'true' : 'false'}" class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3 ${canManage ? 'cursor-grab active:cursor-grabbing' : ''}"><span class="text-discord-muted" title="Перетащите, чтобы изменить порядок">${canManage ? '⠿' : ''}</span><span>${c.type === 'voice' ? '🔊' : '#'}</span><span class="text-sm text-white flex-1">${escapeHtml(c.name)}</span><span class="text-[10px] text-discord-muted">${c.type === 'voice' ? 'голосовой' : 'текстовый'}</span>${canManage ? `<button type="button" onclick="renameChannelPrompt('${c.id}')" class="text-xs text-discord-muted hover:text-white">Переименовать</button><button type="button" onclick="deleteChannel('${c.id}')" class="text-xs text-discord-red hover:underline">Удалить</button>` : ''}</div>`).join('');
-  if (canManage) {
-    let draggedId = null;
-    list.querySelectorAll('[data-sort-channel]').forEach(row => {
-      row.addEventListener('dragstart', e => {
-        draggedId = row.dataset.sortChannel;
-        row.classList.add('opacity-40');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', draggedId);
-      });
-      row.addEventListener('dragend', () => {
-        row.classList.remove('opacity-40');
-        list.querySelectorAll('.border-discord-accent').forEach(el => el.classList.remove('border-discord-accent'));
-      });
-      row.addEventListener('dragover', e => {
-        e.preventDefault();
-        if (draggedId && draggedId !== row.dataset.sortChannel && row.dataset.sortType === list.querySelector(`[data-sort-channel="${draggedId}"]`)?.dataset.sortType) {
-          e.dataTransfer.dropEffect = 'move';
-          row.classList.add('border-discord-accent');
-        }
-      });
-      row.addEventListener('dragleave', () => row.classList.remove('border-discord-accent'));
-      row.addEventListener('drop', async e => {
-        e.preventDefault();
-        row.classList.remove('border-discord-accent');
-        const fromId = e.dataTransfer.getData('text/plain') || draggedId;
-        const toId = row.dataset.sortChannel;
-        const fromRow = list.querySelector(`[data-sort-channel="${fromId}"]`);
-        if (!fromRow || fromId === toId || fromRow.dataset.sortType !== row.dataset.sortType) return;
-        const sameTypeRows = Array.from(list.querySelectorAll(`[data-sort-type="${row.dataset.sortType}"]`));
-        const ids = sameTypeRows.map(el => el.dataset.sortChannel);
-        const fromIndex = ids.indexOf(fromId), toIndex = ids.indexOf(toId);
-        if (fromIndex < 0 || toIndex < 0) return;
-        ids.splice(fromIndex, 1);
-        ids.splice(toIndex, 0, fromId);
-        const updates = ids.map((id, index) => ({ id, orderIndex: index }));
-        // Update the local view immediately; persist changes to cloud in parallel.
-        updates.forEach(item => { const channel = channelsData.find(c => c.id === item.id); if (channel) channel.orderIndex = item.orderIndex; });
-        renderChannels();
-        renderServerSettings();
-        showToast('Порядок каналов обновлён');
-        try {
-          if (isCloudEnabled) {
-            await Promise.all(updates.map(item => updateDoc(doc(COLLECTION_CHANNELS, item.id), { orderIndex: item.orderIndex })));
-          } else {
-            saveLocalStore();
-          }
-        } catch (err) {
-          showToast('Не удалось сохранить порядок в облаке', true);
-        }
-      });
-    });
-  }
+  const chans = channelsData.filter(c => c.serverId === srv.id).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  list.innerHTML = chans.map(c => `<div class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3"><span>${c.type === 'voice' ? '🔊' : '#'}</span><span class="text-sm text-white flex-1">${escapeHtml(c.name)}</span><span class="text-[10px] text-discord-muted">${c.type === 'voice' ? 'голосовой' : 'текстовый'}</span>${canManage ? `<button type="button" onclick="renameChannelPrompt('${c.id}')" class="text-xs text-discord-muted hover:text-white">Переименовать</button><button type="button" onclick="deleteChannel('${c.id}')" class="text-xs text-discord-red hover:underline">Удалить</button>` : ''}</div>`).join('');
 }
 
 window.renameChannelPrompt = async function(chanId) {
@@ -3844,13 +3832,6 @@ function renderServerSettings() {
   document.getElementById('server-settings-subtitle').textContent = srv.name;
   document.getElementById('input-settings-server-name').value = srv.name || '';
   document.getElementById('input-settings-server-description').value = srv.description || '';
-  const avatarPreview = document.getElementById('server-avatar-preview');
-  if (avatarPreview) {
-    if (srv.iconUrl) { avatarPreview.src = srv.iconUrl; avatarPreview.classList.remove('hidden'); }
-    else { avatarPreview.removeAttribute('src'); avatarPreview.classList.add('hidden'); }
-  }
-  const avatarInput = document.getElementById('input-server-avatar');
-  if (avatarInput) avatarInput.value = '';
   document.getElementById('settings-invite-code').textContent = srv.inviteCode || '—';
   document.getElementById('btn-settings-delete-server').classList.toggle('hidden', !isServerOwner(srv));
   renderRolesSettings();
@@ -3937,33 +3918,6 @@ document.getElementById('btn-settings-add-channel').onclick = () => { closeModal
 document.getElementById('btn-settings-copy-invite').onclick = () => copyTextToClipboard(document.getElementById('settings-invite-code').textContent);
 document.getElementById('btn-settings-delete-server').onclick = () => window.deleteCurrentServer();
 
-let pendingServerAvatar = undefined;
-document.getElementById('input-server-avatar').addEventListener('change', async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  if (!file.type.startsWith('image/')) { showToast('Выберите файл изображения', true); e.target.value = ''; return; }
-  if (file.size > 8 * 1024 * 1024) { showToast('Изображение должно быть меньше 8 МБ', true); e.target.value = ''; return; }
-  try {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file);
-    });
-    const image = await new Promise((resolve, reject) => {
-      const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = dataUrl;
-    });
-    const canvas = document.createElement('canvas');
-    const scale = Math.min(1, 256 / Math.max(image.width, image.height));
-    canvas.width = Math.max(1, Math.round(image.width * scale)); canvas.height = Math.max(1, Math.round(image.height * scale));
-    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
-    pendingServerAvatar = canvas.toDataURL('image/jpeg', 0.82);
-    const preview = document.getElementById('server-avatar-preview'); preview.src = pendingServerAvatar; preview.classList.remove('hidden');
-  } catch (err) { showToast('Не удалось прочитать изображение', true); e.target.value = ''; }
-});
-document.getElementById('btn-remove-server-avatar').onclick = () => {
-  pendingServerAvatar = '';
-  const preview = document.getElementById('server-avatar-preview'); preview.removeAttribute('src'); preview.classList.add('hidden');
-  document.getElementById('input-server-avatar').value = '';
-};
-
 document.getElementById('form-server-general').onsubmit = async (e) => {
   e.preventDefault();
   const srv = serversData.find(s => s.id === currentServerId);
@@ -3971,14 +3925,8 @@ document.getElementById('form-server-general').onsubmit = async (e) => {
   const name = document.getElementById('input-settings-server-name').value.trim();
   const description = document.getElementById('input-settings-server-description').value.trim();
   if (!name) return;
-  const updates = { name, description };
-  if (pendingServerAvatar !== undefined) updates.iconUrl = pendingServerAvatar || '';
-  if (isCloudEnabled) {
-    try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), updates); }
-    catch(e) { showToast('Не удалось сохранить настройки сервера. Возможно, изображение слишком большое.', true); return; }
-  } else { Object.assign(srv, updates); saveLocalStore(); }
-  Object.assign(srv, updates);
-  pendingServerAvatar = undefined;
+  if (isCloudEnabled) { try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), { name, description }); } catch(e) { showToast('Не удалось сохранить настройки сервера', true); return; } }
+  else { srv.name = name; srv.description = description; saveLocalStore(); }
   renderChannels(); renderServers(); showToast('Настройки сервера сохранены');
 };
 
@@ -3990,17 +3938,16 @@ document.getElementById('form-role-editor').onsubmit = async (e) => {
   const roleId = document.getElementById('input-role-id').value.trim();
   const roleName = document.getElementById('input-role-name').value.trim();
   const roleColor = document.getElementById('input-role-color').value || '#5865F2';
-  const rolePosition = Math.max(0, Math.min(9999, Math.floor(Number(document.getElementById('input-role-position').value) || 0)));
   if (!roleName) return;
   const permissions = {};
   document.querySelectorAll('[data-role-permission]').forEach(cb => permissions[cb.dataset.rolePermission] = cb.checked);
   if (roleId) {
     const role = srv.roles.find(r=>r.id===roleId);
     if (!role) return;
-    if (role.managed) { showToast('Роль @everyone нельзя переименовать или изменить', true); return; }
-    role.name = roleName; role.color = roleColor; role.position = rolePosition; role.permissions = permissions;
+    if (!novaCanManageRole(srv, role)) { showToast('Нельзя редактировать роль равного или более высокого уровня', true); return; }
+    role.name = roleName; role.color = roleColor; role.permissions = permissions;
   } else {
-    const role = { id: 'r_' + Date.now().toString(36), name: roleName, color: roleColor, position: rolePosition, permissions };
+    const role = { id: 'r_' + Date.now().toString(36), name: roleName, color: roleColor, permissions };
     srv.roles.push(role);
   }
   try {
@@ -4018,7 +3965,7 @@ document.getElementById('btn-delete-role').onclick = async () => {
   if (!srv || !roleId || !hasServerPermission(srv,'manage_roles')) return;
   ensureServerRoleSchema(srv);
   const role = srv.roles.find(r=>r.id===roleId);
-  if (!role || role.managed) return;
+  if (!role || !novaCanManageRole(srv, role)) { showToast('Нельзя удалить роль равного или более высокого уровня', true); return; }
   if (!confirm(`Удалить роль «${role.name}»?`)) return;
   srv.roles = srv.roles.filter(r=>r.id!==roleId);
   const memberRoles = Object.fromEntries(Object.entries(srv.memberRoles || {}).map(([uid, ids]) => [uid, (ids||[]).filter(id=>id!==roleId)]));
@@ -5665,16 +5612,6 @@ initAuth();
   }
 
   @media (max-width:767px){
-    /* Compact, scrollable settings on phones */
-    #server-settings-modal, #server-settings-dialog, [id*="server-settings"] .modal-content{max-height:calc(100dvh - 20px);overflow-y:auto}
-    #server-settings-panel-roles, #server-settings-panel-members, #server-settings-panel-channels{gap:.65rem!important}
-    #server-settings-panel-roles h4, #server-settings-panel-members h4, #server-settings-panel-channels h4{font-size:1rem!important}
-    #server-settings-panel-roles .p-3, #server-settings-panel-members .p-3, #server-settings-panel-channels .p-3{padding:.55rem!important}
-    #role-editor{padding:.7rem!important;gap:.65rem!important;max-height:55dvh;overflow-y:auto}
-    #role-permissions-grid{grid-template-columns:minmax(0,1fr)!important;gap:.35rem!important}
-    #role-permissions-grid label{padding:.45rem!important;font-size:.75rem!important}
-    #server-members-settings-list select[data-member-role]{min-width:0!important;max-width:42vw!important;font-size:11px!important}
-    #server-members-settings-list button{padding:.45rem .55rem!important}
     #navigation-drawer{max-width:100vw}
     #navigation-drawer>aside:first-child{width:56px!important;padding-left:.35rem!important;padding-right:.35rem!important;gap:.5rem!important}
     #navigation-drawer>aside:nth-child(2){width:min(224px,calc(100vw - 56px))!important;min-width:0}
@@ -5973,65 +5910,6 @@ scan(document.body);
   }
 </style>
 <!-- /NOVA_CONTEXT_MENU_BRIDGE_MOBILE_SETTINGS_FIX_V1 -->
-
-
-<!-- NOVA MOBILE RESPONSIVE PASS V1 -->
-<style id="NOVA_MOBILE_RESPONSIVE_PASS_V1">
-  /* Phone-first layout refinements: keep the chat usable within the visible viewport. */
-  @media (max-width: 767px) {
-    html, body { width:100%; height:100%; min-height:100%; overflow:hidden; }
-    body { min-height:100dvh; }
-    #app-shell { width:100vw!important; height:100dvh!important; min-height:0!important; overflow:hidden!important; }
-    #app-shell main { height:100dvh!important; min-height:0!important; flex:1 1 0%!important; }
-    #navigation-drawer { height:100dvh!important; max-height:100dvh!important; overscroll-behavior:contain; }
-    #navigation-drawer>aside:nth-child(2) { overflow-x:hidden!important; overflow-y:auto!important; overscroll-behavior:contain; }
-    #channel-list,#voice-channel-list,#dm-user-list { min-height:0; overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-    #app-shell header { min-height:52px!important; height:52px!important; padding-left:7px!important; padding-right:7px!important; }
-    #app-shell header #btn-mobile-menu { flex:0 0 36px; width:36px; height:36px; }
-    #current-channel-name { min-width:0; max-width:35vw; }
-    #cloud-badge { max-width:31vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-left:2px!important; padding-left:6px!important; padding-right:6px!important; font-size:9px!important; }
-    #app-shell header #btn-open-pins,#app-shell header #btn-toggle-members { min-width:32px; min-height:32px; }
-    #message-feed { flex:1 1 0%!important; min-height:0!important; overflow-y:auto!important; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:10px!important; }
-    #chat-form { flex:0 0 auto; padding:6px!important; padding-bottom:max(6px,env(safe-area-inset-bottom))!important; gap:4px!important; }
-    #chat-input { line-height:1.35; min-height:38px; }
-    #attachment-preview-bar { max-width:100%; overflow-x:auto; }
-    #members-sidebar { padding-bottom:env(safe-area-inset-bottom); }
-    #modal-server-settings,#modal-account-settings { overflow:hidden!important; }
-    #modal-server-settings>div,#modal-account-settings>div {
-      display:flex!important; flex-direction:column!important; width:calc(100vw - 16px)!important;
-      max-width:560px!important; height:auto!important; max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;
-      min-height:0!important; margin:auto!important; overflow:hidden!important;
-    }
-    #modal-server-settings>div>.flex.min-h-0.flex-1,
-    #modal-account-settings>div>.flex.min-h-0.flex-1 { flex:1 1 auto!important; min-height:0!important; overflow:hidden!important; }
-    #modal-server-settings>div>.flex.min-h-0.flex-1>.flex-1.overflow-y-auto.p-6,
-    #modal-account-settings>div>.flex.min-h-0.flex-1>.flex-1.overflow-y-auto.p-6 {
-      flex:1 1 auto!important; min-height:0!important; max-height:none!important; overflow-y:auto!important;
-      -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:10px!important;
-    }
-    #server-settings-panel-roles,#server-settings-panel-members,#server-settings-panel-channels { min-width:0!important; }
-    #server-settings-panel-channels [data-sort-channel] { gap:6px!important; flex-wrap:wrap!important; }
-    #server-settings-panel-channels [data-sort-channel]>span:nth-of-type(2) { flex:0 0 auto; }
-    #server-settings-panel-channels [data-sort-channel]>span:nth-of-type(3) { min-width:0; overflow-wrap:anywhere; }
-    #server-settings-panel-channels [data-sort-channel] button { min-height:32px; padding:6px!important; }
-    #role-editor { width:100%!important; max-width:100%!important; box-sizing:border-box!important; }
-    #role-permissions-grid label { min-height:36px; line-height:1.25; }
-    #modal-server,#modal-channel,#modal-invite,#modal-attach,#modal-profile,#modal-pins {
-      max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-      overflow-y:auto; overscroll-behavior:contain;
-    }
-    input,select,textarea { max-width:100%; }
-    button { touch-action:manipulation; }
-  }
-  @media (max-width: 380px) {
-    #current-channel-name { max-width:29vw!important; font-size:.82rem!important; }
-    #cloud-badge { display:none!important; }
-    #chat-form>#btn-attach-file,#chat-form>#btn-voice-record { width:32px!important; min-width:32px!important; }
-    #chat-form>button[onclick="handleSendMessage(event)"] { width:36px!important; min-width:36px!important; }
-    #server-settings-panel-channels [data-sort-channel] { gap:4px!important; }
-  }
-</style>
-<!-- /NOVA MOBILE RESPONSIVE PASS V1 -->
 
 </body>
 </html>
