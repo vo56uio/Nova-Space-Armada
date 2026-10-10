@@ -621,6 +621,17 @@
             <p class="text-xs text-discord-muted mt-1">Название и описание, которые увидят участники.</p>
           </div>
           <form id="form-server-general" class="space-y-4">
+            <div class="bg-discord-rail border border-gray-700/50 rounded-xl p-4 space-y-3">
+              <div class="font-semibold text-white">Аватар сервера</div>
+              <div class="flex items-center gap-4">
+                <img id="server-avatar-preview" alt="Предпросмотр аватара сервера" class="w-16 h-16 rounded-2xl object-cover bg-discord-surface border border-gray-700/60 hidden" />
+                <div class="flex-1 space-y-2 min-w-0">
+                  <input id="input-server-avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="block w-full text-xs text-discord-muted file:mr-3 file:rounded-lg file:border-0 file:bg-discord-accent file:px-3 file:py-2 file:text-white" />
+                  <button id="btn-remove-server-avatar" type="button" class="text-xs text-discord-red hover:underline">Удалить аватар</button>
+                  <p class="text-[11px] text-discord-muted">PNG, JPG, WEBP или GIF. Изображение будет уменьшено для быстрой загрузки.</p>
+                </div>
+              </div>
+            </div>
             <div>
               <label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название сервера</label>
               <input id="input-settings-server-name" maxlength="32" required class="w-full bg-discord-rail border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent">
@@ -1338,6 +1349,14 @@ const ROLE_PERMISSIONS = [
   ['delete_messages', 'Удалять свои сообщения'],
   ['manage_messages', 'Управлять сообщениями'],
   ['pin_messages', 'Закреплять сообщения'],
+  ['attach_files', 'Прикреплять файлы'],
+  ['embed_links', 'Вставлять ссылки с предпросмотром'],
+  ['mention_everyone', 'Упоминать @everyone'],
+  ['use_voice', 'Подключаться к голосовым каналам'],
+  ['mute_members', 'Отключать звук участникам'],
+  ['kick_members', 'Исключать участников'],
+  ['ban_members', 'Блокировать участников'],
+  ['manage_nicknames', 'Изменять никнеймы участников'],
   ['create_invites', 'Создавать приглашения'],
   ['manage_channels', 'Управлять каналами'],
   ['manage_members', 'Управлять участниками'],
@@ -1591,7 +1610,7 @@ function renderServers() {
             ? 'bg-discord-accent text-white shadow-lg shadow-discord-accent/30 rounded-2xl' 
             : 'bg-discord-surface text-gray-200 hover:bg-discord-accent hover:text-white rounded-3xl hover:rounded-2xl'
         }">
-          ${muted ? '🔕' : escapeHtml(initial)}
+          ${s.iconUrl ? `<img src="${escapeHtml(s.iconUrl)}" alt="" class="w-full h-full object-cover rounded-[inherit]" />` : (muted ? '🔕' : escapeHtml(initial))}
         </button>
       </div>
     `;
@@ -3798,6 +3817,13 @@ function renderServerSettings() {
   document.getElementById('server-settings-subtitle').textContent = srv.name;
   document.getElementById('input-settings-server-name').value = srv.name || '';
   document.getElementById('input-settings-server-description').value = srv.description || '';
+  const avatarPreview = document.getElementById('server-avatar-preview');
+  if (avatarPreview) {
+    if (srv.iconUrl) { avatarPreview.src = srv.iconUrl; avatarPreview.classList.remove('hidden'); }
+    else { avatarPreview.removeAttribute('src'); avatarPreview.classList.add('hidden'); }
+  }
+  const avatarInput = document.getElementById('input-server-avatar');
+  if (avatarInput) avatarInput.value = '';
   document.getElementById('settings-invite-code').textContent = srv.inviteCode || '—';
   document.getElementById('btn-settings-delete-server').classList.toggle('hidden', !isServerOwner(srv));
   renderRolesSettings();
@@ -3884,6 +3910,33 @@ document.getElementById('btn-settings-add-channel').onclick = () => { closeModal
 document.getElementById('btn-settings-copy-invite').onclick = () => copyTextToClipboard(document.getElementById('settings-invite-code').textContent);
 document.getElementById('btn-settings-delete-server').onclick = () => window.deleteCurrentServer();
 
+let pendingServerAvatar = undefined;
+document.getElementById('input-server-avatar').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('Выберите файл изображения', true); e.target.value = ''; return; }
+  if (file.size > 8 * 1024 * 1024) { showToast('Изображение должно быть меньше 8 МБ', true); e.target.value = ''; return; }
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file);
+    });
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = dataUrl;
+    });
+    const canvas = document.createElement('canvas');
+    const scale = Math.min(1, 256 / Math.max(image.width, image.height));
+    canvas.width = Math.max(1, Math.round(image.width * scale)); canvas.height = Math.max(1, Math.round(image.height * scale));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    pendingServerAvatar = canvas.toDataURL('image/jpeg', 0.82);
+    const preview = document.getElementById('server-avatar-preview'); preview.src = pendingServerAvatar; preview.classList.remove('hidden');
+  } catch (err) { showToast('Не удалось прочитать изображение', true); e.target.value = ''; }
+});
+document.getElementById('btn-remove-server-avatar').onclick = () => {
+  pendingServerAvatar = '';
+  const preview = document.getElementById('server-avatar-preview'); preview.removeAttribute('src'); preview.classList.add('hidden');
+  document.getElementById('input-server-avatar').value = '';
+};
+
 document.getElementById('form-server-general').onsubmit = async (e) => {
   e.preventDefault();
   const srv = serversData.find(s => s.id === currentServerId);
@@ -3891,8 +3944,14 @@ document.getElementById('form-server-general').onsubmit = async (e) => {
   const name = document.getElementById('input-settings-server-name').value.trim();
   const description = document.getElementById('input-settings-server-description').value.trim();
   if (!name) return;
-  if (isCloudEnabled) { try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), { name, description }); } catch(e) { showToast('Не удалось сохранить настройки сервера', true); return; } }
-  else { srv.name = name; srv.description = description; saveLocalStore(); }
+  const updates = { name, description };
+  if (pendingServerAvatar !== undefined) updates.iconUrl = pendingServerAvatar || '';
+  if (isCloudEnabled) {
+    try { await updateDoc(doc(COLLECTION_SERVERS, srv.id), updates); }
+    catch(e) { showToast('Не удалось сохранить настройки сервера. Возможно, изображение слишком большое.', true); return; }
+  } else { Object.assign(srv, updates); saveLocalStore(); }
+  Object.assign(srv, updates);
+  pendingServerAvatar = undefined;
   renderChannels(); renderServers(); showToast('Настройки сервера сохранены');
 };
 
