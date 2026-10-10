@@ -5867,5 +5867,64 @@ scan(document.body);
 </style>
 <!-- /NOVA_CONTEXT_MENU_BRIDGE_MOBILE_SETTINGS_FIX_V1 -->
 
+
+<!-- NOVA MOBILE RESPONSIVE PASS V1 -->
+<style id="NOVA_MOBILE_RESPONSIVE_PASS_V1">
+  /* Phone-first layout refinements: keep the chat usable within the visible viewport. */
+  @media (max-width: 767px) {
+    html, body { width:100%; height:100%; min-height:100%; overflow:hidden; }
+    body { min-height:100dvh; }
+    #app-shell { width:100vw!important; height:100dvh!important; min-height:0!important; overflow:hidden!important; }
+    #app-shell main { height:100dvh!important; min-height:0!important; flex:1 1 0%!important; }
+    #navigation-drawer { height:100dvh!important; max-height:100dvh!important; overscroll-behavior:contain; }
+    #navigation-drawer>aside:nth-child(2) { overflow-x:hidden!important; overflow-y:auto!important; overscroll-behavior:contain; }
+    #channel-list,#voice-channel-list,#dm-user-list { min-height:0; overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    #app-shell header { min-height:52px!important; height:52px!important; padding-left:7px!important; padding-right:7px!important; }
+    #app-shell header #btn-mobile-menu { flex:0 0 36px; width:36px; height:36px; }
+    #current-channel-name { min-width:0; max-width:35vw; }
+    #cloud-badge { max-width:31vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-left:2px!important; padding-left:6px!important; padding-right:6px!important; font-size:9px!important; }
+    #app-shell header #btn-open-pins,#app-shell header #btn-toggle-members { min-width:32px; min-height:32px; }
+    #message-feed { flex:1 1 0%!important; min-height:0!important; overflow-y:auto!important; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:10px!important; }
+    #chat-form { flex:0 0 auto; padding:6px!important; padding-bottom:max(6px,env(safe-area-inset-bottom))!important; gap:4px!important; }
+    #chat-input { line-height:1.35; min-height:38px; }
+    #attachment-preview-bar { max-width:100%; overflow-x:auto; }
+    #members-sidebar { padding-bottom:env(safe-area-inset-bottom); }
+    #modal-server-settings,#modal-account-settings { overflow:hidden!important; }
+    #modal-server-settings>div,#modal-account-settings>div {
+      display:flex!important; flex-direction:column!important; width:calc(100vw - 16px)!important;
+      max-width:560px!important; height:auto!important; max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;
+      min-height:0!important; margin:auto!important; overflow:hidden!important;
+    }
+    #modal-server-settings>div>.flex.min-h-0.flex-1,
+    #modal-account-settings>div>.flex.min-h-0.flex-1 { flex:1 1 auto!important; min-height:0!important; overflow:hidden!important; }
+    #modal-server-settings>div>.flex.min-h-0.flex-1>.flex-1.overflow-y-auto.p-6,
+    #modal-account-settings>div>.flex.min-h-0.flex-1>.flex-1.overflow-y-auto.p-6 {
+      flex:1 1 auto!important; min-height:0!important; max-height:none!important; overflow-y:auto!important;
+      -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:10px!important;
+    }
+    #server-settings-panel-roles,#server-settings-panel-members,#server-settings-panel-channels { min-width:0!important; }
+    #server-settings-panel-channels [data-sort-channel] { gap:6px!important; flex-wrap:wrap!important; }
+    #server-settings-panel-channels [data-sort-channel]>span:nth-of-type(2) { flex:0 0 auto; }
+    #server-settings-panel-channels [data-sort-channel]>span:nth-of-type(3) { min-width:0; overflow-wrap:anywhere; }
+    #server-settings-panel-channels [data-sort-channel] button { min-height:32px; padding:6px!important; }
+    #role-editor { width:100%!important; max-width:100%!important; box-sizing:border-box!important; }
+    #role-permissions-grid label { min-height:36px; line-height:1.25; }
+    #modal-server,#modal-channel,#modal-invite,#modal-attach,#modal-profile,#modal-pins {
+      max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      overflow-y:auto; overscroll-behavior:contain;
+    }
+    input,select,textarea { max-width:100%; }
+    button { touch-action:manipulation; }
+  }
+  @media (max-width: 380px) {
+    #current-channel-name { max-width:29vw!important; font-size:.82rem!important; }
+    #cloud-badge { display:none!important; }
+    #chat-form>#btn-attach-file,#chat-form>#btn-voice-record { width:32px!important; min-width:32px!important; }
+    #chat-form>button[onclick="handleSendMessage(event)"] { width:36px!important; min-width:36px!important; }
+    #server-settings-panel-channels [data-sort-channel] { gap:4px!important; }
+  }
+</style>
+<!-- /NOVA MOBILE RESPONSIVE PASS V1 -->
+
 </body>
 </html>
