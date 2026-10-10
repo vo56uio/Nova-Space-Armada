@@ -657,9 +657,10 @@
             <div class="flex items-center justify-between"><h5 id="role-editor-title" class="font-bold text-white">Новая роль</h5><button type="button" id="btn-close-role-editor" class="text-discord-muted hover:text-white">✕</button></div>
             <form id="form-role-editor" class="space-y-4">
               <input type="hidden" id="input-role-id">
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Название</label><input id="input-role-name" maxlength="32" required class="w-full bg-discord-surface border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent"></div>
                 <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Цвет</label><input id="input-role-color" type="color" value="#5865F2" class="w-full h-11 bg-discord-surface border border-gray-700/60 rounded-xl p-1"></div>
+                <div><label class="block text-xs font-semibold text-discord-muted uppercase mb-1">Уровень иерархии</label><input id="input-role-position" type="number" min="0" max="9999" step="1" value="1" required class="w-full bg-discord-surface border border-gray-700/60 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-discord-accent"><p class="text-[10px] text-discord-muted mt-1">Чем больше число, тем выше роль.</p></div>
               </div>
               <div><div class="text-xs font-semibold text-discord-muted uppercase mb-2">Разрешения</div><div id="role-permissions-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div></div>
               <div class="flex gap-2"><button class="flex-1 bg-discord-accent hover:bg-discord-accentHover text-white font-semibold py-2.5 rounded-xl">Сохранить роль</button><button id="btn-delete-role" type="button" class="hidden px-4 bg-discord-red/10 text-discord-red hover:bg-discord-red hover:text-white rounded-xl font-semibold">Удалить</button></div>
@@ -1372,9 +1373,16 @@ function defaultRolePermissions() {
 function ensureServerRoleSchema(srv) {
   if (!srv) return;
   if (!Array.isArray(srv.roles) || srv.roles.length === 0) {
-    srv.roles = [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true }];
+    srv.roles = [{ id: 'everyone', name: '@everyone', color: '#99AAB5', permissions: defaultRolePermissions(), managed: true, position: 0 }];
   }
   if (!srv.memberRoles || typeof srv.memberRoles !== 'object') srv.memberRoles = {};
+  srv.roles.forEach((role, index) => {
+    if (!Number.isFinite(Number(role.position))) role.position = role.id === 'everyone' ? 0 : srv.roles.length - index;
+  });
+}
+
+function getRolesByHierarchy(srv) {
+  return getServerRoles(srv).slice().sort((a, b) => (Number(b.position) || 0) - (Number(a.position) || 0));
 }
 
 function getServerRoles(srv) { ensureServerRoleSchema(srv); return srv.roles || []; }
@@ -3651,6 +3659,7 @@ window.openRoleEditor = function(roleId = null) {
   document.getElementById('input-role-id').value = role?.id || '';
   document.getElementById('input-role-name').value = role?.name || '';
   document.getElementById('input-role-color').value = role?.color || '#5865F2';
+  document.getElementById('input-role-position').value = role ? (Number(role.position) || 0) : Math.max(1, ...srv.roles.map(r => (Number(r.position) || 0) + 1));
   renderRolePermissions(role || { permissions: defaultRolePermissions() });
   document.getElementById('btn-delete-role').classList.toggle('hidden', !role || role.managed);
 }
@@ -3662,7 +3671,7 @@ function renderRolesSettings() {
   ensureServerRoleSchema(srv);
   const canManage = hasServerPermission(srv, 'manage_roles');
   document.getElementById('btn-create-role').classList.toggle('hidden', !canManage);
-  list.innerHTML = srv.roles.map(role => {
+  list.innerHTML = getRolesByHierarchy(srv).map(role => {
     const count = Object.values(srv.memberRoles || {}).filter(ids => (ids || []).includes(role.id)).length;
     const perms = Object.entries(role.permissions || {}).filter(([,v]) => v).map(([k]) => getPermissionLabel(k)).slice(0,3);
     return `<button type="button" ${canManage ? `onclick="openRoleEditor('${role.id}')"` : ''} class="w-full text-left bg-discord-rail border border-gray-700/50 rounded-xl p-3 hover:bg-discord-hover transition ${!canManage ? 'cursor-default' : ''}">
@@ -3679,11 +3688,17 @@ function renderServerMembersSettings() {
   ensureServerRoleSchema(srv);
   const members = usersData.filter(u => (srv.members || []).includes(u.uid));
   if (!members.some(m => m.uid === currentUser.uid)) members.push({uid:currentUser.uid,nickname:currentUser.nickname,status:currentUser.status});
+  members.sort((a, b) => {
+    if (a.uid === srv.ownerId) return -1;
+    if (b.uid === srv.ownerId) return 1;
+    const rank = uid => Math.max(0, ...getMemberRoleIds(srv, uid).map(id => Number(srv.roles.find(role => role.id === id)?.position) || 0));
+    return rank(b.uid) - rank(a.uid) || String(a.nickname || '').localeCompare(String(b.nickname || ''), 'ru');
+  });
   const canRoles = hasServerPermission(srv, 'manage_roles');
   list.innerHTML = members.map(m => {
     const roleIds = getMemberRoleIds(srv, m.uid);
     const isOwner = m.uid === srv.ownerId;
-    const roleOptions = srv.roles.filter(role => role.id !== 'everyone').map(role => `<label class="flex items-center gap-2 rounded-lg bg-discord-surface/80 border border-gray-700/50 px-2 py-1.5 text-xs text-gray-200 ${canRoles ? 'cursor-pointer hover:border-discord-accent/60' : 'opacity-60'}"><input type="checkbox" data-member-role-choice="${escapeHtml(m.uid)}" value="${escapeHtml(role.id)}" ${roleIds.includes(role.id) ? 'checked' : ''} ${!canRoles ? 'disabled' : ''} class="w-3.5 h-3.5 accent-discord-accent"><span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${escapeHtml(role.color || '#99AAB5')}"></span><span class="truncate">${escapeHtml(role.name)}</span></label>`).join('');
+    const roleOptions = getRolesByHierarchy(srv).filter(role => role.id !== 'everyone').map(role => `<label class="flex items-center gap-2 rounded-lg bg-discord-surface/80 border border-gray-700/50 px-2 py-1.5 text-xs text-gray-200 ${canRoles ? 'cursor-pointer hover:border-discord-accent/60' : 'opacity-60'}"><input type="checkbox" data-member-role-choice="${escapeHtml(m.uid)}" value="${escapeHtml(role.id)}" ${roleIds.includes(role.id) ? 'checked' : ''} ${!canRoles ? 'disabled' : ''} class="w-3.5 h-3.5 accent-discord-accent"><span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${escapeHtml(role.color || '#99AAB5')}"></span><span class="truncate">${escapeHtml(role.name)}</span></label>`).join('');
     return `<div data-member-uid="${escapeHtml(m.uid)}" class="flex flex-col sm:flex-row sm:items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
       <div class="flex items-center gap-2 min-w-0 sm:w-44 sm:flex-shrink-0">
         <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">${escapeHtml((m.nickname || 'U').charAt(0).toUpperCase())}</div>
@@ -3963,6 +3978,7 @@ document.getElementById('form-role-editor').onsubmit = async (e) => {
   const roleId = document.getElementById('input-role-id').value.trim();
   const roleName = document.getElementById('input-role-name').value.trim();
   const roleColor = document.getElementById('input-role-color').value || '#5865F2';
+  const rolePosition = Math.max(0, Math.min(9999, Math.floor(Number(document.getElementById('input-role-position').value) || 0)));
   if (!roleName) return;
   const permissions = {};
   document.querySelectorAll('[data-role-permission]').forEach(cb => permissions[cb.dataset.rolePermission] = cb.checked);
@@ -3970,9 +3986,9 @@ document.getElementById('form-role-editor').onsubmit = async (e) => {
     const role = srv.roles.find(r=>r.id===roleId);
     if (!role) return;
     if (role.managed) { showToast('Роль @everyone нельзя переименовать или изменить', true); return; }
-    role.name = roleName; role.color = roleColor; role.permissions = permissions;
+    role.name = roleName; role.color = roleColor; role.position = rolePosition; role.permissions = permissions;
   } else {
-    const role = { id: 'r_' + Date.now().toString(36), name: roleName, color: roleColor, permissions };
+    const role = { id: 'r_' + Date.now().toString(36), name: roleName, color: roleColor, position: rolePosition, permissions };
     srv.roles.push(role);
   }
   try {
