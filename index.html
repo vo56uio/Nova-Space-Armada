@@ -3621,12 +3621,14 @@ function renderServerMembersSettings() {
   list.innerHTML = members.map(m => {
     const roleIds = getMemberRoleIds(srv, m.uid);
     const isOwner = m.uid === srv.ownerId;
-    const roleOptions = srv.roles.map(role => `<option value="${role.id}" ${roleIds.includes(role.id) ? 'selected' : ''}>${escapeHtml(role.name)}</option>`).join('');
-    return `<div data-member-uid="${escapeHtml(m.uid)}" class="flex items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
-      <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm">${escapeHtml((m.nickname || 'U').charAt(0).toUpperCase())}</div>
-      <div class="min-w-0 flex-1"><div class="font-semibold text-white text-sm truncate">${escapeHtml(m.nickname || 'Пользователь')} ${isOwner ? '👑' : ''}</div><div class="text-[10px] text-discord-muted">${escapeHtml(m.uid)}</div></div>
-      <select data-member-role="${m.uid}" multiple size="1" ${!canRoles ? 'disabled' : ''} class="min-w-40 max-w-48 bg-discord-surface border border-gray-700/60 rounded-lg px-2 py-1.5 text-xs text-white">${roleOptions}</select>
-      ${canRoles ? `<button type="button" onclick="saveMemberRoles('${m.uid}')" class="text-xs bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg">Сохранить</button>` : ''}
+    const roleOptions = srv.roles.filter(role => role.id !== 'everyone').map(role => `<label class="flex items-center gap-2 rounded-lg bg-discord-surface/80 border border-gray-700/50 px-2 py-1.5 text-xs text-gray-200 ${canRoles ? 'cursor-pointer hover:border-discord-accent/60' : 'opacity-60'}"><input type="checkbox" data-member-role-choice="${escapeHtml(m.uid)}" value="${escapeHtml(role.id)}" ${roleIds.includes(role.id) ? 'checked' : ''} ${!canRoles ? 'disabled' : ''} class="w-3.5 h-3.5 accent-discord-accent"><span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${escapeHtml(role.color || '#99AAB5')}"></span><span class="truncate">${escapeHtml(role.name)}</span></label>`).join('');
+    return `<div data-member-uid="${escapeHtml(m.uid)}" class="flex flex-col sm:flex-row sm:items-center gap-3 bg-discord-rail border border-gray-700/50 rounded-xl p-3">
+      <div class="flex items-center gap-2 min-w-0 sm:w-44 sm:flex-shrink-0">
+        <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">${escapeHtml((m.nickname || 'U').charAt(0).toUpperCase())}</div>
+        <div class="min-w-0"><div class="font-semibold text-white text-sm truncate">${escapeHtml(m.nickname || 'Пользователь')} ${isOwner ? '👑' : ''} ${m.uid === currentUser.uid ? '<span class="text-discord-accent text-[10px]">(вы)</span>' : ''}</div><div class="text-[10px] text-discord-muted truncate">${escapeHtml(m.uid)}</div></div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 min-w-0 flex-1 max-h-36 overflow-y-auto">${roleOptions || '<span class="text-xs text-discord-muted">Нет пользовательских ролей</span>'}</div>
+      ${canRoles ? `<button type="button" onclick="saveMemberRoles('${m.uid}')" class="self-end sm:self-center text-xs bg-discord-accent hover:bg-discord-accentHover text-white px-3 py-2 rounded-lg flex-shrink-0">Сохранить</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -3635,9 +3637,9 @@ window.saveMemberRoles = async function(uid) {
   const srv = serversData.find(s => s.id === currentServerId);
   if (!srv || !hasServerPermission(srv, 'manage_roles')) return;
   ensureServerRoleSchema(srv);
-  const sel = document.querySelector(`[data-member-role="${uid}"]`);
-  if (!sel) return;
-  const selected = Array.from(sel.selectedOptions).map(o => o.value);
+  const choices = document.querySelectorAll(`[data-member-role-choice="${uid}"]`);
+  if (!choices.length && !srv.roles.some(r => r.id !== 'everyone')) return;
+  const selected = Array.from(choices).filter(input => input.checked).map(input => input.value);
   const roles = selected.includes('everyone') ? selected : ['everyone', ...selected];
   const memberRoles = { ...(srv.memberRoles || {}), [uid]: roles };
   if (isCloudEnabled) {
