@@ -3475,9 +3475,16 @@ document.getElementById('form-join-server').onsubmit = async (e) => {
   closeModals();
 };
 
+// Keep a ban warning from being re-triggered repeatedly during the same session.
+const novaBanWarningsShown = new Set();
+
 async function joinServerByDoc(serverDocObj) {
   if ((serverDocObj.bans || []).includes(currentUser.uid)) {
-    showToast(`Вы забанены на сервере "${serverDocObj.name}"`, true);
+    const banWarningKey = serverDocObj.id || serverDocObj.name;
+    if (!novaBanWarningsShown.has(banWarningKey)) {
+      novaBanWarningsShown.add(banWarningKey);
+      showToast(`Вы забанены на сервере "${serverDocObj.name}"`, true);
+    }
     return;
   }
   const existingMembers = Array.isArray(serverDocObj.members) ? serverDocObj.members : [];
