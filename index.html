@@ -2354,6 +2354,7 @@ function renderMessages() {
 
     // Reaction markup
     const reactions = m.reactions || {};
+    const roleMentionNames = currentView === 'server' ? (serversData.find(s => s.id === currentServerId)?.roles || []).filter(role => (m.mentionedRoleIds || []).includes(role.id)).map(role => '@' + role.name) : [];
     const reactionKeys = Object.keys(reactions);
     const reactionsHtml = reactionKeys.map(emoji => {
       const count = reactions[emoji].length;
@@ -2440,7 +2441,7 @@ function renderMessages() {
 
         <!-- Quick Action Toolbar on Hover -->
         <div class="absolute right-2 top-1 hidden group-hover:flex items-center gap-1 bg-discord-surface border border-gray-700/60 rounded-lg p-1 shadow-md text-xs">
-          <button onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text)}')" title="Ответить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">↩️</button>
+          <button onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text).replace(/(@[^\s]+)/g, token => roleMentionNames.includes(token) ? `<span class="text-discord-accent bg-discord-accent/10 rounded px-1 font-semibold">${token}</span>` : token)}')" title="Ответить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">↩️</button>
           <button onclick="toggleQuickReaction('${m.id}', '❤️')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">❤️</button>
           <button onclick="toggleQuickReaction('${m.id}', '👍')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">👍</button>
           ${canManageMessage ? `<button onclick="editMessage('${m.id}')" title="Изменить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">✏️</button>` : ''}
@@ -2816,6 +2817,8 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
   const input = document.getElementById('chat-input');
   if (!voiceUrl && input) input.value = '';
 
+  const mentionServer = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
+  const mentionedRoleIds = mentionServer ? getServerRoles(mentionServer).filter(role => role.id !== 'everyone' && cleanText.toLowerCase().includes('@' + String(role.name).toLowerCase())).map(role => role.id) : [];
   const newMsg = {
     id: 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     serverId: currentView === 'server' ? currentServerId : null,
@@ -2824,6 +2827,7 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
     authorId: currentUser.uid,
     authorName: currentUser.nickname,
     text: cleanText,
+    mentionedRoleIds,
     attachmentUrl: attachmentUrl || null,
     attachmentDataUrl: attachmentDataUrl || null,
     attachmentName: attachmentName || null,
@@ -3586,8 +3590,9 @@ async function joinServerByDoc(serverDocObj) {
     return;
   }
   const existingMembers = Array.isArray(serverDocObj.members) ? serverDocObj.members : [];
+  const wasAlreadyMember = existingMembers.includes(currentUser.uid);
 
-  if (!existingMembers.includes(currentUser.uid)) {
+  if (!wasAlreadyMember) {
     existingMembers.push(currentUser.uid);
 
     if (isCloudEnabled) {
@@ -3599,7 +3604,7 @@ async function joinServerByDoc(serverDocObj) {
     }
   }
 
-  if (!existingMembers.includes(currentUser.uid)) {
+  if (!wasAlreadyMember && serverDocObj.inviteMaxUses > 0) {
     serverDocObj.inviteUses = (serverDocObj.inviteUses || 0) + 1;
     if (isCloudEnabled) { try { await updateDoc(doc(COLLECTION_SERVERS, serverDocObj.id), { inviteUses: serverDocObj.inviteUses }); } catch(e) {} } else saveLocalStore();
   }
