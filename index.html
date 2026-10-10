@@ -2086,12 +2086,12 @@ function renderMembersSidebar() {
             m.status === 'online' ? 'bg-discord-green' : m.status === 'idle' ? 'bg-discord-yellow' : 'bg-discord-red'
           }"></span>
         </div>
-        <div class="truncate min-w-0 flex-1">
-          <div class="flex items-center gap-1">
+        <div class="min-w-0 flex-1">
+          ${memberRole && memberRole.id !== 'everyone' ? `<div class="text-[10px] font-semibold leading-tight truncate mb-0.5" style="color:${escapeHtml(memberRole.color || '#99AAB5')}" title="${escapeHtml(memberRole.name)}">${escapeHtml(memberRole.name)}</div>` : ''}
+          <div class="flex items-center gap-1 min-w-0">
             <span class="text-xs font-semibold text-gray-200 group-hover:text-white truncate">${escapeHtml(m.nickname)}</span>
             ${isOwner ? '<span title="Владелец сервера">👑</span>' : ''}
             ${isAdmin ? '<span title="Админ сервера">🛡️</span>' : ''}
-            ${memberRole && memberRole.id !== 'everyone' ? `<span class="text-[10px] font-semibold" style="color:${escapeHtml(memberRole.color || '#99AAB5')}">${escapeHtml(memberRole.name)}</span>` : ''}
           </div>
           <div class="text-[10px] text-discord-muted truncate">${escapeHtml(m.customStatus || m.status || 'В сети')}</div>
         </div>
