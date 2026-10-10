@@ -2389,21 +2389,31 @@ function renderMessages() {
     };
   });
 
-  // Restore after layout so images/fonts and the freshly rendered message list
-  // cannot leave the user stranded in the middle of the conversation.
+  // On opening a conversation, jump instantly to the newest message.
+  // Smooth scrolling can be interrupted by repeated renders while cloud data arrives,
+  // leaving the feed halfway down; temporarily force instant scrolling here.
   const restore = window.novaArchive && window.novaArchive.pendingScrollRestore;
   if (restore && restore.viewKey === viewKey) {
+    feed.style.scrollBehavior = 'auto';
     feed.scrollTop = feed.scrollHeight - restore.scrollHeight + restore.scrollTop;
     window.novaArchive.pendingScrollRestore = null;
   } else {
     const scrollToLatest = () => {
-      // Ignore this deferred scroll if the user switched to another chat meanwhile.
       const liveKey = currentView === 'dm' ? `dm_${currentDmUserId}` : `chan_${currentChannelId}`;
-      if (liveKey === viewKey && !window.novaArchive?.pendingScrollRestore) {
-        feed.scrollTop = feed.scrollHeight;
-      }
+      if (liveKey !== viewKey || window.novaArchive?.pendingScrollRestore) return;
+      feed.style.scrollBehavior = 'auto';
+      feed.scrollTop = feed.scrollHeight;
+      const lastMessage = feed.lastElementChild;
+      if (lastMessage) feed.scrollTop = Math.max(0, feed.scrollHeight - feed.clientHeight);
     };
-    requestAnimationFrame(() => requestAnimationFrame(scrollToLatest));
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToLatest();
+        // Images and async message content can increase feed height after initial layout.
+        setTimeout(scrollToLatest, 60);
+        setTimeout(scrollToLatest, 220);
+      });
+    });
   }
 
   // Replace the previous handler to avoid stacking scroll listeners after every render.
