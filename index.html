@@ -2386,16 +2386,14 @@ function renderMessages() {
           ` : ''}
         </div>
 
-        <!-- Quick Action Toolbar on Hover -->
-        <div class="absolute right-2 top-1 hidden group-hover:flex items-center gap-1 bg-discord-surface border border-gray-700/60 rounded-lg p-1 shadow-md text-xs">
-          <button onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text)}')" title="Ответить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">↩️</button>
-          <button onclick="toggleQuickReaction('${m.id}', '❤️')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">❤️</button>
-          <button onclick="toggleQuickReaction('${m.id}', '👍')" title="Реакция" class="p-1 hover:bg-discord-hover rounded">👍</button>
-          ${canManageMessage ? `<button onclick="editMessage('${m.id}')" title="Изменить" class="p-1 hover:bg-discord-hover rounded text-discord-muted hover:text-white">✏️</button>` : ''}
-          ${canPinMessage && currentView === 'server' ? `<button onclick="togglePinMessage('${m.id}')" title="${m.pinned ? 'Открепить' : 'Закрепить'}" class="p-1 hover:bg-discord-hover rounded ${m.pinned ? 'text-discord-accent' : 'text-discord-muted'}">📌</button>` : ''}
-          ${canManageMessage ? `
-            <button onclick="deleteMessage('${m.id}')" title="Удалить" class="p-1 hover:bg-discord-hover rounded text-red-400">🗑️</button>
-          ` : ''}
+        <!-- Message actions: quick reactions, translation, and one consistent actions menu -->
+        <div class="nova-message-toolbar absolute right-2 top-1 hidden group-hover:flex items-center gap-1 rounded-xl p-1 text-xs" role="toolbar" aria-label="Действия с сообщением">
+          <button type="button" onclick="setReplyMessage('${m.id}', '${escapeHtml(m.authorName)}', '${escapeHtml(m.text)}')" title="Ответить" aria-label="Ответить" class="nova-toolbar-btn">↩</button>
+          <button type="button" onclick="toggleQuickReaction('${m.id}', '❤️')" title="Поставить реакцию ❤️" aria-label="Реакция сердце" class="nova-toolbar-btn">❤️</button>
+          <button type="button" onclick="toggleQuickReaction('${m.id}', '👍')" title="Поставить реакцию 👍" aria-label="Реакция нравится" class="nova-toolbar-btn">👍</button>
+          ${m.text ? `<button type="button" data-nova-translate="${m.id}" title="Перевести сообщение" aria-label="Перевести сообщение" class="nova-toolbar-btn nova-translate-btn">文</button>` : ''}
+          <span class="nova-toolbar-divider" aria-hidden="true"></span>
+          <button type="button" onclick="window.novaOpenMessageActions && window.novaOpenMessageActions('${m.id}', this)" title="Другие действия" aria-label="Другие действия" class="nova-toolbar-btn nova-more-btn">…</button>
         </div>
       </div>
     `;
@@ -5528,10 +5526,29 @@ initAuth();
     return items;
   }
   function novaItemsForMessage(msg){
-    const srv=currentView==='server'?novaCurrentServer():null,own=msg.authorId===currentUser.uid,canManage=srv&&hasServerPermission(srv,'manage_messages'),items=[{icon:'↩️',label:'Ответить',action:()=>setReplyMessage(msg.id,msg.authorName,msg.text)},{icon:'📋',label:'Копировать текст',action:()=>copyTextSilently(msg.text||'').then(()=>showToast('Текст скопирован'))}];
+    const srv=currentView==='server'?novaCurrentServer():null;
+    const own=!!(currentUser&&msg.authorId===currentUser.uid);
+    const canManage=!!(srv&&hasServerPermission(srv,'manage_messages'));
+    const canPin=!!(srv&&hasServerPermission(srv,'pin_messages')&&currentView==='server');
+    const items=[
+      {icon:'📋',label:'Копировать текст',action:()=>copyTextSilently(msg.text||'').then(()=>showToast('Текст скопирован')).catch(()=>showToast('Не удалось скопировать',true))},
+      {icon:'↩️',label:'Ответить',action:()=>setReplyMessage(msg.id,msg.authorName||'Аноним',msg.text||'')}
+    ];
     if(msg.authorId)items.push({icon:'👤',label:'Открыть профиль автора',action:()=>novaOpenUserProfile(msg.authorId)});
-    if(own||canManage){items.push('separator');if(own)items.push({icon:'✏️',label:'Изменить сообщение',action:()=>editMessage(msg.id)});items.push({icon:'🗑️',label:'Удалить сообщение',danger:true,action:()=>deleteMessage(msg.id)});}return items;
+    if(canPin)items.push('separator',{icon:'📌',label:msg.pinned?'Открепить сообщение':'Закрепить сообщение',action:()=>window.togglePinMessage(msg.id)});
+    if(own||canManage){
+      items.push('separator');
+      if(own)items.push({icon:'✏️',label:'Изменить сообщение',action:()=>window.editMessage(msg.id)});
+      items.push({icon:'🗑️',label:'Удалить сообщение',danger:true,action:()=>window.deleteMessage(msg.id)});
+    }
+    return items;
   }
+  window.novaOpenMessageActions=function(messageId,button){
+    const msg=(messagesData||[]).find(x=>String(x.id)===String(messageId));
+    if(!msg||!button)return;
+    const rect=button.getBoundingClientRect();
+    showContextMenu(rect.left,rect.bottom+5,novaItemsForMessage(msg));
+  };
   function novaItemsForChannel(chan,srv){
     const items=[{icon:'➜',label:'Открыть канал',action:()=>{currentView='server';currentServerId=chan.serverId;currentChannelId=chan.id;renderServers();}}];
     if(srv){items.push({icon:'📋',label:'Скопировать ID канала',action:()=>copyTextSilently(chan.id).then(()=>showToast('ID канала скопирован'))});if(hasServerPermission(srv,'manage_channels'))items.push('separator',{icon:'✏️',label:'Переименовать',action:()=>window.renameChannelPrompt(chan.id)},{icon:'🗑️',label:'Удалить канал',danger:true,action:()=>window.deleteChannel(chan.id)});}return items;
@@ -6032,6 +6049,24 @@ scan(document.body);
   }
 </style>
 <!-- /NOVA MOBILE RESPONSIVE PASS V1 -->
+
+
+<!-- NOVA MESSAGE TOOLBAR + TRANSLATION PREVIEW -->
+<style id="nova-message-toolbar-translation">
+  .nova-message-toolbar{z-index:12;background:var(--discord-surface,#202225);border:1px solid rgba(148,163,184,.28);box-shadow:0 5px 18px rgba(0,0,0,.22);backdrop-filter:blur(10px)}
+  .nova-toolbar-btn{display:inline-flex;align-items:center;justify-content:center;min-width:29px;height:28px;padding:0 7px;border:0;border-radius:7px;background:transparent;color:var(--discord-muted,#b9bbbe);font-size:14px;line-height:1;cursor:pointer;transition:background .14s,color .14s,transform .14s}
+  .nova-toolbar-btn:hover{background:rgba(148,163,184,.18);color:var(--discord-text,#fff)}
+  .nova-toolbar-btn:focus-visible{outline:2px solid #8b9cff;outline-offset:1px}
+  .nova-translate-btn{font-size:15px;font-weight:700;color:#a5b4fc}
+  .nova-translate-btn[aria-busy="true"]{opacity:.65;cursor:wait}
+  .nova-toolbar-divider{width:1px;height:18px;margin:0 2px;background:rgba(148,163,184,.3)}
+  .nova-translation-result{margin-top:7px;padding:8px 10px;border-left:3px solid #818cf8;border-radius:0 8px 8px 0;background:rgba(129,140,248,.09);color:var(--discord-text,#e5e7eb);font-size:.875rem;white-space:pre-wrap;overflow-wrap:anywhere}
+  .nova-translation-label{display:block;margin-bottom:3px;color:#a5b4fc;font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .nova-translation-error{border-left-color:#f87171;background:rgba(248,113,113,.08);color:#fca5a5}
+  @media (hover:none){.nova-message-toolbar{display:flex!important;opacity:.92;position:relative;right:auto;top:auto;margin-left:auto;flex-shrink:0}.nova-message-toolbar .nova-toolbar-btn{min-width:27px;height:27px;padding:0 5px}}
+</style>
+<script src="./nova-autotranslate.js" defer></script>
+<!-- /NOVA MESSAGE TOOLBAR + TRANSLATION PREVIEW -->
 
 </body>
 </html>
