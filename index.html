@@ -2292,7 +2292,12 @@ function renderMessages() {
     return;
   }
 
-  feed.innerHTML = activeMessages.map(m => {
+  feed.innerHTML = activeMessages.map((m, msgIdx, msgArr) => {
+    // Group consecutive messages from the same author (within 5 min, same day, not a reply)
+    const prevMsg = msgIdx > 0 ? msgArr[msgIdx - 1] : null;
+    const isGrouped = !!(prevMsg && prevMsg.authorId === m.authorId && !m.replyTo && m.ts && prevMsg.ts &&
+      (m.ts - prevMsg.ts) < 5 * 60 * 1000 &&
+      new Date(m.ts).toDateString() === new Date(prevMsg.ts).toDateString());
     const timeStr = m.ts ? new Date(m.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
     const initial = (m.authorName || 'U').charAt(0).toUpperCase();
     const isOwnerOfMsg = m.authorId === currentUser.uid;
@@ -2317,10 +2322,13 @@ function renderMessages() {
     }).join('');
 
     return `
-      <div data-message-id="${m.id}" class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 py-1.5 rounded-lg transition group relative">
+      <div data-message-id="${m.id}" ${isGrouped ? 'style="margin-top:2px"' : ''} class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 ${isGrouped ? 'py-0.5' : 'py-1.5'} rounded-lg transition group relative">
+        ${isGrouped ? `
+        <div class="w-9 flex-shrink-0 text-[10px] text-discord-muted text-center pt-1 opacity-0 group-hover:opacity-100 transition select-none">${timeStr}</div>
+        ` : `
         <div class="w-9 h-9 rounded-full bg-discord-accent flex items-center justify-center font-bold text-white text-sm flex-shrink-0 mt-0.5 shadow">
           ${escapeHtml(initial)}
-        </div>
+        </div>`}
         <div class="flex-1 min-w-0">
           <!-- Replied message context block -->
           ${m.replyTo ? `
@@ -2330,13 +2338,14 @@ function renderMessages() {
             </div>
           ` : ''}
 
+          ${isGrouped ? ((m.editedAt || m.pinned) ? `<div class="flex items-baseline gap-2 text-[11px] text-discord-muted">${m.editedAt ? '<span>изменено</span>' : ''}${m.pinned ? '<span title="Закреплено">📌</span>' : ''}</div>` : '') : `
           <div class="flex items-baseline gap-2">
             <span class="font-semibold text-sm text-white hover:underline cursor-pointer">${escapeHtml(m.authorName || 'Аноним')}</span>
             <span class="text-[11px] text-discord-muted">${timeStr}${m.editedAt ? ' · изменено' : ''}</span>
             ${m.pinned ? '<span title="Закреплено" class="text-[11px]">📌</span>' : ''}
-          </div>
+          </div>`}
 
-          ${m.text ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words mt-0.5">${formatMarkdown(m.text)}</div>` : ''}
+          ${m.text ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words ${isGrouped ? '' : 'mt-0.5'}">${formatMarkdown(m.text)}</div>` : ''}
           ${m.stickerDataUrl ? `
             <div class="nova-sticker-message mt-1">
               <img src="${escapeHtml(m.stickerDataUrl)}" alt="${escapeHtml(m.stickerName || 'Стикер')}" title="${escapeHtml(m.stickerName || 'Стикер')}" class="max-w-[180px] max-h-[180px] object-contain drop-shadow-lg">
