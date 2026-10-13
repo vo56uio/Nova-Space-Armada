@@ -2393,7 +2393,7 @@ function renderMessages() {
           <button type="button" onclick="toggleQuickReaction('${m.id}', '👍')" title="Поставить реакцию 👍" aria-label="Реакция нравится" class="nova-toolbar-btn">👍</button>
           ${m.text ? `<button type="button" data-nova-translate="${m.id}" title="Перевести сообщение" aria-label="Перевести сообщение" class="nova-toolbar-btn nova-translate-btn">文</button>` : ''}
           <span class="nova-toolbar-divider" aria-hidden="true"></span>
-          <button type="button" onclick="window.novaOpenMessageActions && window.novaOpenMessageActions('${m.id}', this)" title="Другие действия" aria-label="Другие действия" class="nova-toolbar-btn nova-more-btn">…</button>
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.novaOpenMessageActions && window.novaOpenMessageActions('${m.id}', this)" title="Другие действия" aria-label="Другие действия" class="nova-toolbar-btn nova-more-btn">…</button>
         </div>
       </div>
     `;
