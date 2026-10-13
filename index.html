@@ -774,7 +774,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail, EmailAuthProvider, linkWithCredential, reauthenticateWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, deleteDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 import { NovaRelayNetwork } from "./nova-relay-network.js";
 
@@ -1568,7 +1568,15 @@ function subscribeCloudData() {
 
   novaCloudDataUnsubs.push(onSnapshot(COLLECTION_MESSAGES, (snapshot) => {
     const nextMessages = [];
-    snapshot.forEach(docSnap => nextMessages.push({ id: docSnap.id, ...docSnap.data() }));
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data({ serverTimestamps: 'estimate' });
+      // Если есть время сервера — сортируем и показываем по нему, а не по часам отправителя
+      if (data.serverTs && typeof data.serverTs.toMillis === 'function') {
+        data.clientTs = data.ts;
+        data.ts = data.serverTs.toMillis();
+      }
+      nextMessages.push({ id: docSnap.id, ...data });
+    });
     const nextIds = new Set(nextMessages.map(m => m.id));
     if (messagesInitialized) {
       for (const m of nextMessages) if (!previousMessageIds.has(m.id)) notifyIncomingMessage(m);
@@ -2322,7 +2330,7 @@ function renderMessages() {
     }).join('');
 
     return `
-      <div data-message-id="${m.id}" ${isGrouped ? 'style="margin-top:2px"' : ''} class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 ${isGrouped ? 'py-0.5' : 'py-1.5'} rounded-lg transition group relative">
+      <div data-message-id="${m.id}" ${isGrouped ? 'style="margin-top:0"' : ''} class="flex items-start gap-3 hover:bg-discord-surface/40 -mx-2 px-2 ${isGrouped ? 'py-0' : 'py-1.5'} rounded-lg transition group relative">
         ${isGrouped ? `
         <div class="w-9 flex-shrink-0 text-[10px] text-discord-muted text-center pt-1 opacity-0 group-hover:opacity-100 transition select-none">${timeStr}</div>
         ` : `
@@ -2806,7 +2814,8 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
 
   if (isCloudEnabled) {
     try {
-      await setDoc(doc(COLLECTION_MESSAGES, newMsg.id), newMsg);
+      // serverTs: время сервера, чтобы порядок не зависел от часов на устройствах
+      await setDoc(doc(COLLECTION_MESSAGES, newMsg.id), { ...newMsg, serverTs: serverTimestamp() });
     } catch(err) {
       showToast('Ошибка отправки сообщения', true);
       return false;
