@@ -2314,10 +2314,10 @@ function renderMessages() {
     const canPinMessage = serverForMsg && hasServerPermission(serverForMsg, 'pin_messages');
     // Treat .txt attachments as downloadable files even if an older client stored them
     // in attachmentDataUrl instead of the newer attachmentFileUrl field.
-    const isTxtAttachment = /\\.txt$/i.test(String(m.attachmentName || '')) ||
-      /^data:text\\/plain(?:[;,])/i.test(String(m.attachmentDataUrl || ''));
+    const isTxtAttachment = String(m.attachmentName || '').toLowerCase().endsWith('.txt') ||
+      String(m.attachmentDataUrl || '').toLowerCase().startsWith('data:text/plain');
     const textFileHref = m.attachmentFileUrl ||
-      (isTxtAttachment && /^data:text\\/plain(?:[;,])/i.test(String(m.attachmentDataUrl || '')) ? m.attachmentDataUrl : null);
+      (isTxtAttachment && String(m.attachmentDataUrl || '').toLowerCase().startsWith('data:text/plain') ? m.attachmentDataUrl : null);
 
     // Reaction markup
     const reactions = m.reactions || {};
