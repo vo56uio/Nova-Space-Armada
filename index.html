@@ -2783,9 +2783,22 @@ window.handleSendMessage = async function(e) {
         if (attachmentUrlText) attachmentUrlText.textContent = `Загружаю ${selectedFile.name}…`;
         const safeName = String(selectedFile.name || 'file.txt').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'file.txt';
         const path = `message-files/${currentUser.uid}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
-        attachmentFileUrl = await novaTryStorageUpload(selectedFile, path, 'text/plain; charset=utf-8');
+        try {
+          attachmentFileUrl = await novaTryStorageUpload(selectedFile, path, 'text/plain; charset=utf-8', 'TXT-файл');
+        } catch (storageErr) {
+          // Small TXT files can use Firestore as a temporary fallback when Storage CORS blocks uploads.
+          const FIRESTORE_TXT_FALLBACK_MAX_BYTES = 350 * 1024;
+          if (selectedFile.size > FIRESTORE_TXT_FALLBACK_MAX_BYTES) {
+            throw Object.assign(
+              new Error('Firebase Storage блокирует загрузку (CORS/сеть). Для файла больше 350 КБ нужно исправить CORS у Storage bucket.'),
+              { code: 'attachment/storage-cors', cause: storageErr }
+            );
+          }
+          showToast('Storage недоступен — отправляю небольшой TXT через облачную базу…');
+          attachmentFileUrl = await novaBlobToDataUrl(selectedFile);
+        }
         attachmentFileSize = selectedFile.size;
-        if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${selectedFile.name} загружен`;
+        if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${selectedFile.name} подготовлен`;
       }
     } else if (selectedFile && !attachmentDataUrl) {
       if (attachmentUrlText) attachmentUrlText.textContent = `Подготавливаю ${selectedFile.name || 'изображение'}…`;
@@ -3174,7 +3187,7 @@ function novaGetStorageCandidates() {
   return out;
 }
 
-function novaUploadStorageWithTimeout(storageInstance, blob, path, blobType) {
+function novaUploadStorageWithTimeout(storageInstance, blob, path, blobType, uploadLabel = 'файл') {
   return new Promise((resolve, reject) => {
     const fileRef = ref(storageInstance, path);
     const task = uploadBytesResumable(fileRef, blob, {
@@ -3206,7 +3219,7 @@ function novaUploadStorageWithTimeout(storageInstance, blob, path, blobType) {
         const percent = snapshot.totalBytes
           ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
           : 0;
-        showToast(`Загружаю голосовое… ${percent}%`);
+        showToast(`Загружаю ${uploadLabel}… ${percent}%`);
       },
       err => finishReject(err),
       async () => {
@@ -3221,7 +3234,7 @@ function novaUploadStorageWithTimeout(storageInstance, blob, path, blobType) {
   });
 }
 
-async function novaTryStorageUpload(blob, path, blobType) {
+async function novaTryStorageUpload(blob, path, blobType, uploadLabel = 'файл') {
   const candidates = novaGetStorageCandidates();
   if (!candidates.length) {
     throw Object.assign(new Error('No Firebase Storage bucket'), { code: 'storage/no-bucket' });
@@ -3230,8 +3243,8 @@ async function novaTryStorageUpload(blob, path, blobType) {
   let lastError = null;
   for (let i = 0; i < candidates.length; i++) {
     try {
-      showToast(i === 0 ? 'Проверяю загрузку голосового…' : `Пробую другой Storage bucket…`);
-      return await novaUploadStorageWithTimeout(candidates[i], blob, path, blobType);
+      showToast(i === 0 ? `Проверяю загрузку: ${uploadLabel}…` : `Пробую другой Storage bucket для ${uploadLabel}…`);
+      return await novaUploadStorageWithTimeout(candidates[i], blob, path, blobType, uploadLabel);
     } catch (err) {
       lastError = err;
       console.warn('Storage voice upload attempt failed:', err);
@@ -3353,7 +3366,7 @@ async function novaStartVoiceRecording() {
 
       try {
         // First try the proper Storage path.
-        const url = await novaTryStorageUpload(blob, path, blobType);
+        const url = await novaTryStorageUpload(blob, path, blobType, 'голосовое сообщение');
         const sent = await novaSendMessagePayload({
           voiceUrl: url,
           voiceDuration: duration,
