@@ -2312,6 +2312,21 @@ function renderMessages() {
     const serverForMsg = currentView === 'server' ? serversData.find(s => s.id === currentServerId) : null;
     const canManageMessage = isOwnerOfMsg || (serverForMsg && hasServerPermission(serverForMsg, 'manage_messages'));
     const canPinMessage = serverForMsg && hasServerPermission(serverForMsg, 'pin_messages');
+    // TXT attachments render as downloadable files, never image previews.
+    const attachmentNameForRender = String(m.attachmentName || '');
+    const isTxtAttachmentForRender = attachmentNameForRender.toLowerCase().endsWith('.txt') ||
+      String(m.attachmentFileUrl || '').toLowerCase().startsWith('data:text/plain') ||
+      String(m.attachmentDataUrl || '').toLowerCase().startsWith('data:text/plain');
+    const textFileHrefForRender = m.attachmentFileUrl ||
+      (isTxtAttachmentForRender && String(m.attachmentDataUrl || '').toLowerCase().startsWith('data:text/plain') ? m.attachmentDataUrl : null);
+    let renderedMessageText = String(m.text || '');
+    if (isTxtAttachmentForRender && renderedMessageText && String(textFileHrefForRender || '').toLowerCase().startsWith('data:text/plain')) {
+      try {
+        const dataPart = String(textFileHrefForRender).split(',').slice(1).join(',');
+        const fileText = decodeURIComponent(dataPart.replace(/\\+/g, ' '));
+        if (fileText.trim() === renderedMessageText.trim()) renderedMessageText = '';
+      } catch (_) {}
+    }
 
     // Reaction markup
     const reactions = m.reactions || {};
@@ -2353,7 +2368,7 @@ function renderMessages() {
             ${m.pinned ? '<span title="Закреплено" class="text-[11px]">📌</span>' : ''}
           </div>`}
 
-          ${m.text ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words ${isGrouped ? '' : 'mt-0.5'}">${formatMarkdown(m.text)}</div>` : ''}
+          ${renderedMessageText ? `<div class="text-sm text-gray-200 msg-content whitespace-pre-wrap break-words ${isGrouped ? '' : 'mt-0.5'}">${formatMarkdown(renderedMessageText)}</div>` : ''}
           ${m.stickerDataUrl ? `
             <div class="nova-sticker-message mt-1">
               <img src="${escapeHtml(m.stickerDataUrl)}" alt="${escapeHtml(m.stickerName || 'Стикер')}" title="${escapeHtml(m.stickerName || 'Стикер')}" class="max-w-[180px] max-h-[180px] object-contain drop-shadow-lg">
@@ -2382,7 +2397,7 @@ function renderMessages() {
           ` : ''}
 
           <!-- Attachment image if present -->
-          ${(m.attachmentUrl || m.attachmentDataUrl) ? `
+          ${((m.attachmentUrl || m.attachmentDataUrl) && !isTxtAttachmentForRender) ? `
             <div class="nova-image-attachment mt-2 max-w-md rounded-2xl overflow-hidden border border-gray-700/50 shadow-md" data-attachment-src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" data-attachment-name="${escapeHtml(m.attachmentName || 'изображение.jpg')}">
               <button type="button" class="nova-image-open" data-open-attachment title="Открыть изображение" aria-label="Открыть изображение">
                 <img src="${escapeHtml(m.attachmentUrl || m.attachmentDataUrl)}" alt="Изображение" class="max-h-96 w-auto max-w-full object-contain bg-black/10" onerror="this.closest('.nova-image-attachment').style.display='none'">
@@ -2396,14 +2411,14 @@ function renderMessages() {
           ` : ''}
 
           <!-- Text file attachment if present -->
-          ${m.attachmentFileUrl ? `
+          ${textFileHrefForRender ? `
             <div class="nova-file-attachment mt-2 max-w-md flex items-center gap-3 rounded-xl border border-gray-700/50 bg-discord-surface/70 px-3 py-3">
               <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-discord-accent/15 text-discord-accent font-bold text-xs">TXT</div>
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-semibold text-white" title="${escapeHtml(m.attachmentName || 'file.txt')}">${escapeHtml(m.attachmentName || 'file.txt')}</div>
                 <div class="text-xs text-discord-muted">Текстовый файл${Number.isFinite(Number(m.attachmentFileSize)) ? ` · ${(Number(m.attachmentFileSize) / 1024).toFixed(1)} КБ` : ''}</div>
               </div>
-              <a href="${escapeHtml(m.attachmentFileUrl)}" download="${escapeHtml(m.attachmentName || 'file.txt')}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0 rounded-lg bg-discord-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90">↓ Скачать</a>
+              <a href="${escapeHtml(textFileHrefForRender)}" download="${escapeHtml(m.attachmentName || 'file.txt')}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0 rounded-lg bg-discord-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90">↓ Скачать</a>
             </div>
           ` : ''}
 
