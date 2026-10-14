@@ -374,7 +374,7 @@
     <!-- Active Attachment Preview Banner -->
     <div id="attachment-preview-bar" class="hidden bg-discord-surface border-t border-gray-700/40 px-4 py-2 flex items-center justify-between text-xs">
       <div class="flex items-center gap-2">
-        <span class="text-xs">📎 Прикрепленное изображение:</span>
+        <span class="text-xs">📎 Прикреплённый файл:</span>
         <span id="attachment-url-text" class="text-discord-accent font-mono truncate max-w-xs"></span>
       </div>
       <button id="btn-cancel-attachment" class="text-discord-muted hover:text-white font-bold">✕</button>
@@ -394,10 +394,10 @@
         <button type="button" id="btn-voice-cancel" class="text-xs px-3 py-1.5 rounded-lg bg-discord-rail hover:bg-discord-hover text-white">Отмена</button>
         <button type="button" id="btn-voice-stop" class="text-xs px-3 py-1.5 rounded-lg bg-discord-accent hover:bg-discord-accentHover text-white font-semibold">Отправить</button>
       </div>
-      <button type="button" id="btn-attach-file" title="Прикрепить изображение с компьютера" aria-label="Прикрепить изображение с компьютера" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition">
+      <button type="button" id="btn-attach-file" title="Прикрепить изображение или TXT-файл" aria-label="Прикрепить изображение или TXT-файл" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition">
         📎
       </button>
-      <input id="attachment-file-input" type="file" accept="image/*" class="hidden">
+      <input id="attachment-file-input" type="file" accept="image/*,.txt,text/plain" class="hidden">
 
       <button type="button" id="btn-voice-record" title="Записать голосовое сообщение" aria-label="Записать голосовое сообщение" class="p-2.5 text-discord-muted hover:text-white bg-discord-surface rounded-xl hover:bg-discord-hover transition flex-shrink-0">
         🎙️
@@ -2395,6 +2395,18 @@ function renderMessages() {
             </div>
           ` : ''}
 
+          <!-- Text file attachment if present -->
+          ${m.attachmentFileUrl ? `
+            <div class="nova-file-attachment mt-2 max-w-md flex items-center gap-3 rounded-xl border border-gray-700/50 bg-discord-surface/70 px-3 py-3">
+              <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-discord-accent/15 text-discord-accent font-bold text-xs">TXT</div>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-semibold text-white" title="${escapeHtml(m.attachmentName || 'file.txt')}">${escapeHtml(m.attachmentName || 'file.txt')}</div>
+                <div class="text-xs text-discord-muted">Текстовый файл${Number.isFinite(Number(m.attachmentFileSize)) ? ` · ${(Number(m.attachmentFileSize) / 1024).toFixed(1)} КБ` : ''}</div>
+              </div>
+              <a href="${escapeHtml(m.attachmentFileUrl)}" download="${escapeHtml(m.attachmentName || 'file.txt')}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0 rounded-lg bg-discord-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90">↓ Скачать</a>
+            </div>
+          ` : ''}
+
           <!-- Message Reactions list -->
           ${reactionKeys.length > 0 ? `
             <div class="flex flex-wrap items-center gap-1.5 mt-2">
@@ -2663,24 +2675,31 @@ function novaClearPendingAttachment() {
 
 function novaShowAttachmentSelection(file) {
   if (!file) return;
-  if (!file.type.startsWith('image/')) {
-    showToast('Можно прикреплять только изображения.', true);
+  const isTxt = /\.txt$/i.test(file.name || '') || file.type === 'text/plain';
+  const isImage = String(file.type || '').startsWith('image/');
+  if (!isImage && !isTxt) {
+    showToast('Можно прикреплять изображения или TXT-файлы.', true);
+    if (attachmentFileInput) attachmentFileInput.value = '';
     return;
   }
-  const maxBytes = 15 * 1024 * 1024;
+  const maxBytes = isTxt ? 5 * 1024 * 1024 : 15 * 1024 * 1024;
   if (file.size > maxBytes) {
-    showToast('Изображение слишком большое. Максимум — 15 МБ.', true);
+    showToast(isTxt ? 'TXT-файл слишком большой. Максимум — 5 МБ.' : 'Изображение слишком большое. Максимум — 15 МБ.', true);
+    if (attachmentFileInput) attachmentFileInput.value = '';
     return;
   }
   pendingAttachmentFile = file;
   window.novaPendingAttachmentUrl = '';
+  window.novaPendingAttachmentDataUrl = '';
   pendingAttachmentUploading = false;
   if (attachmentUrlText) {
-    const sizeMb = Math.max(0.1, file.size / 1024 / 1024).toFixed(1);
-    attachmentUrlText.textContent = `${file.name} · ${sizeMb} МБ`;
+    const sizeText = file.size >= 1024 * 1024 ? `${(file.size / 1024 / 1024).toFixed(1)} МБ` : `${Math.max(1, Math.round(file.size / 1024))} КБ`;
+    attachmentUrlText.textContent = `${isTxt ? 'TXT · ' : ''}${file.name} · ${sizeText}`;
   }
+  const label = attachmentPreviewBar?.querySelector('span');
+  if (label) label.textContent = isTxt ? '📎 Прикреплённый TXT-файл:' : '📎 Прикреплённое изображение:';
   attachmentPreviewBar?.classList.remove('hidden');
-  showToast('Изображение прикреплено. Нажмите «Отправить».');
+  showToast(`${isTxt ? 'TXT-файл' : 'Изображение'} прикреплено. Нажмите «Отправить».`);
 }
 
 async function novaPrepareImageForFirebase(file) {
@@ -2754,25 +2773,39 @@ window.handleSendMessage = async function(e) {
     let attachmentUrl = window.novaPendingAttachmentUrl || null;
     let attachmentDataUrl = window.novaPendingAttachmentDataUrl || null;
     let attachmentName = pendingAttachmentFile?.name || null;
-    if (pendingAttachmentFile && !attachmentDataUrl) {
-      if (attachmentUrlText) attachmentUrlText.textContent = `Подготавливаю ${pendingAttachmentFile.name || 'изображение'}…`;
-      attachmentDataUrl = await novaPrepareImageForFirebase(pendingAttachmentFile);
+    let attachmentFileUrl = null;
+    let attachmentFileSize = null;
+    const selectedFile = pendingAttachmentFile;
+    if (selectedFile && (/\.txt$/i.test(selectedFile.name || '') || selectedFile.type === 'text/plain')) {
+      if (!isCloudEnabled) {
+        throw Object.assign(new Error('Отправка файлов доступна при подключённом облачном сервере'), { code: 'attachment/cloud-required' });
+      } else {
+        if (attachmentUrlText) attachmentUrlText.textContent = `Загружаю ${selectedFile.name}…`;
+        const safeName = String(selectedFile.name || 'file.txt').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'file.txt';
+        const path = `message-files/${currentUser.uid}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
+        attachmentFileUrl = await novaTryStorageUpload(selectedFile, path, 'text/plain; charset=utf-8');
+        attachmentFileSize = selectedFile.size;
+        if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${selectedFile.name} загружен`;
+      }
+    } else if (selectedFile && !attachmentDataUrl) {
+      if (attachmentUrlText) attachmentUrlText.textContent = `Подготавливаю ${selectedFile.name || 'изображение'}…`;
+      attachmentDataUrl = await novaPrepareImageForFirebase(selectedFile);
       window.novaPendingAttachmentDataUrl = attachmentDataUrl;
-      if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${pendingAttachmentFile.name || 'изображение'} готово`;
+      if (attachmentUrlText) attachmentUrlText.textContent = `✓ ${selectedFile.name || 'изображение'} готово`;
     }
-    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName });
+    await novaSendMessagePayload({ text, attachmentUrl, attachmentDataUrl, attachmentName, attachmentFileUrl, attachmentFileSize });
     return false;
   } catch (err) {
     console.error('Attachment upload failed:', err);
     const code = err?.code || '';
-    showToast(`Не удалось загрузить изображение${code ? ` (${code})` : ''}.`, true);
+    showToast(`Не удалось прикрепить файл${code ? ` (${code})` : ''}.`, true);
     return false;
   }
 };
 
-async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
+async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachmentDataUrl = null, attachmentName = null, attachmentFileUrl = null, attachmentFileSize = null, stickerDataUrl = null, stickerName = null, voiceUrl = null, voiceDataUrl = null, voiceDuration = 0, voiceMimeType = null } = {}) {
   const cleanText = String(text || '').trim();
-  if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !stickerDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
+  if ((!cleanText && !attachmentUrl && !attachmentDataUrl && !attachmentFileUrl && !stickerDataUrl && !voiceUrl && !voiceDataUrl) || (currentView === 'server' && (!currentChannelId || !currentServerId)) || (currentView === 'dm' && !currentDmUserId)) {
     return false;
   }
 
@@ -2790,6 +2823,8 @@ async function novaSendMessagePayload({ text = '', attachmentUrl = null, attachm
     attachmentUrl: attachmentUrl || null,
     attachmentDataUrl: attachmentDataUrl || null,
     attachmentName: attachmentName || null,
+    attachmentFileUrl: attachmentFileUrl || null,
+    attachmentFileSize: Number.isFinite(Number(attachmentFileSize)) ? Number(attachmentFileSize) : null,
     stickerDataUrl: stickerDataUrl || null,
     stickerName: stickerName || null,
     voiceUrl: voiceUrl || null,
