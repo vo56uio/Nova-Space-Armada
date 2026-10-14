@@ -2322,8 +2322,11 @@ function renderMessages() {
     let renderedMessageText = String(m.text || '');
     if (isTxtAttachmentForRender && renderedMessageText && String(textFileHrefForRender || '').toLowerCase().startsWith('data:text/plain')) {
       try {
-        const dataPart = String(textFileHrefForRender).split(',').slice(1).join(',');
-        const fileText = decodeURIComponent(dataPart.replace(/\\+/g, ' '));
+        const dataUrl = String(textFileHrefForRender);
+        const dataPart = dataUrl.split(',').slice(1).join(',');
+        const fileText = /;base64,/i.test(dataUrl)
+          ? new TextDecoder().decode(Uint8Array.from(atob(dataPart), c => c.charCodeAt(0)))
+          : decodeURIComponent(dataPart.replace(/\\+/g, ' '));
         if (fileText.trim() === renderedMessageText.trim()) renderedMessageText = '';
       } catch (_) {}
     }
